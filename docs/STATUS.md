@@ -1,6 +1,6 @@
 # 구현 상태
 
-최종 갱신: 2026-09-30. 결과 범위: Windows T00-01, 독립형 T00-02 WASAPI probe, T00-04.1 모델 harness, T00-04.2 실제 취소·수명 probe, T00-04.4 동시 부하, T00-04.3 MOCK 오버레이, T01-01a/b 독립 오디오·발화 코어, T01-02a 독립 상태·작업 큐, T01-02b mock worker 전달·버전 history. T02-01a에서 실제 Whisper를 worker 파일 진단과 history에 연결했다. T02-01b에서 실제 Silero VAD도 파일 경로에 연결했다. T02-02a에서 실제 WASAPI PCM 정규화·worker 제어를 연결했다. live 캡처→추론·번역·실제 자막 UI와 macOS 번들은 미구현/미검증이다.
+최종 갱신: 2026-10-01. 결과 범위: Windows T00-01, 독립형 T00-02 WASAPI probe, T00-04.1 모델 harness, T00-04.2 실제 취소·수명 probe, T00-04.4 동시 부하, T00-04.3 MOCK 오버레이, T01-01a/b 독립 오디오·발화 코어, T01-02a 독립 상태·작업 큐, T01-02b mock worker 전달·버전 history. T02-01a에서 실제 Whisper를 worker 파일 진단과 history에 연결했다. T02-01b에서 실제 Silero VAD도 파일 경로에 연결했다. T02-02a에서 실제 WASAPI PCM 정규화·worker 제어를 연결했다. T02-02b에서 Windows live 캡처→연속 VAD→Whisper→history도 진단으로 연결했다. 제품 session·번역·실제 자막 UI와 macOS 번들은 미구현/미검증이다.
 
 | 작업 | 상태 | 근거 및 다음 단계 |
 |---|---|---|
@@ -14,10 +14,10 @@
 | T00-04.3 | PARTIAL (Windows); BLOCKED (macOS) | MOCK 오버레이, 표시/숨김, 메인 창 폭·불투명도 조절, 드래그 핸들, 화면 작업 영역 기준 초기 위치 구현. 125% 배율의 HWND 속성·투명도·크기/위치 변경 확인. 다른 앱 포커스·게임 합성·실제 마우스 조작은 미검증. |
 | T01-01 | PARTIAL: T01-01a/b PASS (Windows fixture scope) | 공통 float32 mono/stereo 정규화, 16 kHz/512-frame, sample 시간축·gap, 12초 rolling/유한 immutable snapshot 구현. 정규화 15개+VAD 15개 fixture. 확률 기반 발화·8초 분할·watchdog 구현. 실제 Silero·native clock·worker/Mac 미검증. [오디오](AUDIO_CORE.md) · [VAD](VAD_CORE.md) |
 | T01-02 | PASS (Windows mock core/IPC scope); 실제 inference 통합 미검증 | 단일 실행·final 2/partial 1·번역 2 대기, 전체 키 검증, final 동결, 취소 반환 대기, 번역 terminal과 버전 history 구현. 코어 fixture 23개+전달 신규 9개 Rust 시험·확장 C# smoke. worker event 256/응답 32 예약·seq/페이지 복구 구현. 실제 native 파일 ASR은 T02-01a에서 별도 연결; HTTP/UI history/Mac 미연결. [코어](PIPELINE_CORE.md) · [전달](WORKER_DELIVERY.md) |
-| M1 | PARTIAL | 정규화·발화·상태/작업 큐의 결정론적 코어 구현. 유한 event 큐·버전 IPC snapshot/C# 클라이언트도 연결. 실제 Silero state/context의 파일 경로는 T02-01b에서 확인. WASAPI bounded PCM 경로는 T02-02a에서 확인. live VAD/ASR·UI 렌더링은 미검증. |
+| M1 | PARTIAL | 정규화·발화·상태/작업 큐의 결정론적 코어 구현. 유한 event 큐·버전 IPC snapshot/C# 클라이언트도 연결. 실제 Silero state/context의 파일 경로는 T02-01b에서 확인. WASAPI bounded PCM 경로는 T02-02a에서 확인. Windows live VAD/ASR은 T02-02b 진단에서 확인. UI 렌더링·Mac은 미검증. |
 | T02-01 | PARTIAL: T02-01a/b PASS (Windows CPU 파일 진단) | 실제 Whisper owner·파일 loader·ASR-only history·epoch 취소/재시작 연결. 실제 Silero 파일 probability/state reset 연결. partial·GPU worker·UI·Mac 미검증. [VAD](WORKER_VAD.md) [계약](WORKER_ASR.md) · [측정](evidence/T02-01a-windows-worker-asr.md) |
-| T02-02 | PARTIAL: T02-02a PASS (Windows 짧은 PCM/제어 진단) | WASAPI owner·8-slot packet pool·32-frame queue·16 kHz 정규화와 worker Start/Stop 연결. device polling·pinned 정책. native clock gap/live 추론·장치 전환/soak·Mac 미검증. [계약](WORKER_CAPTURE.md) · [측정](evidence/T02-02a-windows-worker-capture.md) |
-| M2 | PARTIAL | CPU 실제 VAD 파일 분할·전사·제어/history 연결. WASAPI PCM 진단 연결. live 추론/화면 자막·자연 음성 경계 수용 미통과. |
+| T02-02 | PARTIAL: T02-02a/b PASS (Windows CPU 진단) | WASAPI bounded PCM·QPC/sample 시작점·재시작 gap, 연속 Silero→Whisper final/history, Stop/취소·활성 shutdown/EOF 연결. pinned device polling. 제품 Pause·장치 전환/soak·Mac 미검증. [live 계약](WORKER_LIVE_ASR.md) · [측정](evidence/T02-02b-windows-live-asr.md) |
+| M2 | PARTIAL | CPU 실제 VAD 파일 분할·전사·제어/history 연결. WASAPI live final/history 진단 연결. 화면 자막·제품 session·자연 음성 경계 수용 미통과. |
 | M3~M5 | NOT_STARTED | 해당 제품 통합/실기기 수용 결과 없음. |
 
 ## 확인된 Windows 개발 환경
@@ -68,11 +68,11 @@ Windows probe는 render endpoint의 loopback만 열며 microphone endpoint를 �
 - 로컬 NuGet 패키지는 존재했지만 기본 sandbox global-packages 경로와 달라 처음 복원에 실패했다. `ECHOSUB_NUGET_SOURCE`와 저장소 내부 `.nuget/packages` 경로로 복원했다.
 - Avalonia build telemetry가 허용되지 않은 AppData 로그 경로에 쓰려 하여 sandbox 빌드가 실패했다. 공식 환경변수 `AVALONIA_TELEMETRY_OPTOUT=1`을 검증/실행 스크립트에서 설정한다.
 - 모델 3개와 native Windows 도구, 로컬 합성 fixture는 확보했다. 자연 발화·일본어 음원·배경음·긴 발화와 Mac 실기기는 미확보다. 모델 revision/hash/license와 재현 명령은 `benchmarks/model-downloads.json`과 `benchmarks/README.md`를 따른다.
-- T00-02 probe는 독립 실행 파일이며 250ms 장치 상태 polling을 쓴다. worker의 capture capability는 아직 false다. T02-02에서 장치 알림, PCM 버퍼 소유권, 수명 계약을 설계하고 통합한다.
+- T00-02 probe는 독립 실행 파일이며 250ms 장치 상태 polling을 쓴다. 기본 worker의 capture capability는 false이며 T02-02 진단 opt-in에서 true다. 장치 알림·실기기 전환/분리 수용은 후속이다.
 
 T00-04.3의 Windows 창 속성과 Avalonia 프레임은 확인했으나 다른 앱의 입력 포커스를 조회할 수 없었다. `ShowActivated=false`와 `WS_EX_NOACTIVATE`의 적용 사실을 입력 유지의 실측으로 확대하지 않는다. [실행 및 수동 검증 절차](OVERLAY_PROBE.md)를 일반 사용자 데스크톱에서 수행한다.
 
-T00-04.4 Windows 동시 부하 probe를 완료했다. T01-01a 독립 오디오 코어도 구현했다. T01-01b 확률 기반 발화 구간·packet-stop watchdog도 구현했다. T01-02a 상태기계·유한 작업 큐도 구현했다. T01-02b mock worker 전달·유한 event 큐·버전 snapshot/C# 복구도 구현했다. T02-01a에서 실제 ASR owner를 파일 진단으로 연결했다. T02-01b에서 동의받은 Silero/ORT를 파일 분할과 연결했다. T02-02a는 Windows capture PCM 큐·정규화·worker 제어를 연결했다. 다음은 T02-02b QPC/session clock·gap과 지속 live VAD/ASR owner 연결이다. T00-04.1은 자연 음성/일본어/Mac, T00-04.2는 Mac·실제 worker 통합 보완이 필요하며 M0 전체는 미통과다. T00-02의 통제 음원 10분·장치 전환/분리와 T00-04.3의 다른 앱 입력·게임 위 표시·수동 조절은 실제 조작으로 완료한다.
+T00-04.4 Windows 동시 부하 probe를 완료했다. T01-01a 독립 오디오 코어도 구현했다. T01-01b 확률 기반 발화 구간·packet-stop watchdog도 구현했다. T01-02a 상태기계·유한 작업 큐도 구현했다. T01-02b mock worker 전달·유한 event 큐·버전 snapshot/C# 복구도 구현했다. T02-01a에서 실제 ASR owner를 파일 진단으로 연결했다. T02-01b에서 동의받은 Silero/ORT를 파일 분할과 연결했다. T02-02a는 Windows capture PCM 큐·정규화·worker 제어를 연결했다. T02-02b에서 QPC/sample 시작점·gap과 지속 live VAD/ASR owner를 연결했다. 다음은 제품 session/Pause 계약과 실제 UI 원문 history·오버레이 연결이다. T00-04.1은 자연 음성/일본어/Mac, T00-04.2는 Mac·실제 worker 통합 보완이 필요하며 M0 전체는 미통과다. T00-02의 통제 음원 10분·장치 전환/분리와 T00-04.3의 다른 앱 입력·게임 위 표시·수동 조절은 실제 조작으로 완료한다.
 
 
 T00-04.4 추가 검증: 총 8437회 추론 완료, 실패 0, small 전사 요청 건너뜀 19. GPU 사용과 번역 full offload를 로그로 확인했고 소유 프로세스/API key 잔여는 0이다. 장치 전체 GPU 메모리 관측 최대는 small 동시 6721 MiB이며 프로세스 VRAM peak가 아니다. 모든 새 번역·동시 부하 시간도 초다. 실제 자막 latency·게임 공존·품질 gate·Mac은 미검증이다.
@@ -91,3 +91,5 @@ T02-01a 추가 검증: Rust 74개·fmt/workspace·C# 빌드/IPC smoke와 실제 
 T02-01b 추가 검증: Rust 79개·기본 C# IPC smoke와 CPU 실제 Silero→Whisper 파일 진단 통과. final 32개·ko-08 빈 ASR 실패 1개를 보존, 무음·톤·잡음 3개는 ASR 0회다. epoch reset 10회·두 발화 분리·모델/DLL 해시 오류를 확인했다. 파일별 VAD 평균 0.008699초·최대 0.014931초이며 화면 latency가 아니다. 품질 gate false, live capture·UI·자연/일본어 음성·Mac은 미검증. [근거](evidence/T02-01b-windows-worker-vad.md)
 
 T02-02a 추가 검증: Rust 84개·fmt/workspace·C# IPC와 실제 loopback Start/Stop 3회, 활성 shutdown/부모 EOF 통과. 최종 608 packets·accepted PCM 6.048초, Stop 응답 최대 0.000219초·join 완료 최대 0.031628초. 장치 mix 48 kHz stereo/mask 0x3. live_asr=false이며 원문 history/UI는 생성하지 않는다. 실제 큐 고갈·장치 전환/분리·장기/게임·Mac은 미검증. [근거](evidence/T02-02a-windows-worker-capture.md)
+
+T02-02b 추가 검증: Windows CPU live loopback→연속 Silero→Whisper final/history 2회 확인, native 실행 중 Stop/재시작 3회·full 예약 유지 중 새 캡처 1회, 해시 실패·활성 shutdown/EOF 통과. Rust 89개·fmt/workspace·C# IPC PASS. 단독 최종 run의 Stop 응답 최대 0.000797초·capture/VAD join 확인 0.043802초·그 이후 full 반환 확인 0.409312초, 재시작 gap 최소 0.364750초. 중간 final 하나가 8초 상한에 도달했고 추가 run에서 client Opening timeout을 관측했다. native API phase와 C# fast-exit handle/예외 처리를 보완한 최종 PCM/live 회귀는 통과했다. 시작 지연의 원인은 미확정이다. 품질/부하·제품 gate는 미통과이며 UI·Pause·장치/soak·CUDA/Mac은 후속이다. [계약](WORKER_LIVE_ASR.md) · [근거](evidence/T02-02b-windows-live-asr.md)

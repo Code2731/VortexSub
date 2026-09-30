@@ -1,5 +1,7 @@
 # Worker WASAPI PCM 연결 — T02-02a
 
+후속 T02-02b에서 QPC/sample 시작점·재시작 gap과 별도 opt-in live 추론을 연결했다. 현재 추가 계약은 [WORKER_LIVE_ASR.md](WORKER_LIVE_ASR.md)를 따른다. 아래는 T02-02a 당시의 PCM 진단 범위이며 해당 모드의 live_asr=false는 유지한다.
+
 2026-09-30. `crates/capture-windows/`를 probe와 reusable owner 라이브러리로 분리했다. 실제 loopback→bounded packet pool→처리 스레드의 16 kHz mono 정규화→worker ring까지 연결했다. 이번 범위는 PCM 진단이며 live VAD/ASR·자막 UI·번역은 포함하지 않는다.
 
 ## 실행·진단 IPC

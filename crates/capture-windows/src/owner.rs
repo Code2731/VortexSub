@@ -28,6 +28,24 @@ pub const FRAME_QUEUE: usize = 32;
 struct Packet {
     samples: [f32; MAX_PACKET_SAMPLES],
     len: usize,
+    qpc: u64,
+}
+fn qpc_100ns() -> Result<u64, u8> {
+    use windows::Win32::System::Performance::{QueryPerformanceCounter, QueryPerformanceFrequency};
+    let (mut ticks, mut frequency) = (0, 0);
+    unsafe {
+        QueryPerformanceFrequency(&mut frequency).map_err(|_| 8)?;
+        QueryPerformanceCounter(&mut ticks).map_err(|_| 8)?;
+    }
+    if ticks < 0 || frequency <= 0 {
+        return Err(8);
+    }
+    u64::try_from(ticks as u128 * 10_000_000 / frequency as u128).map_err(|_| 8)
+}
+fn mapped_origin(origin: u64, anchor_qpc: u64, first_qpc: u64) -> Result<u64, u8> {
+    let delta = first_qpc.checked_sub(anchor_qpc).ok_or(8)?;
+    let samples = u64::try_from(delta as u128 * 16_000 / 10_000_000).map_err(|_| 8)?;
+    origin.checked_add(samples).ok_or(8)
 }
 #[derive(Default)]
 struct PacketClock {
@@ -65,6 +83,7 @@ pub struct Info {
 #[derive(Default)]
 struct Shared {
     stop: AtomicBool,
+    phase: AtomicU8,
     error: AtomicU8,
     ready: AtomicBool,
     packets: AtomicU64,
@@ -76,6 +95,7 @@ struct Shared {
     info: Mutex<Option<Info>>,
 }
 pub struct Stats {
+    pub phase: &'static str,
     pub packets: u64,
     pub input_frames: u64,
     pub normalized_frames: u64,
@@ -100,12 +120,15 @@ impl CaptureOwner {
     /// Device selection is pinned for this run, even when opened as the default.
     pub fn start(device: Option<String>, identity: AudioIdentity, origin: u64) -> Self {
         let shared = Arc::new(Shared::default());
+        // Pair caller's monotonic session origin with QPC before opening WASAPI.
+        let anchor_qpc = qpc_100ns();
         let (free_tx, free_rx) = mpsc::sync_channel(PACKET_SLOTS);
         for _ in 0..PACKET_SLOTS {
             free_tx
                 .send(Box::new(Packet {
                     samples: [0.; MAX_PACKET_SAMPLES],
                     len: 0,
+                    qpc: 0,
                 }))
                 .unwrap();
         }
@@ -116,7 +139,9 @@ impl CaptureOwner {
         let capture = std::thread::spawn(move || {
             let s = &native_shared;
             let result = (|| -> Result<(), u8> {
+                s.phase.store(1, Ordering::Release);
                 let _com = ComGuard::new().map_err(|_| 1)?;
+                s.phase.store(2, Ordering::Release);
                 let enumerator: IMMDeviceEnumerator =
                     unsafe { CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL) }
                         .map_err(|_| 1)?;
@@ -134,7 +159,10 @@ impl CaptureOwner {
                 if unsafe { endpoint.GetState() }.map_err(|_| 2)? != DEVICE_STATE_ACTIVE {
                     return Err(2);
                 }
-                let active = Capture::open(&endpoint).map_err(|_| 3)?;
+                s.phase.store(3, Ordering::Release);
+                let active =
+                    Capture::open_observed(&endpoint, |p| s.phase.store(p, Ordering::Release))
+                        .map_err(|_| 3)?;
                 let f = active.format;
                 if !matches!(f.kind, SampleKind::Float)
                     || f.bits != 32
@@ -160,6 +188,7 @@ impl CaptureOwner {
                 });
                 format_tx.send(format).map_err(|_| 5)?;
                 s.ready.store(true, Ordering::Release);
+                s.phase.store(4, Ordering::Release);
                 let mut clock = PacketClock::default();
                 let mut spare = None;
                 let mut checked = Instant::now();
@@ -211,6 +240,7 @@ impl CaptureOwner {
                                 return Err(9);
                             }
                             packet.len = len;
+                            packet.qpc = qpc;
                             if flags & AUDCLNT_BUFFERFLAGS_SILENT.0 as u32 != 0 {
                                 packet.samples[..len].fill(0.);
                             } else {
@@ -254,6 +284,7 @@ impl CaptureOwner {
             if let Err(code) = result {
                 s.fail(code);
             }
+            s.phase.store(5, Ordering::Release);
         });
         let processing_shared = shared.clone();
         let processing = std::thread::spawn(move || {
@@ -268,7 +299,7 @@ impl CaptureOwner {
                     Err(_) => return,
                 }
             };
-            let mut normalize = StreamNormalizer::new(format, identity, origin);
+            let mut normalize = None;
             while !s.stop.load(Ordering::Acquire) {
                 let packet = match packet_rx.recv_timeout(Duration::from_millis(20)) {
                     Ok(p) => p,
@@ -278,7 +309,21 @@ impl CaptureOwner {
                 if s.stop.load(Ordering::Acquire) {
                     break;
                 }
-                let batch = normalize.push(&packet.samples[..packet.len]);
+                if normalize.is_none() {
+                    match anchor_qpc.and_then(|qpc| mapped_origin(origin, qpc, packet.qpc)) {
+                        Ok(start) => {
+                            normalize = Some(StreamNormalizer::new(format, identity, start))
+                        }
+                        Err(code) => {
+                            s.fail(code);
+                            break;
+                        }
+                    }
+                }
+                let batch = normalize
+                    .as_mut()
+                    .unwrap()
+                    .push(&packet.samples[..packet.len]);
                 if free_tx.try_send(packet).is_err() {
                     s.fail(5);
                     break;
@@ -337,6 +382,20 @@ impl CaptureOwner {
     pub fn stats(&self) -> Stats {
         let s = &self.shared;
         Stats {
+            phase: match s.phase.load(Ordering::Acquire) {
+                0 => "Created",
+                1 => "InitializingCOM",
+                2 => "ResolvingEndpoint",
+                3 => "OpeningClient",
+                4 => "Capturing",
+                6 => "GetDeviceId",
+                7 => "ActivateAudioClient",
+                8 => "GetMixFormat",
+                9 => "InitializeAudioClient",
+                10 => "SetEventAndGetService",
+                11 => "StartAudioClient",
+                _ => "Exited",
+            },
             packets: s.packets.load(Ordering::Relaxed),
             input_frames: s.input_frames.load(Ordering::Relaxed),
             normalized_frames: s.normalized_frames.load(Ordering::Relaxed),
@@ -363,6 +422,13 @@ impl Drop for CaptureOwner {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn qpc_anchor_preserves_restart_gap_and_rejects_regression_or_overflow() {
+        assert_eq!(mapped_origin(16000, 100_000_000, 105_000_000), Ok(24000));
+        assert_eq!(mapped_origin(16000, 100, 99), Err(8));
+        assert_eq!(mapped_origin(u64::MAX, 0, 10_000_000), Err(8));
+        assert_eq!(mapped_origin(0, 0, 625), Ok(1));
+    }
     #[test]
     fn first_discontinuity_can_anchor_but_later_glitch_is_a_fault() {
         let mut c = PacketClock::default();

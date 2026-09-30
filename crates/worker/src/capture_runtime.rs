@@ -1,5 +1,5 @@
 use crate::{runtime::Reply, transport::Outbox};
-use echosub_audio_core::{AudioIdentity, RollingAudio};
+use echosub_audio_core::{AudioFrame, AudioIdentity, RollingAudio};
 #[cfg(windows)]
 use echosub_capture_windows::CaptureOwner;
 use serde_json::{json, Value};
@@ -18,6 +18,10 @@ pub struct CaptureRuntime {
     info: Value,
     error: Option<&'static str>,
     last_metrics: Instant,
+    first_sample: Option<u64>,
+    previous_end: u64,
+    last_sample: u64,
+    pub live_asr: bool,
 }
 impl CaptureRuntime {
     pub fn new(enabled: bool) -> Self {
@@ -37,6 +41,10 @@ impl CaptureRuntime {
             info: Value::Null,
             error: None,
             last_metrics: Instant::now(),
+            first_sample: None,
+            previous_end: 0,
+            last_sample: 0,
+            live_asr: false,
         }
     }
     pub fn startable(&self) -> bool {
@@ -89,10 +97,12 @@ impl CaptureRuntime {
             self.error = None;
             self.info = Value::Null;
             self.stats = json!({});
+            self.first_sample = None;
+            self.last_sample = origin;
             self.state = "Opening";
             self.event(q)?;
             Ok(
-                json!({"accepted":true,"epoch":identity.epoch,"input":"wasapi_loopback","live_asr":false}),
+                json!({"accepted":true,"epoch":identity.epoch,"input":"wasapi_loopback","live_asr":self.live_asr}),
             )
         }
     }
@@ -116,7 +126,25 @@ impl CaptureRuntime {
         Ok(json!({}))
     }
     pub fn value(&self) -> Value {
-        json!({"enabled":self.enabled,"state":self.state,"session_id":self.identity.session_id,"epoch":self.identity.epoch,"elapsed_s":if self.active(){self.since.elapsed().as_secs_f64()}else{self.elapsed_s},"awaiting_capture_join":!self.joined(),"accepted_audio_s":self.accepted_samples as f64/16000.,"stats":self.stats,"endpoint":self.info,"error":self.error,"live_asr":false})
+        json!({"enabled":self.enabled,"state":self.state,"session_id":self.identity.session_id,"epoch":self.identity.epoch,"elapsed_s":if self.active(){self.since.elapsed().as_secs_f64()}else{self.elapsed_s},"awaiting_capture_join":!self.joined(),"accepted_audio_s":self.accepted_samples as f64/16000.,"audio_start_s":self.first_sample.map(|s|s as f64/16000.),"audio_end_s":self.last_sample as f64/16000.,"gap_before_s":self.first_sample.map(|s|s.saturating_sub(self.previous_end) as f64/16000.),"stats":self.stats,"endpoint":self.info,"error":self.error,"live_asr":self.live_asr})
+    }
+    pub fn set_previous_end(&mut self, end: u64) {
+        self.previous_end = end;
+    }
+    pub fn last_audio_end(&self) -> Option<u64> {
+        self.first_sample.map(|_| self.last_sample)
+    }
+    pub fn failed(&self) -> bool {
+        self.state == "Failed"
+    }
+    pub fn fail(&mut self, error: &'static str, q: &Outbox) -> std::io::Result<()> {
+        self.request_stop();
+        self.error = Some(error);
+        self.state = "Failed";
+        self.elapsed_s = self.since.elapsed().as_secs_f64();
+        self.event(q)
+            .map_err(|_| std::io::Error::other("Capture fault event unavailable"))?;
+        Ok(())
     }
     pub fn request_stop(&self) {
         #[cfg(windows)]
@@ -131,19 +159,23 @@ impl CaptureRuntime {
             self.owner.take();
         }
     }
-    pub fn poll(&mut self, q: &Outbox, ring: &mut RollingAudio) -> std::io::Result<()> {
+    pub fn poll(
+        &mut self,
+        q: &Outbox,
+        ring: &mut RollingAudio,
+    ) -> std::io::Result<Vec<AudioFrame>> {
         #[cfg(not(windows))]
         {
             let _ = (q, ring);
-            Ok(())
+            Ok(Vec::new())
         }
         #[cfg(windows)]
         {
             let Some(owner) = &self.owner else {
-                return Ok(());
+                return Ok(Vec::new());
             };
             let s = owner.stats();
-            self.stats = json!({"packets":s.packets,"input_frames":s.input_frames,"normalized_frames":s.normalized_frames,"discontinuities":s.discontinuities,"first_qpc_100ns":s.first_qpc_100ns,"last_qpc_100ns":s.last_qpc_100ns,"packet_slots":echosub_capture_windows::PACKET_SLOTS,"normalized_queue_capacity":echosub_capture_windows::FRAME_QUEUE});
+            self.stats = json!({"native_phase":s.phase,"packets":s.packets,"input_frames":s.input_frames,"normalized_frames":s.normalized_frames,"discontinuities":s.discontinuities,"first_qpc_100ns":s.first_qpc_100ns,"last_qpc_100ns":s.last_qpc_100ns,"packet_slots":echosub_capture_windows::PACKET_SLOTS,"normalized_queue_capacity":echosub_capture_windows::FRAME_QUEUE});
             if let Some(info) = owner.info() {
                 self.info = json!({"device_id":info.device_id,"sample_rate":info.rate,"channels":info.channels,"channel_mask":info.mask,"selection_policy":"pinned_until_restart"});
             }
@@ -162,6 +194,7 @@ impl CaptureRuntime {
                 self.event(q)
                     .map_err(|_| std::io::Error::other("Capture ready event unavailable"))?;
             }
+            let mut frames = Vec::new();
             if self.state == "Running" {
                 for _ in 0..echosub_capture_windows::FRAME_QUEUE {
                     let Ok(frame) = self.owner.as_ref().unwrap().frames.try_recv() else {
@@ -170,9 +203,18 @@ impl CaptureRuntime {
                     if frame.identity != self.identity {
                         continue;
                     }
+                    if self.first_sample.is_none() {
+                        ring.anchor_empty(frame.identity, frame.range.start)
+                            .map_err(|_| std::io::Error::other("Native PCM anchor rejected"))?;
+                        self.first_sample = Some(frame.range.start);
+                    }
                     ring.append(frame.identity, frame.range.start, &frame.samples)
                         .map_err(|_| std::io::Error::other("Live PCM range rejected"))?;
                     self.accepted_samples += frame.samples.len() as u64;
+                    self.last_sample = frame.range.end;
+                    if self.live_asr {
+                        frames.push(frame);
+                    }
                 }
                 if self.last_metrics.elapsed().as_secs_f64() >= 1. {
                     q.publish(
@@ -197,7 +239,7 @@ impl CaptureRuntime {
                         .map_err(|_| std::io::Error::other("Capture final event unavailable"))?;
                 }
             }
-            Ok(())
+            Ok(frames)
         }
     }
 }

@@ -188,3 +188,5 @@ T02-01b의 추가 `--diagnostic-vad` 모드는 별도 fixture_id와 실제 segme
 
 T02-02a는 Windows의 별도 `--diagnostic-capture`에서 `start_capture`/`stop_capture`, `capture.state`/`capture.metrics`와 `diagnostic_capture` 상태를 제공한다. implementation=`wasapi-capture-diagnostic`, system_audio=true/live_asr=false이며 제품 start_session과 다르다. Stop 응답과 owner join 완료를 구분한다. [캡처 계약](WORKER_CAPTURE.md)을 따른다.
 
+T02-02b는 명시적 `--live-asr`와 ASR/VAD 자산 옵션을 추가해 implementation=`wasapi-live-asr-diagnostic`, live_asr=true/fixture_asr=false로 실행한다. start_capture에 language를 요구하고 source.final/history를 전달한다. QPC로 고정한 첫 sample·재시작 gap과 epoch 취소를 사용하며 제품 session/Pause 계약과 UI는 후속이다. [live 계약](WORKER_LIVE_ASR.md)을 따른다.
+

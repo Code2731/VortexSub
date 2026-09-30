@@ -224,10 +224,20 @@ pub(crate) struct Capture {
 
 impl Capture {
     pub(crate) fn open(device: &IMMDevice) -> ProbeResult<Self> {
+        Self::open_observed(device, |_| {})
+    }
+    pub(crate) fn open_observed(
+        device: &IMMDevice,
+        mut phase: impl FnMut(u8),
+    ) -> ProbeResult<Self> {
+        phase(6);
         let device_id = device_id(device)?;
+        phase(7);
         let client: IAudioClient = unsafe { device.Activate(CLSCTX_ALL, None)? };
+        phase(8);
         let mix = unsafe { client.GetMixFormat()? };
         let format = unsafe { Format::from_ptr(mix) };
+        phase(9);
         let initialized = unsafe {
             client.Initialize(
                 AUDCLNT_SHAREMODE_SHARED,
@@ -240,9 +250,11 @@ impl Capture {
         };
         unsafe { CoTaskMemFree(Some(mix as *const c_void)) };
         initialized?;
+        phase(10);
         let event = Event(unsafe { CreateEventW(None, false, false, None)? });
         unsafe { client.SetEventHandle(event.0)? };
         let reader: IAudioCaptureClient = unsafe { client.GetService()? };
+        phase(11);
         unsafe { client.Start()? };
         Ok(Self {
             device_id,

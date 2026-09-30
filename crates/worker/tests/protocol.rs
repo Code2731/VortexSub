@@ -95,7 +95,24 @@ fn hello(worker: &mut Worker) {
     assert_eq!(response["result"]["capabilities"]["system_audio"], false);
     assert_eq!(response["result"]["capabilities"]["vad"], false);
     assert_eq!(response["result"]["capabilities"]["capture_pcm"], false);
+    assert_eq!(response["result"]["capabilities"]["live_asr"], false);
     assert_eq!(response["result"]["implementation"], "mock");
+}
+
+#[test]
+fn live_asr_requires_capture_and_explicit_native_assets() {
+    for args in [
+        vec!["--live-asr"],
+        vec!["--diagnostic-capture", "--live-asr"],
+    ] {
+        let output = Command::new(env!("CARGO_BIN_EXE_echosub-worker"))
+            .args(args)
+            .stdin(Stdio::null())
+            .output()
+            .unwrap();
+        assert!(!output.status.success());
+        assert!(String::from_utf8_lossy(&output.stderr).contains("Live ASR requires"));
+    }
 }
 
 #[test]

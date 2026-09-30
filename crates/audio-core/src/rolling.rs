@@ -34,6 +34,17 @@ impl RollingAudio {
     pub fn capacity(&self) -> usize {
         self.samples.len()
     }
+    /// Pin an empty epoch to its first native timestamp without inventing gap PCM.
+    pub fn anchor_empty(&mut self, identity: AudioIdentity, start: u64) -> Result<(), AudioError> {
+        if identity != self.identity {
+            return Err(AudioError::StaleIdentity);
+        }
+        if self.len != 0 || start < self.end {
+            return Err(AudioError::NonContiguous);
+        }
+        self.end = start;
+        Ok(())
+    }
     pub fn append(
         &mut self,
         identity: AudioIdentity,

@@ -4,7 +4,7 @@
 
 EchoSub aims to provide system-audio transcription and Korean translation in a Windows/macOS desktop app.
 
-**M0 probes, the M1 core, and M2 capture/file transcription paths are in development.** The worker receives and normalizes real Windows loopback PCM and separately runs Silero VAD→Whisper on files. Live capture→inference, translation, and subtitle UI integration are pending. macOS has not been verified on a real device.
+**M0 probes, the M1 core, and M2 transcription paths are in development.** A diagnostic worker connects real Windows loopback→Silero VAD→Whisper→source history. File transcription is also supported. Product sessions, translation, and subtitle UI integration are pending. macOS has not been verified on a real device.
 
 ## Build and run on Windows
 
@@ -59,7 +59,7 @@ provides 512-sample frames, a session sample timeline, a 12-second rolling
 buffer, and bounded immutable PCM snapshots. Run fixtures without OS/model
 dependencies using `cargo test -p echosub-audio-core`. Segmentation, eight-second
 chunking, a packet-stop watchdog, and actual Silero worker file inference are
-implemented. Live capture/UI integration is pending. See the [audio core](docs/AUDIO_CORE.md) and [VAD contract and validation](docs/VAD_CORE.md).
+implemented. Continuous live VAD is also connected; UI integration is pending. See the [audio core](docs/AUDIO_CORE.md) and [VAD contract and validation](docs/VAD_CORE.md).
 
 ## Pipeline state and job queues (M1 in progress)
 
@@ -88,6 +88,14 @@ and generated tone/noise suppression, two utterances, epoch resets, and hash
 errors. One extra Korean fixture candidate produced an empty ASR result and
 remains Failed; **the quality gate has not passed**. See the
 [VAD contract](docs/WORKER_VAD.md) and [evidence](docs/evidence/T02-01b-windows-worker-vad.md).
+
+## Live worker source diagnostics (M2 in progress)
+
+`scripts/probe-worker-live-asr.ps1 -Offline` briefly plays existing English TTS
+and checks real loopback→continuous Silero→Whisper→history. It checks Stop/restart
+during inference, timeline gaps, hash failures, and active termination. Subtitle UI,
+translation, and partial inference are pending; game/natural-speech quality gates
+remain unpassed. See [live execution and contracts](docs/WORKER_LIVE_ASR.md).
 
 ## MOCK caption overlay
 

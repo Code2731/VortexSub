@@ -342,7 +342,7 @@
           "type": "integer"
         },
         "implementation": {
-          "enum": ["mock", "native-asr-fixture", "wasapi-capture-diagnostic"]
+          "enum": ["mock", "native-asr-fixture", "wasapi-capture-diagnostic", "wasapi-live-asr-diagnostic"]
         },
         "next_offset": {
           "maximum": 1000,

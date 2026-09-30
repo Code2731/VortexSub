@@ -158,3 +158,10 @@ and checks real worker loopback PCM normalization, three Start/Stop cycles,
 shutdown and parent EOF. It saves counts/timings only and stops its own playback.
 This is a PCM diagnostic, with live ASR disabled. See
 [capture scope and bounds](../docs/WORKER_CAPTURE.md).
+
+`scripts/probe-worker-live-asr.ps1 -Offline` uses the same consented assets and
+plays existing English TTS with actual silence appended. It checks real loopback
+VAD→Whisper final history, cancellation/restart, monotonic gaps, VAD hash failure,
+post-playback observation, active shutdown and parent EOF. Reports omit transcripts; generated
+WAVs stay under ignored results. No download is performed. Subtitle UI, translation,
+partial inference and the quality gate remain pending. See [live contracts](../docs/WORKER_LIVE_ASR.md).

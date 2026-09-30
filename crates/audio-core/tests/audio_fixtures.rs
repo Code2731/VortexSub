@@ -1,5 +1,24 @@
 use echosub_audio_core::*;
 use std::f64::consts::TAU;
+#[test]
+fn native_anchor_only_moves_an_empty_matching_epoch_forward() {
+    let id = identity(1);
+    let mut ring = RollingAudio::new(16000, id, 100).unwrap();
+    assert!(ring.anchor_empty(identity(2), 200).is_err());
+    assert!(ring.anchor_empty(id, 99).is_err());
+    ring.anchor_empty(id, 200).unwrap();
+    ring.append(id, 200, &[0.2; 512]).unwrap();
+    assert!(ring.anchor_empty(id, 900).is_err());
+    ring.reset(identity(2), 16000).unwrap();
+    ring.anchor_empty(identity(2), 17000).unwrap();
+    assert_eq!(
+        ring.retained_range(),
+        SampleRange {
+            start: 17000,
+            end: 17000
+        }
+    );
+}
 fn identity(epoch: u64) -> AudioIdentity {
     AudioIdentity {
         session_id: 7,

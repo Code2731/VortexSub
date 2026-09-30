@@ -29,16 +29,28 @@ pub struct Runtime {
     completed_jobs: u64,
     vad_enabled: bool,
     next_fixture: u64,
+    live_config: Option<crate::native_owner::VadConfig>,
+    live_owner: Option<crate::live_owner::LiveOwner>,
+    live_accepting: bool,
+    live_language: String,
+    live_stats: Value,
 }
 impl Runtime {
-    pub fn new(enabled: bool, config: Option<ModelConfig>, capture: bool) -> Self {
+    pub fn new(enabled: bool, mut config: Option<ModelConfig>, capture: bool) -> Self {
         let vad_enabled = config.as_ref().is_some_and(|c| c.vad.is_some());
+        let live_config = if capture {
+            config.as_mut().and_then(|c| c.vad.take())
+        } else {
+            None
+        };
+        let mut capture_runtime = crate::capture_runtime::CaptureRuntime::new(capture);
+        capture_runtime.live_asr = live_config.is_some();
         let epoch = AudioIdentity {
             session_id: 1,
             epoch: 1,
         };
         Self {
-            capture: crate::capture_runtime::CaptureRuntime::new(capture),
+            capture: capture_runtime,
             core: if config.is_some() {
                 Pipeline::new_asr_only(epoch, 1000).unwrap()
             } else {
@@ -64,11 +76,20 @@ impl Runtime {
             completed_jobs: 0,
             vad_enabled,
             next_fixture: 1,
+            live_config,
+            live_owner: None,
+            live_accepting: false,
+            live_language: "en".into(),
+            live_stats: json!({}),
         }
     }
     pub fn implementation(&self) -> &str {
         if self.capture.enabled {
-            return "wasapi-capture-diagnostic";
+            return if self.is_live() {
+                "wasapi-live-asr-diagnostic"
+            } else {
+                "wasapi-capture-diagnostic"
+            };
         }
         if self.native.is_some() {
             "native-asr-fixture"
@@ -79,14 +100,17 @@ impl Runtime {
     pub fn has_native(&self) -> bool {
         self.native.is_some()
     }
+    pub fn is_live(&self) -> bool {
+        self.live_config.is_some()
+    }
     pub fn has_vad(&self) -> bool {
         self.vad_enabled
     }
     pub fn state(&self, q: &Outbox) -> Value {
-        json!({"session":{"session_id":null,"epoch":0,"state":"Idle","elapsed_ms":0},"translator":{"state":"Unavailable"},"model":{"state":self.model_state},"last_seq":q.last_seq(),"history_version":self.core.version(),"diagnostic_capture":self.capture.value(),"diagnostic_asr":{"enabled":self.has_native(),"epoch":self.epoch.epoch,"pending_inputs":self.pending_inputs.len(),"decoding":self.flight.is_some(),"native_running":self.flight.as_ref().is_some_and(|(_,token)|token.snapshot().running),"completed_jobs":self.completed_jobs,"model_load_s":self.load_s,"vad":self.vad_enabled}})
+        json!({"session":{"session_id":null,"epoch":0,"state":"Idle","elapsed_ms":0},"translator":{"state":"Unavailable"},"model":{"state":self.model_state},"last_seq":q.last_seq(),"history_version":self.core.version(),"diagnostic_capture":self.capture.value(),"diagnostic_live_vad":self.live_owner.as_ref().map(|o|o.state()).unwrap_or_else(||self.live_stats.clone()),"diagnostic_asr":{"enabled":self.has_native(),"epoch":self.epoch.epoch,"pending_inputs":self.pending_inputs.len(),"decoding":self.flight.is_some(),"native_running":self.flight.as_ref().is_some_and(|(_,token)|token.snapshot().running),"completed_jobs":self.completed_jobs,"model_load_s":self.load_s,"vad":self.vad_enabled}})
     }
     pub fn fixture(&mut self, method: &str, p: &Value, q: &Outbox) -> Reply {
-        if self.native.is_none() {
+        if self.native.is_none() || self.is_live() {
             return Err((
                 "UNSUPPORTED_CAPABILITY",
                 "Diagnostic native ASR is not enabled",
@@ -189,6 +213,23 @@ impl Runtime {
         if method == "start_capture" && !self.capture.startable() {
             return Err(("INVALID_STATE", "Capture is already active or stopping"));
         }
+        if method == "start_capture" && self.is_live() {
+            if self.model_state != "Ready" || self.live_owner.is_some() {
+                return Err((
+                    "INVALID_STATE",
+                    "Model must be ready and previous VAD owner joined",
+                ));
+            }
+            self.live_language = match p.get("language").and_then(Value::as_str) {
+                Some(s) if matches!(s, "en" | "ja" | "ko") => s.into(),
+                _ => {
+                    return Err((
+                        "INVALID_REQUEST",
+                        "Live source language must be en, ja or ko",
+                    ))
+                }
+            };
+        }
         // Validate before changing identity; the adapter also checks this parameter.
         if method == "start_capture"
             && p.get("device_id").is_some_and(|v| {
@@ -201,6 +242,11 @@ impl Runtime {
             return Err(("INVALID_REQUEST", "Invalid render endpoint ID"));
         }
         if method == "start_capture" || (method == "stop_capture" && self.capture.needs_stop()) {
+            let previous_end = self.ring.retained_range().end;
+            if method == "start_capture" {
+                self.capture
+                    .set_previous_end(self.capture.last_audio_end().unwrap_or(0));
+            }
             self.epoch.epoch = self
                 .epoch
                 .epoch
@@ -209,16 +255,146 @@ impl Runtime {
             self.core
                 .restart(self.epoch, false, self.now())
                 .map_err(core_error)?;
+            if let Some((_, token)) = &self.flight {
+                token.request();
+            }
+            self.languages.clear();
+            self.live_accepting = false;
+            if let Some(owner) = &self.live_owner {
+                owner.stop();
+            }
+            let origin = echosub_audio_core::session_sample_from_ns(self.now())
+                .map_err(|_| ("INTERNAL_ERROR", "Capture clock exhausted"))?
+                .max(previous_end);
             self.ring
-                .reset(self.epoch, self.ring.retained_range().end)
+                .reset(self.epoch, origin)
                 .map_err(|_| ("INTERNAL_ERROR", "Ring reset failed"))?;
+            q.publish(
+                "history.changed",
+                json!({"history_version":self.core.version(),"reason":"capture_epoch_changed"}),
+                None,
+            )
+            .map_err(|_| ("INTERNAL_ERROR", "Capture epoch event unavailable"))?;
         }
         if method == "start_capture" {
+            if let Some(config) = &self.live_config {
+                self.live_owner = Some(crate::live_owner::LiveOwner::start(
+                    config.clone(),
+                    self.epoch,
+                ));
+                self.live_accepting = true;
+                self.live_stats = json!({});
+            }
             self.capture
                 .start(p, self.epoch, self.ring.retained_range().end, q)
         } else {
             self.capture.stop(q)
         }
+    }
+    fn poll_live(
+        &mut self,
+        frames: Vec<echosub_audio_core::AudioFrame>,
+        q: &Outbox,
+    ) -> std::io::Result<()> {
+        let mut error = self.live_owner.as_ref().and_then(|o| o.error());
+        if self.live_accepting
+            && error.is_none()
+            && self.live_owner.as_ref().is_some_and(|o| o.finished())
+        {
+            error = Some("LIVE_VAD_OWNER_EXITED");
+        }
+        if self.live_accepting && !self.capture.failed() && error.is_none() {
+            if let Some(owner) = &self.live_owner {
+                for frame in frames {
+                    if owner.input.try_send(frame).is_err() {
+                        error = Some("LIVE_VAD_INPUT_OVERFLOW");
+                        break;
+                    }
+                }
+            }
+        }
+        if self.live_accepting && (self.capture.failed() || error.is_some()) {
+            if let Some(code) = error {
+                self.capture.fail(code, q)?;
+            }
+            self.live_accepting = false;
+            if let Some(owner) = &self.live_owner {
+                owner.stop();
+            }
+            if let Some((_, token)) = &self.flight {
+                token.request();
+            }
+            self.languages.clear();
+            self.epoch.epoch = self
+                .epoch
+                .epoch
+                .checked_add(1)
+                .ok_or_else(|| std::io::Error::other("Epoch exhausted"))?;
+            self.core
+                .restart(self.epoch, false, self.now())
+                .map_err(|_| std::io::Error::other("Capture fault invalidation failed"))?;
+            self.ring
+                .reset(self.epoch, self.ring.retained_range().end)
+                .map_err(|_| std::io::Error::other("Capture fault ring reset failed"))?;
+            q.publish(
+                "history.changed",
+                json!({"history_version":self.core.version(),"reason":"capture_fault"}),
+                None,
+            )?;
+        }
+        if self.live_accepting {
+            for _ in 0..crate::live_owner::CAPACITY {
+                let batch = match self.live_owner.as_ref().unwrap().output.try_recv() {
+                    Ok(batch) => batch,
+                    Err(_) => break,
+                };
+                if batch.identity != self.epoch {
+                    continue;
+                }
+                for event in batch.events {
+                    match event {
+                        echosub_audio_core::SpeechEvent::Final { segment, reason } => {
+                            let id = SegmentIdentity {
+                                audio: self.epoch,
+                                segment_id: self.next_segment,
+                            };
+                            self.next_segment += 1;
+                            let now = self.now();
+                            let admitted = self
+                                .core
+                                .submit_asr(
+                                    id,
+                                    segment.pcm_range,
+                                    AsrKind::Final,
+                                    &self.ring,
+                                    &mut self.pool,
+                                    now,
+                                )
+                                .map_err(|_| std::io::Error::other("Live final range rejected"))?;
+                            if admitted.queued {
+                                self.languages
+                                    .push((admitted.key, self.live_language.clone()));
+                            } else {
+                                self.changed_record(id.segment_id, "segment.skipped", q)
+                                    .map_err(|_| {
+                                        std::io::Error::other("Live skip event unavailable")
+                                    })?;
+                            }
+                            q.publish("capture.segmented",json!({"epoch":id.audio.epoch,"segment_id":id.segment_id,"vad_segment_id":segment.id.segment_id,"continued_from":segment.continued_from.map(|s|s.segment_id),"queued":admitted.queued,"reason":format!("{reason:?}"),"audio_start_s":segment.pcm_range.start_s(),"audio_end_s":segment.pcm_range.end_s()}),None)?;
+                        }
+                        echosub_audio_core::SpeechEvent::Discarded { segment, reason } => {
+                            q.publish("capture.segment_discarded",json!({"epoch":self.epoch.epoch,"vad_segment_id":segment.id.segment_id,"reason":format!("{reason:?}")}),None)?;
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+        if self.live_owner.as_ref().is_some_and(|o| o.finished()) {
+            self.live_stats = self.live_owner.as_ref().unwrap().state();
+            self.live_owner.take();
+        }
+        Ok(())
     }
     fn poll_native(&mut self, q: &Outbox) -> std::io::Result<()> {
         if self.native.is_none() {
@@ -402,6 +578,7 @@ impl Runtime {
     pub fn finish(&mut self) {
         self.interrupt();
         self.capture.finish();
+        self.live_owner.take();
         if let Some(native) = self.native.take() {
             native.finish();
         }
@@ -410,7 +587,8 @@ impl Runtime {
         self.origin.elapsed().as_nanos().min(u64::MAX as u128) as u64
     }
     pub fn poll(&mut self, q: &Outbox) -> std::io::Result<()> {
-        self.capture.poll(q, &mut self.ring)?;
+        let frames = self.capture.poll(q, &mut self.ring)?;
+        self.poll_live(frames, q)?;
         self.poll_native(q)?;
         let before = self.core.version();
         self.core
@@ -427,6 +605,9 @@ impl Runtime {
     }
     pub fn interrupt(&mut self) {
         self.capture.request_stop();
+        if let Some(owner) = &self.live_owner {
+            owner.stop();
+        }
         let _ = self.core.interrupt(self.now());
         if let Some((_, token)) = &self.flight {
             token.request();

@@ -1,5 +1,7 @@
 # 실제 Silero VAD 파일 경로 — T02-01b
 
+연속 Windows live 경로는 후속 [T02-02b 계약](WORKER_LIVE_ASR.md)에 별도로 연결했다. 아래 파일 진단의 독립 fixture reset 정책은 유지한다.
+
 2026-09-30. `crates/vad-silero/`가 실제 Silero probability·recurrent state를 소유하고 기존 `VadSegmenter`에 연결한다. opt-in worker에서는 VAD가 확정한 PCM 범위만 Whisper final 작업으로 보낸다. 실제 캡처·partial·화면 자막·번역·Mac 수용은 후속이다.
 
 ## 모델과 실행

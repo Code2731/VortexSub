@@ -1,4 +1,4 @@
-//! Diagnostic file input only. File I/O and native full calls never run on IPC owner.
+//! Whisper owner for diagnostic file/live paths; file I/O and full stay off IPC.
 #![cfg_attr(not(feature = "native-asr"), allow(dead_code, unused_imports))]
 use echosub_asr_whisper::Cancellation;
 use echosub_audio_core::{JobIdentity, SegmentIdentity};
@@ -22,6 +22,7 @@ pub struct ModelConfig {
     pub vad: Option<VadConfig>,
 }
 #[cfg_attr(not(feature = "native-vad"), allow(dead_code))]
+#[derive(Clone)]
 pub struct VadConfig {
     pub model: String,
     pub model_hash: String,

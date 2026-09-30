@@ -2,6 +2,7 @@ use std::io::{self, BufRead, BufReader, Write};
 use std::sync::{mpsc, Arc};
 use std::time::Duration;
 mod capture_runtime;
+mod live_owner;
 mod native_owner;
 mod runtime;
 mod transport;
@@ -37,8 +38,16 @@ fn serve() -> io::Result<()> {
     let args = std::env::args().collect::<Vec<_>>();
     let config = native_owner::config_from_args(&args).map_err(io::Error::other)?;
     let capture = args.iter().any(|a| a == "--diagnostic-capture");
+    let live = args.iter().any(|a| a == "--live-asr");
+    if live && (!capture || !config.as_ref().is_some_and(|c| c.vad.is_some())) {
+        return Err(io::Error::other(
+            "Live ASR requires Windows capture and diagnostic ASR/VAD assets",
+        ));
+    }
     if capture
-        && (!cfg!(windows) || config.is_some() || args.iter().any(|a| a == "--mock-pipeline"))
+        && (!cfg!(windows)
+            || (config.is_some() && !live)
+            || args.iter().any(|a| a == "--mock-pipeline"))
     {
         return Err(io::Error::other(
             "Capture diagnostics require Windows and a separate mode",
@@ -163,9 +172,9 @@ fn serve() -> io::Result<()> {
                             "system_audio": runtime.capture.enabled,
                             "output_device_selection": runtime.capture.enabled,
                             "capture_pcm": runtime.capture.enabled,
-                            "live_asr": false,
+                            "live_asr": runtime.is_live(),
                             "asr": runtime.has_native(),
-                            "fixture_asr": runtime.has_native(),
+                            "fixture_asr": runtime.has_native() && !runtime.is_live(),
                             "vad": runtime.has_vad(),
                             "translation": false,
                             "events": true,
