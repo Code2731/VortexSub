@@ -26,7 +26,8 @@ public sealed class WorkerClient : IAsyncDisposable
         stderrTask = DrainStderrAsync();
     }
 
-    public static WorkerClient Start(string workerPath, bool enableMockPipeline = false)
+    public static WorkerClient Start(string workerPath, bool enableMockPipeline = false,
+        IReadOnlyList<string>? arguments = null)
     {
         if (!Path.IsPathFullyQualified(workerPath) || !File.Exists(workerPath))
         {
@@ -49,6 +50,8 @@ public sealed class WorkerClient : IAsyncDisposable
             }
         };
         if (enableMockPipeline) process.StartInfo.ArgumentList.Add("--mock-pipeline");
+        if (arguments is not null)
+            foreach (var argument in arguments) process.StartInfo.ArgumentList.Add(argument);
         if (!process.Start())
         {
             process.Dispose();

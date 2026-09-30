@@ -4,6 +4,15 @@ const ID: AudioIdentity = AudioIdentity {
     session_id: 1,
     epoch: 1,
 };
+#[test]
+fn asr_only_final_does_not_schedule_or_fake_translation() {
+    let mut f = Fixture::new(1000, "ko");
+    f.core = Pipeline::new_asr_only(ID, 1000).unwrap();
+    f.finish(1, "실제 원문", 0);
+    assert!(f.core.next_translation(0).unwrap().is_none());
+    assert_eq!(f.records()[0].translation_state, TranslationState::None);
+    assert!(f.records()[0].translation.is_empty());
+}
 struct Fixture {
     core: Pipeline,
     ring: RollingAudio,

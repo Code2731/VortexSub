@@ -4,7 +4,7 @@
 
 EchoSub aims to provide system-audio transcription and Korean translation in a Windows/macOS desktop app.
 
-**M0 probes and the M1 common core are currently in development.** The repository includes UI↔Rust worker IPC, a standalone Windows capture probe, independent ASR/translation/cancellation/contention probes, and a MOCK caption overlay. Capture, inference, and translation are not connected to the worker/UI yet; the app does not provide real-time subtitles. macOS has not been verified on a real device.
+**M0 probes, the M1 common core, and an M2 file transcription path are in development.** The repository includes UI↔worker IPC, a Windows capture probe, independent model probes, a MOCK overlay, and actual Whisper file transcription in the worker. Live capture, VAD, translation, and subtitle UI integration are pending. macOS has not been verified on a real device.
 
 ## Build and run on Windows
 
@@ -66,10 +66,20 @@ integration are not implemented yet. See the [audio core](docs/AUDIO_CORE.md) an
 stale-result rejection, translation deadlines and terminal states, and versioned
 history capped at 1,000 records. Run mock fixtures with
 `cargo test -p echosub-pipeline-core`. Bounded worker events, versioned history
-snapshots, and the C# client are connected. Actual inference, HTTP, and history UI
+snapshots, and the C# client are connected. Actual HTTP and history UI
 rendering are pending. Default history is empty; generated diagnostic events
 require `--mock-pipeline`. See the [state and queue contract](docs/PIPELINE_CORE.md)
 and [worker delivery and recovery](docs/WORKER_DELIVERY.md).
+
+## Native worker file transcription (M2 in progress)
+
+Run `scripts/probe-worker-asr.ps1 -Backend cpu -Offline` with the existing Whisper
+base model and synthetic WAV fixtures. It checks real native ASR→IPC history,
+epoch cancellation/restart, and shutdown during inference. A dedicated inference
+thread reuses its context while control requests stay responsive. Input is 16 kHz
+mono WAV, at most 8 seconds; capture, VAD, and translation are disabled. All measured
+durations are seconds. See the [owner contract](docs/WORKER_ASR.md) and
+[CPU evidence](docs/evidence/T02-01a-windows-worker-asr.md).
 
 ## MOCK caption overlay
 
@@ -85,6 +95,6 @@ Run `scripts/run.ps1` and select **샘플 오버레이 표시** (show sample ove
 - Contributor guide: [Repository Guidelines](AGENTS.md)
 - IPC contract: [contract document](docs/05_CONTRACTS.md), [v1 JSON schema](schemas/worker-protocol-v1.schema.json)
 
-The current worker responds to `hello`, `ping`, `get_state`, and `shutdown`. Other commands return `UNSUPPORTED_CAPABILITY`. The [configuration example](examples/config.example.toml) illustrates future settings; the current worker does not load it.
+The worker supports `hello`, `ping`, `get_state`, `get_history`, and `shutdown`. Mock and native file diagnostics require their explicit modes; live session start is unsupported. The [configuration example](examples/config.example.toml) illustrates future settings; the current worker does not load it.
 
 

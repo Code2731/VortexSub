@@ -1,4 +1,8 @@
-param([ValidateSet('cpu', 'cuda')] [string] $Backend = 'cpu', [switch] $Offline)
+param(
+    [ValidateSet('cpu', 'cuda')] [string] $Backend = 'cpu',
+    [switch] $Offline,
+    [ValidateSet('echosub-model-probe', 'echosub-worker')] [string] $Package = 'echosub-model-probe'
+)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
 if (-not (Get-Command cargo -ErrorAction SilentlyContinue)) {
@@ -45,8 +49,8 @@ try {
         & cargo clean -p whisper-rs-sys --release --target-dir $targetRoot
         if ($LASTEXITCODE -ne 0) { throw 'Failed to clear the previous native configuration' }
     }
-    $arguments = @('build', '-p', 'echosub-model-probe', '--release', '--locked', '--features')
-    if ($Backend -eq 'cuda') { $arguments += 'cuda' } else { $arguments += 'native' }
+    $arguments = @('build', '-p', $Package, '--release', '--locked', '--features')
+    if ($Backend -eq 'cuda') { $arguments += 'cuda' } elseif ($Package -eq 'echosub-worker') { $arguments += 'native-asr' } else { $arguments += 'native' }
     if ($Offline -or $env:ECHOSUB_OFFLINE -eq '1') { $arguments += '--offline' }
     $arguments += @('--target-dir', $targetRoot)
     & cargo @arguments

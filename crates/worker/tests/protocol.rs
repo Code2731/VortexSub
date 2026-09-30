@@ -219,6 +219,10 @@ fn history_capability_is_empty_by_default_and_mock_requires_opt_in() {
     assert_eq!(page["result"]["last_seq"], 0);
     let denied = worker.send(command("mock", "mock_segment", json!({"source":"fake"})));
     assert_eq!(denied["error"]["code"], "UNSUPPORTED_CAPABILITY");
+    for method in ["transcribe_fixture", "reset_fixture_epoch"] {
+        let denied = worker.send(command("fixture", method, json!({})));
+        assert_eq!(denied["error"]["code"], "UNSUPPORTED_CAPABILITY");
+    }
     for params in [
         json!({"limit":5}),
         json!({"offset":-1}),

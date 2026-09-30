@@ -1,6 +1,7 @@
 use std::io::{self, BufRead, BufReader, Write};
 use std::sync::{mpsc, Arc};
 use std::time::Duration;
+mod native_owner;
 mod runtime;
 mod transport;
 
@@ -32,13 +33,15 @@ fn serve() -> io::Result<()> {
         }
     });
     let mut writer = transport::ResponseWriter::new(&outbox);
-    let mut runtime = runtime::Runtime::new(std::env::args().any(|a| a == "--mock-pipeline"));
+    let args = std::env::args().collect::<Vec<_>>();
+    let config = native_owner::config_from_args(&args).map_err(io::Error::other)?;
+    let mut runtime = runtime::Runtime::new(args.iter().any(|a| a == "--mock-pipeline"), config);
     let mut hello_done = false;
 
     loop {
         runtime.poll(&outbox)?;
         if outbox.unhealthy() {
-            runtime.interrupt();
+            runtime.finish();
             return Err(io::Error::other(
                 "UI output stalled for 5 seconds or disconnected",
             ));
@@ -145,11 +148,13 @@ fn serve() -> io::Result<()> {
                         "protocol_major": PROTOCOL_VERSION,
                         "worker_version": env!("CARGO_PKG_VERSION"),
                         "platform": std::env::consts::OS,
-                        "implementation": "mock",
+                        "implementation": runtime.implementation(),
                         "capabilities": {
                             "system_audio": false,
                             "output_device_selection": false,
-                            "asr": false,
+                            "asr": runtime.has_native(),
+                            "fixture_asr": runtime.has_native(),
+                            "vad": false,
                             "translation": false,
                             "events": true,
                             "history_snapshot": true,
@@ -165,28 +170,26 @@ fn serve() -> io::Result<()> {
                 None => Err(("INVALID_REQUEST", "Missing nonce")),
                 _ => Err(("INVALID_REQUEST", "Nonce exceeds 1024 bytes")),
             },
-            "get_state" if hello_done => Ok(json!({
-                "session": {
-                    "session_id": null,
-                    "epoch": 0,
-                    "state": "Idle",
-                    "elapsed_ms": 0
-                },
-                "translator": {"state": "Unavailable"},
-                "model": {"state": "NotInstalled"},
-                "last_seq": outbox.last_seq(),
-                "history_version": runtime.core.version()
-            })),
+            "get_state" if hello_done => Ok(runtime.state(&outbox)),
             "get_history" if hello_done => runtime.history(params, &outbox),
             "mock_segment" | "mock_translate" | "mock_burst" if hello_done => {
                 runtime.mock(method, params, &outbox)
+            }
+            "transcribe_fixture" | "reset_fixture_epoch" if hello_done => {
+                runtime.fixture(method, params, &outbox)
             }
             "shutdown" => {
                 write_response(&mut writer, request_id, Ok(json!({"accepted": true})))?;
                 break;
             }
-            "ping" | "get_state" | "get_history" | "mock_segment" | "mock_translate"
-            | "mock_burst" => Err(("INVALID_STATE", "Call hello first")),
+            "ping"
+            | "get_state"
+            | "get_history"
+            | "mock_segment"
+            | "mock_translate"
+            | "mock_burst"
+            | "transcribe_fixture"
+            | "reset_fixture_epoch" => Err(("INVALID_STATE", "Call hello first")),
             _ => Err(("UNSUPPORTED_CAPABILITY", "Method is not implemented")),
         };
         write_response(&mut writer, request_id, result)?;
@@ -199,6 +202,7 @@ fn serve() -> io::Result<()> {
         }
         outbox.wait_tick();
     }
+    runtime.finish();
     writer_thread
         .join()
         .map_err(|_| io::Error::other("Writer panicked"))?

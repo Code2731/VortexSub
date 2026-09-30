@@ -161,9 +161,12 @@ dependencies = [
 name = "echosub-worker"
 version = "0.1.0"
 dependencies = [
+ "echosub-asr-whisper",
  "echosub-audio-core",
  "echosub-pipeline-core",
+ "hound",
  "serde_json",
+ "sha2",
 ]
 
 [[package]]

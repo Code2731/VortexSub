@@ -135,3 +135,13 @@ applications and is not process VRAM peak. The wrapper checks exit status,
 inference failures and duration. Confirm CUDA/full-offload logs separately.
 Natural speech, macOS, game coexistence and two-hour stability remain separate
 gates. All new timing outputs use seconds.
+
+## Native worker ASR integration
+
+Run `scripts/probe-worker-asr.ps1 -Backend cpu -Offline` to build the optional
+native worker and exercise it through the C# IPC client. It uses existing Whisper
+base and local TTS fixtures, checks source history, silence/hash rejection,
+10 epoch cancellation/restart rounds, and shutdown during inference. Reports
+under `benchmarks/results/worker-asr-*/` omit transcripts. No capture, Silero VAD,
+translation, or subtitle UI is involved. See [the contract](../docs/WORKER_ASR.md)
+and [Windows CPU evidence](../docs/evidence/T02-01a-windows-worker-asr.md).

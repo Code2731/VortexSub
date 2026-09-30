@@ -313,7 +313,7 @@
           "type": "integer"
         },
         "implementation": {
-          "const": "mock"
+          "enum": ["mock", "native-asr-fixture"]
         },
         "next_offset": {
           "maximum": 1000,

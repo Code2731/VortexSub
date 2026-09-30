@@ -4,7 +4,7 @@
 
 EchoSub는 Windows/macOS의 시스템 오디오를 전사하고 한국어로 번역하는 데스크톱 앱을 목표로 합니다.
 
-**현재는 M0 probe와 M1 공통 코어를 개발하는 단계입니다.** UI와 Rust worker 사이의 IPC, Windows 시스템 오디오 캡처 probe, 독립 전사·번역·취소·동시 부하 probe, MOCK 자막 오버레이를 구현했습니다. 캡처·추론·번역은 아직 worker/UI에 연결되지 않았으며, 앱에서 실제 실시간 자막을 제공하지 않습니다. macOS는 실기기에서 검증하지 않았습니다.
+**현재는 M0 probe·M1 공통 코어와 M2 파일 전사 경로를 개발하는 단계입니다.** UI↔worker IPC, Windows 캡처 probe, 독립 전사·번역·취소·동시 부하 probe, MOCK 오버레이와 worker의 실제 Whisper 파일 전사를 구현했습니다. 실시간 캡처·VAD·번역·자막 UI는 아직 연결하지 않았습니다. macOS는 실기기에서 검증하지 않았습니다.
 
 ## Windows에서 빌드하고 실행하기
 
@@ -66,9 +66,18 @@ PCM snapshot을 제공합니다. OS·모델 없이 `cargo test -p echosub-audio-
 번역 deadline·terminal 상태와 최대 1,000개 버전 history를 제공합니다.
 `cargo test -p echosub-pipeline-core`로 mock fixture를 실행합니다.
 worker event 큐·버전 history snapshot과 C# 클라이언트를 연결했습니다.
-실제 추론·HTTP·UI history 표시는 아직입니다. 일반 실행의 history는 비어 있고,
+실제 HTTP·UI history 표시는 아직입니다. 일반 실행의 history는 비어 있고,
 진단용 생성 이벤트는 `--mock-pipeline`에서만 허용합니다.
 [상태·큐 계약](docs/PIPELINE_CORE.md) · [worker 전달·복구](docs/WORKER_DELIVERY.md)
+
+## Worker 실제 파일 전사 (M2 진행 중)
+
+`scripts/probe-worker-asr.ps1 -Backend cpu -Offline`은 기존 Whisper base와
+합성 WAV로 실제 native 전사→IPC history, 취소·epoch 재시작과 추론 중 종료를
+검증합니다. 전용 추론 스레드가 context를 재사용하며 제어 요청은 반환을 기다리지
+않습니다. 입력은 16 kHz mono·최대 8초이며 VAD·번역·실시간 캡처를 사용하지 않습니다.
+모든 측정 시간은 초입니다. [실행·소유권 계약](docs/WORKER_ASR.md) ·
+[CPU 측정](docs/evidence/T02-01a-windows-worker-asr.md)
 
 ## MOCK 자막 오버레이
 
@@ -84,5 +93,5 @@ worker event 큐·버전 history snapshot과 C# 클라이언트를 연결했습�
 - 기여 안내: [Repository Guidelines](AGENTS.md)
 - IPC 계약: [계약 문서](docs/05_CONTRACTS.md), [v1 JSON schema](schemas/worker-protocol-v1.schema.json)
 
-현재 worker는 `hello`, `ping`, `get_state`, `shutdown`에 응답합니다. 다른 명령은 `UNSUPPORTED_CAPABILITY`를 반환합니다. [설정 예시](examples/config.example.toml)는 향후 설정을 설명하며 현재 worker가 읽는 파일은 아닙니다.
+현재 worker는 `hello`, `ping`, `get_state`, `get_history`, `shutdown`에 응답합니다. mock 또는 native 파일 진단 명령은 해당 모드를 켰을 때만 허용합니다. 실제 세션 시작은 미지원입니다. [설정 예시](examples/config.example.toml)는 향후 설정을 설명하며 현재 worker가 읽는 파일은 아닙니다.
 

@@ -178,3 +178,9 @@ TXT는 대사 시간·원문·번역·오류 상태를 기록할 수 있다. SRT
 
 cue 번호는 1부터 연속, `HH:MM:SS,mmm`, start < end를 보장한다. 시간은 모델 실행 완료 시점이 아니라 audio timestamp다. capture gap은 SRT에 가짜 대사로 만들지 않고 TXT/진단 메타데이터에 남긴다. Unicode line ending과 일본어/한국어 문자를 round-trip 테스트한다.
 
+## 10. 현재 진단 wire 구현과 제품 계약의 차이
+
+T01-02b/T02-01a의 진단 worker는 숫자 u64 session/epoch/segment ID, `event`/`payload`, `get_history`의 최대 4개 버전 페이지를 사용한다. 위 제품 목표의 UUID session, type/data event 및 history_snapshot과 아직 동일하지 않다. 파일 진단은 session=1에서 시작하며 capture session은 Idle로 남긴다. audio range와 새 ASR/취소 측정은 초(`*_s`)로 전달하고 정밀 identity에는 sample index를 사용한다. 기존 get_state.elapsed_ms=0은 호환 필드다.
+
+`native-asr-fixture` implementation과 선택적 `transcribe_fixture`/`reset_fixture_epoch`, source.final/history의 실제 원문, VAD·번역 미지원 범위는 [worker ASR](WORKER_ASR.md)을 따른다. 제품 통합 전에 진단 command/ID namespace와 UI의 session 계약을 명시적으로 정리한다.
+

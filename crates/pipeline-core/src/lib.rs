@@ -151,6 +151,7 @@ pub struct Pipeline {
     last_segment_id: u64,
     source_language: String,
     target_language: String,
+    translation_enabled: bool,
 }
 impl Pipeline {
     pub fn new(
@@ -187,7 +188,16 @@ impl Pipeline {
             last_segment_id: 0,
             source_language: source_language.to_ascii_lowercase(),
             target_language: target_language.to_ascii_lowercase(),
+            translation_enabled: true,
         })
+    }
+    pub fn new_asr_only(
+        identity: AudioIdentity,
+        history_capacity: usize,
+    ) -> Result<Self, CoreError> {
+        let mut pipeline = Self::new(identity, history_capacity, "en", "en")?;
+        pipeline.translation_enabled = false;
+        Ok(pipeline)
     }
     fn time(&mut self, now: u64) -> Result<(), CoreError> {
         if now < self.clock {
@@ -477,6 +487,9 @@ impl Pipeline {
         Ok(Apply::Applied)
     }
     fn enqueue_translation(&mut self, i: usize, now: u64) {
+        if !self.translation_enabled {
+            return;
+        }
         if self.source_language == self.target_language {
             self.records[i].translation_state = TranslationState::Bypassed;
             return;

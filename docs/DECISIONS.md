@@ -18,5 +18,7 @@
 | D-014 | T01-02a는 단일 owner·전체 결과 키·final 동결과 유한 작업 큐를 구현한다. 취소 후 실제 반환까지 실행 예약을 유지한다. history는 버전이 바뀌면 첫 페이지부터 재시도한다. 번역 pending은 interruption/epoch/deadline에서 사유 있는 skipped로 끝낸다. | mock fixture 23개, 네 PCM 슬롯에서 partial 교체, 1,200 final 후 1,000 기록 상한 확인. 원문/번역 각각 4,096 UTF-8 bytes 상한; 같은 문자열의 실제 반복은 보존한다. [계약](PIPELINE_CORE.md) | T01-02b worker event/IPC snapshot, M2 native ASR·overlap 정합, M3 HTTP·UI, Mac/soak |
 | D-015 | T01-02b는 owner와 stdout writer를 분리하고 event 256/제어 응답 예약 32를 유지한다. event 손실은 seq/snapshot.required로 복구하며 IPC history는 4개씩 같은 버전으로 읽는다. C#은 UI 소비와 stdout drain을 분리한다. | Rust 전달 신규 9개와 C# typed 301개 history·seq/고갈 복구 smoke PASS. newline 제외 256 KiB payload 상한과 5초 write-progress stall 종료 확인. 실제 캡처 안전 종료/UI/native 통합은 미검증이다. [전달 계약](WORKER_DELIVERY.md) | M2 실제 ASR/VAD·캡처 owner, M3 UI history/HTTP, Mac·전체 soak |
 
+| D-016 | T02-01a는 opt-in WAV 진단으로 실제 Whisper context를 한 native owner에 연결한다. 파일 loader도 IPC와 분리한다. ASR-only history의 번역은 None이다. epoch 취소는 token 요청 후 full 반환까지 예약/PCM을 유지한다. | CPU base 실제 en/ko final 20개·취소/재시작 10회·추론 중 정상 종료, 해시 오류와 무음 ASR 0 확인. 새 모델 다운로드 없이 VAD=false 범위를 명시한다. [계약](WORKER_ASR.md) · [측정](evidence/T02-01a-windows-worker-asr.md) | T02-01b Silero model/runtime 동의·state reset, T02-02 캡처 callback/clock, GPU worker·UI·Mac |
+
 Mac 캡처 권한과 배포 결정은 아직 없다. 실측 또는 해당 플랫폼 실행 결과가 나오면 별도 행으로 기록한다.
 

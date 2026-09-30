@@ -15,6 +15,12 @@ await using (var client = WorkerClient.Start(workerPath))
     var hello = await client.SendAsync("hello", new { client = "ProtocolSmoke", protocol_major = 1 });
     Require(hello.GetProperty("implementation").GetString() == "mock", "mock capability");
     Require(!hello.GetProperty("capabilities").GetProperty("system_audio").GetBoolean(), "system audio must be unavailable");
+    Require(!hello.GetProperty("capabilities").GetProperty("fixture_asr").GetBoolean(), "native fixtures require opt-in");
+    foreach (var method in new[] { "transcribe_fixture", "reset_fixture_epoch" })
+    {
+        try { await client.SendAsync(method); throw new Exception("Native fixture opt-in was bypassed"); }
+        catch (WorkerException error) when (error.Code == "UNSUPPORTED_CAPABILITY") { }
+    }
 
     var nonce = "한국어 日本語 😊\nnext";
     var ping = await client.SendAsync("ping", new { nonce });
