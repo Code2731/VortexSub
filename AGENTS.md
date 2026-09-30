@@ -2,7 +2,7 @@
 
 ## Project Structure
 
-The M0 scaffold has an Avalonia C# UI in `apps/EchoSub.Desktop/`, a Rust process in `crates/worker/`, WASAPI probe in `crates/capture-windows/`, reusable native adapter in `crates/asr-whisper/`, and ASR harness in `crates/model-probe/`. Translation diagnostics and model/fixture manifests live in `benchmarks/`. C# IPC smoke checks live in `tests/EchoSub.ProtocolSmoke/`; worker integration tests in `crates/worker/tests/`. IPC schema lives in `schemas/`; plans, requirements, status, and evidence live in `docs/`. Put the native ScreenCaptureKit bridge under `native/macos-capture/` only after its platform probe.
+The M0 scaffold has an Avalonia C# UI in `apps/EchoSub.Desktop/`, a Rust process in `crates/worker/`, WASAPI probe in `crates/capture-windows/`, reusable native adapter in `crates/asr-whisper/`, ASR harness in `crates/model-probe/`, and pure audio core in `crates/audio-core/`. Translation diagnostics and model/fixture manifests live in `benchmarks/`. C# IPC smoke checks live in `tests/EchoSub.ProtocolSmoke/`; worker integration tests in `crates/worker/tests/`. IPC schema lives in `schemas/`; plans, requirements, status, and evidence live in `docs/`. Put the native ScreenCaptureKit bridge under `native/macos-capture/` only after its platform probe.
 
 ## Build, Test, and Development
 
@@ -20,4 +20,4 @@ For IPC changes, extend `crates/worker/tests/protocol.rs` and `tests/EchoSub.Pro
 
 ## Commits and Pull Requests
 
-Git was initialized for this scaffold; there are no commits to infer a convention from yet. Use short imperative Conventional Commit subjects such as `feat: add worker handshake` or `fix: reject stale translations`. Pull requests should explain scope and affected requirement IDs, list exact validation commands and results, identify untested platforms, and include screenshots for UI changes.
+Use short imperative Conventional Commit subjects such as `feat: add worker handshake` or `fix: reject stale translations`. Pull requests should explain scope and affected requirement IDs, list exact validation commands and results, identify untested platforms, and include screenshots for UI changes.

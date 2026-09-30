@@ -13,5 +13,7 @@
 | D-009 | Whisper base/small과 Qwen3-4B-Instruct-2507 Q4_K_M은 실행 후보로 유지하되 제품 채택을 보류한다. 모델 revision·hash·license는 catalogue에 둔다. | 사용자 동의 후 세 파일 검증. 합성 ASR 진단은 자연 발화 품질을 대신하지 않으며 번역 en-03에 중대 의미 오류가 있다. 프로세스 VRAM peak 미측정. Windows 동시 부하에서 base 건너뜀 0, small 전사 19개를 관측했다. | 자연/ja 음원 보완, T00-04.4, M2/M3 품질 재평가 |
 | D-010 | native 모델 작업은 일회성 원자적 token으로 협력 취소하고, owner에서 full 반환을 기다려 state/context를 해제한다. 실행 중 thread/context 강제 파괴는 사용하지 않는다. 무응답 시 프로세스 재시작을 복구 후보로 둔다. | T00-04.2 실제 취소·같은 context 복구·정상 종료·소유 자식 강제 종료 후 복구 측정. encoder/후반 시점별 결과를 구분하며 UI/캡처 Stop과 분리한다. binding 0.14.4의 safe abort helper 대신 수명이 명확한 raw callback을 사용한다. | M1/M2의 epoch·PCM/큐 소유권 통합, 동시 부하 중 취소 재측정과 Mac Metal |
 | D-011 | M2 첫 통합은 base를 성능 후보로 유지하고 partial off부터 연결한다. small+Qwen의 4 Hz 요청 조합을 여유 있는 기본값으로 채택하지 않는다. | T00-04.4에서 base 동시 각 1208회 완료·건너뜀 0, small 전사 19개 건너뜀. 품질 채택은 여전히 보류한다. probe의 건너뜀을 실제 PCM/final 자막 폐기로 옮기지 않는다. | M1 유한 큐, M2 2 Hz partial 비교, M3 final 우선 번역, M5 게임/VRAM/장기 부하와 Mac |
+| D-012 | T01-01a는 처리 스레드용 pure Rust 코어로 mono/FL-FR stereo만 지원하고 257-tap FIR로 16 kHz를 만든다. 권위 시간은 sample index다. rolling 12초와 8초 immutable snapshot 최대 4슬롯을 유지한다. | packet 분할 불변성, alias/시간축/immutable lease fixture 확인. pool은 epoch마다 새로 만들지 않는다. callback 큐·VAD·작업 큐와 실제 native clock은 미구현이다. [계약](AUDIO_CORE.md) | T01-01b/02, M2 실제 입력 형식·native clock·필터 CPU/음질 측정과 Mac |
 
 Mac 캡처 권한과 배포 결정은 아직 없다. 실측 또는 해당 플랫폼 실행 결과가 나오면 별도 행으로 기록한다.
+

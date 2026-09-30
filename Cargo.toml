@@ -1,8 +1,9 @@
 [workspace]
-members = ["crates/worker", "crates/capture-windows", "crates/asr-whisper", "crates/model-probe"]
+members = ["crates/worker", "crates/capture-windows", "crates/asr-whisper", "crates/model-probe", "crates/audio-core"]
 resolver = "2"
 
 [workspace.package]
 edition = "2021"
 rust-version = "1.90"
+
 

@@ -4,7 +4,7 @@
 
 EchoSub aims to provide system-audio transcription and Korean translation in a Windows/macOS desktop app.
 
-**This repository currently contains M0 development code.** It implements UI↔Rust worker IPC, a standalone Windows capture probe, independent ASR/translation/cancellation/contention probes, and a MOCK caption overlay. Capture, inference, and translation are not connected to the worker/UI yet; the app does not provide real-time subtitles. macOS has not been verified on a real device.
+**M0 probes and the M1 common core are currently in development.** The repository includes UI↔Rust worker IPC, a standalone Windows capture probe, independent ASR/translation/cancellation/contention probes, and a MOCK caption overlay. Capture, inference, and translation are not connected to the worker/UI yet; the app does not provide real-time subtitles. macOS has not been verified on a real device.
 
 ## Build and run on Windows
 
@@ -52,6 +52,14 @@ See the [benchmark guide](benchmarks/README.md) for build tools, model/fixture p
 
 New ASR, translation, cancellation, and contention timing outputs use **seconds**. Model loading and processing times are distinct from caption latency. Synthetic speech and authored translation fixtures are diagnostic data. Natural-speech quality, game coexistence, long-term stability, and macOS need separate validation; production model adoption remains deferred.
 
+## Common audio core (M1 in progress)
+
+`crates/audio-core/` converts 44.1/48 kHz mono/stereo to 16 kHz mono and
+provides 512-sample frames, a session sample timeline, a 12-second rolling
+buffer, and bounded immutable PCM snapshots. Run fixtures without OS/model
+dependencies using `cargo test -p echosub-audio-core`. Real VAD and worker/UI
+integration are not implemented yet. See the [audio core contract and validation](docs/AUDIO_CORE.md).
+
 ## MOCK caption overlay
 
 Run `scripts/run.ps1` and select **샘플 오버레이 표시** (show sample overlay) in the main window. It shows sample English/Japanese source text and Korean translations, with move/resize handles and controls for width, opacity, hiding, and resetting placement. It closes with the main window. The Windows adapter applies non-activation and tool-window properties.
@@ -67,3 +75,5 @@ Run `scripts/run.ps1` and select **샘플 오버레이 표시** (show sample ove
 - IPC contract: [contract document](docs/05_CONTRACTS.md), [v1 JSON schema](schemas/worker-protocol-v1.schema.json)
 
 The current worker responds to `hello`, `ping`, `get_state`, and `shutdown`. Other commands return `UNSUPPORTED_CAPABILITY`. The [configuration example](examples/config.example.toml) illustrates future settings; the current worker does not load it.
+
+

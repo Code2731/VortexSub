@@ -4,7 +4,7 @@
 
 EchoSub는 Windows/macOS의 시스템 오디오를 전사하고 한국어로 번역하는 데스크톱 앱을 목표로 합니다.
 
-**현재는 M0 단계의 개발용 코드입니다.** UI와 Rust worker 사이의 IPC, Windows 시스템 오디오 캡처 probe, 독립 전사·번역·취소·동시 부하 probe, MOCK 자막 오버레이를 구현했습니다. 캡처·추론·번역은 아직 worker/UI에 연결되지 않았으며, 앱에서 실제 실시간 자막을 제공하지 않습니다. macOS는 실기기에서 검증하지 않았습니다.
+**현재는 M0 probe와 M1 공통 코어를 개발하는 단계입니다.** UI와 Rust worker 사이의 IPC, Windows 시스템 오디오 캡처 probe, 독립 전사·번역·취소·동시 부하 probe, MOCK 자막 오버레이를 구현했습니다. 캡처·추론·번역은 아직 worker/UI에 연결되지 않았으며, 앱에서 실제 실시간 자막을 제공하지 않습니다. macOS는 실기기에서 검증하지 않았습니다.
 
 ## Windows에서 빌드하고 실행하기
 
@@ -52,6 +52,14 @@ probe는 WASAPI loopback에서 실제 오디오 형식, 패킷·프레임 수, �
 
 새 전사·번역·취소·동시 부하 시간 출력은 **초**입니다. 모델 로딩·처리 시간은 실제 자막 표시 지연과 구분합니다. 합성 음원과 작성된 번역 문장은 진단용 자료입니다. 자연 발화 품질, 게임 공존, 장기 안정성, macOS는 별도 검증이 필요하며 모델의 제품 채택은 보류 중입니다.
 
+## 공통 오디오 코어 (M1 진행 중)
+
+`crates/audio-core/`는 44.1/48 kHz mono·stereo를 16 kHz mono로 변환하고,
+512-sample frame, 세션 sample 시간축, 12초 rolling buffer와 유한 immutable
+PCM snapshot을 제공합니다. OS·모델 없이 `cargo test -p echosub-audio-core`
+로 fixture를 실행할 수 있습니다. 실제 VAD와 worker/UI 연결은 아직
+구현하지 않았습니다. [오디오 코어 계약과 검증](docs/AUDIO_CORE.md)
+
 ## MOCK 자막 오버레이
 
 `scripts/run.ps1` 실행 후 메인 창의 **샘플 오버레이 표시**를 누르세요. 영어/일본어 원문과 한국어 번역의 샘플을 표시하며 이동 핸들·리사이즈 그립, 폭·불투명도 조절, 숨김·위치 초기화를 제공합니다. 메인 창을 닫으면 오버레이도 닫힙니다. Windows 어댑터는 창 비활성화와 tool window 속성을 적용합니다.
@@ -67,3 +75,4 @@ probe는 WASAPI loopback에서 실제 오디오 형식, 패킷·프레임 수, �
 - IPC 계약: [계약 문서](docs/05_CONTRACTS.md), [v1 JSON schema](schemas/worker-protocol-v1.schema.json)
 
 현재 worker는 `hello`, `ping`, `get_state`, `shutdown`에 응답합니다. 다른 명령은 `UNSUPPORTED_CAPABILITY`를 반환합니다. [설정 예시](examples/config.example.toml)는 향후 설정을 설명하며 현재 worker가 읽는 파일은 아닙니다.
+

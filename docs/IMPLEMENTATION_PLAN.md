@@ -1,6 +1,6 @@
 # EchoSub 단계별 구현 계획
 
-기준: `EchoSub_Concept_and_Spec_v0.1_KO.md`의 요구사항과 M0~M5 로드맵. 이 문서는 구현 순서와 단계 종료 조건을 정한다. 저장소에는 기여 지침과 계획 문서가 있으며 앱 코드, 테스트, Git 이력, 실기기 측정 결과는 없다. 아래 성능 수치는 목표이며 실측값이 아니다.
+기준: `EchoSub_Concept_and_Spec_v0.1_KO.md`의 요구사항과 M0~M5 로드맵. 이 문서는 구현 순서와 단계 종료 조건을 정한다. 최신 코드·시험·실측 상태는 [구현 상태](STATUS.md)를 따른다. 아래 성능 수치는 목표이며 실측값이 아니다.
 
 검토 상태(2026-09-30): 요구사항·단계 의존성과 실시간 처리 계약을 독립 검토했다. 기준선과 T00-01 착수에 사용할 수 있지만, 전체 아키텍처의 실행 가능성·제품 성능·일정이 검증된 상태는 아니다. 2단계 실험 결과와 아래 미결정 계약을 반영해 다음 단계의 작업을 구체화한다.
 
@@ -90,4 +90,9 @@ macOS 10 GiB·Windows dedicated VRAM 5 GiB는 원본의 **관리형 실행 목�
 - 원본 명세에는 큐 상한, epoch 검증, macOS callback 버퍼 수명, 무음 중 packet 중단 watchdog이 이미 있다. 이 규칙들을 새 요구사항으로 중복 생성하지 않고 관련 단계의 검증에 반영한다.
 - [Avalonia 공식 지원표](https://docs.avaloniaui.net/docs/supported-platforms)는 현재 macOS 15를 Tier 2로 분류한다. macOS 15 지원 목표는 유지하되 선택한 Avalonia 버전과 실제 OS 조합을 0단계 기록 및 실기기 시험 대상으로 둔다.
 - [whisper.cpp 공개 C 헤더](https://raw.githubusercontent.com/ggml-org/whisper.cpp/master/include/whisper.h)에는 abort callback과 동일 컨텍스트 동시 사용 제한이 명시돼 있다. 이는 API 존재의 근거이며 취소 응답 시간이나 재시작 안전성의 실측 근거는 아니다. 실험에서는 정확한 commit을 고정한다.
-- 이번 검토는 문서 대조와 일부 공식 자료 확인이다. SDK 설치 상태, macOS 실기기 접근, 빌드, 모델 실행, 성능 측정은 아직 확인하지 않았다.
+- 이번 검토는 문서 대조와 일부 공식 자료 확인이다. 계획 최초 검토 당시 SDK·빌드·모델·실측은 미확인이었다. 이후 실행 결과는 STATUS.md에 별도로 기록한다.
+
+## M1 실행 단위 보완 (2026-09-30)
+
+T01-01은 a(정규화·sample 시간축·유한 PCM 소유권)와 b(VAD·발화 구간·watchdog)로 나눈다. a의 코드/fixture 범위와 남은 어댑터 책임은 [오디오 코어 계약](AUDIO_CORE.md)을 따른다. immutable snapshot을 PCM 복사 pool 최대 4슬롯으로 구현했으며, epoch 변경에도 같은 pool을 재사용한다. snapshot/history 일관성과 번역 pending의 terminal 상태 계약은 T01-02에 남는다. M0 Mac gate 미통과와 독립 pure-core 진행을 구분한다.
+
