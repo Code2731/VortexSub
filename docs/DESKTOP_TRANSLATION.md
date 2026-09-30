@@ -2,6 +2,19 @@
 
 ## Run and configure
 
+Double-click the repository-root **`run-live.bat`** to start the installed
+llama-server with the existing manifest model, wait for readiness on port 1234,
+and open the live UI using cached dependencies. Then click **서버 연결 / 모델 조회**
+in the UI before starting the session. Closing the app stops the server owned by
+this launcher. An occupied port is rejected without stopping another process.
+Use `run-live.bat -NoBuild` for existing binaries or
+`run-live.bat -ServerPath "C:\path\llama-server.exe"` for a custom installation.
+Startup logs are under ignored `logs/`; models are never downloaded.
+This convenience launcher creates a random server API key in an ignored temporary
+file, passes it through the child process environment and removes the file on
+normal/error cleanup. Abrupt termination of the launcher can leave that file and
+server behind. The launcher has not been interactively exercised in this round.
+
 Start an existing OpenAI-compatible local server separately, then run
 `./run.cmd -Live -Offline`. The launcher enables the HTTP adapter but translation
 starts disabled. No server/model download or automatic server start occurs.

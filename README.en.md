@@ -29,6 +29,8 @@ On macOS, install the pinned SDKs and run `bash scripts/check.sh`. Platform supp
 
 ## Live source diagnostic UI
 
+**Double-click `run-live.bat` at the repository root to launch both the local translation server and live UI.** It uses the existing Qwen model and installed `llama-server`. In the UI, click **서버 연결 / 모델 조회** and wait for translation Ready before starting a session. Closing the app stops the launcher-owned server. See [launcher options](docs/DESKTOP_TRANSLATION.md) for `-NoBuild` and `-ServerPath`.
+
 Run `./run.cmd -Live -Offline`, wait for model Ready, select an output device and source language, then click **세션 시작** (Start session). Source history and an overlay are connected. Partial output is off by default; select **부분 전사 켜기** before starting a session to enable it. Start a local translation server separately and prepare its model with **서버 연결 / 모델 조회** to display Korean translations. See [server setup and presentation contracts](docs/DESKTOP_TRANSLATION.md). See [partial ASR contracts](docs/WORKER_PARTIAL_ASR.md). After Pause/Stop and owner cleanup, select a retained session and use **TXT 저장 / 원문 SRT 저장** (Save TXT / source SRT). See [export, UTC, and timing](docs/HISTORY_EXPORT.md). You can also clear in-memory history for the selected session after confirmation. Saved files remain intact. Actual clicks and source rendering remain unverified. See [execution and verification scope](docs/LIVE_UI.md).
 
 ## Windows system-audio capture probe
