@@ -81,7 +81,7 @@ macOS 10 GiB·Windows dedicated VRAM 5 GiB는 원본의 **관리형 실행 목�
 |---|---|---|
 | 0~2단계 | 최소 fixture 묶음과 모델 파일 확보; 이후 영어 20분·일본어 20분·한국어 10분·무음/효과음/음악 10분 및 번역 방향별 50문장 평가 자료로 확장 | 출처·사용 범위·해시·정답 전사와 구간을 포함한 manifest. 자료 확보 전 관련 시험은 미실행 |
 | 2단계 | native decode가 취소 요청 이후 언제 반환하는지, 모델 컨텍스트를 언제 해제·재사용할 수 있는지 | decode 도중 Stop/Pause/재시작 실험. 캡처 중단 시간, decode 반환 시간, 다음 작업 시작 시간을 별도로 기록 |
-| 3단계 | 페이지 단위 history snapshot을 읽는 동안 번역/이벤트가 갱신될 때의 일관성 | T01-02a: version 불일치 시 첫 페이지 재시도·페이지 사이 번역 갱신 fixture PASS. seq 누락의 IPC 전달/복구는 b에 남음 |
+| 3단계 | 페이지 단위 history snapshot을 읽는 동안 번역/이벤트가 갱신될 때의 일관성 | T01-02a: version 불일치 시 첫 페이지 재시도·페이지 사이 번역 갱신 fixture PASS. T01-02b: seq/로컬 고갈·301개 페이지 복구 IPC/C# smoke PASS; 실제 UI 렌더링은 후속 |
 | 3단계 | rolling buffer가 덮어써져도 대기 중인 final 작업의 PCM이 유지되는 소유권과 메모리 상한 | immutable 복사·고정 버퍼 등 선택한 방식과 총 예산. decode 지연/queue drop 시 잘못된 음원이 전달되지 않는 테스트 |
 | 3단계 | Pause/Stop/epoch 변경으로 취소된 번역의 기존 `pending` 기록을 어떤 terminal 상태로 바꾸는지 | T01-02a: Interrupted/EpochChanged 사유로 skipped; 확정 원문 유지·늦은 응답 거부 fixture PASS. 실제 HTTP/IPC 연결은 후속 |
 
@@ -94,5 +94,5 @@ macOS 10 GiB·Windows dedicated VRAM 5 GiB는 원본의 **관리형 실행 목�
 
 ## M1 실행 단위 보완 (2026-09-30)
 
-T01-01은 a(정규화·sample 시간축·유한 PCM 소유권)와 b(VAD·발화 구간·watchdog)로 나눈다. a와 b의 결정론적 코어를 구현했다. 코드/fixture 범위와 남은 어댑터 책임은 [오디오 코어 계약](AUDIO_CORE.md)과 [VAD 계약](VAD_CORE.md)을 따른다. 실제 Silero 모델/state/context는 미연결이다. T01-02는 a(상태·작업 큐·history/번역 terminal 계약)와 b(worker 전달·유한 event 큐·IPC snapshot)로 나눈다. a를 구현하고 mock fixture로 검증했다. [상태·큐 계약](PIPELINE_CORE.md)을 따른다. 다음 단위는 b다. immutable snapshot을 PCM 복사 pool 최대 4슬롯으로 구현했으며, epoch 변경에도 같은 pool을 재사용한다. history는 버전 변경 시 첫 페이지부터 재시도하고, 취소된 번역 pending은 사유 있는 skipped로 종료한다. 실제 IPC 페이지/seq 복구 전달은 T01-02b에 남는다. M0 Mac gate 미통과와 독립 pure-core 진행을 구분한다.
+T01-01은 a(정규화·sample 시간축·유한 PCM 소유권)와 b(VAD·발화 구간·watchdog)로 나눈다. a와 b의 결정론적 코어를 구현했다. 코드/fixture 범위와 남은 어댑터 책임은 [오디오 코어 계약](AUDIO_CORE.md)과 [VAD 계약](VAD_CORE.md)을 따른다. 실제 Silero 모델/state/context는 미연결이다. T01-02는 a(상태·작업 큐·history/번역 terminal 계약)와 b(worker 전달·유한 event 큐·IPC snapshot)로 나눈다. a와 b를 구현하고 Windows mock core/IPC로 검증했다. [상태·큐 계약](PIPELINE_CORE.md)과 [worker 전달](WORKER_DELIVERY.md)을 따른다. 다음 단위는 M2 실제 ASR/VAD 어댑터와 worker owner 연결이다. immutable snapshot을 PCM 복사 pool 최대 4슬롯으로 구현했으며, epoch 변경에도 같은 pool을 재사용한다. history는 버전 변경 시 첫 페이지부터 재시도하고, 취소된 번역 pending은 사유 있는 skipped로 종료한다. T01-02b에서 IPC 페이지/seq 복구를 C# 클라이언트까지 연결했다. 실제 UI history 렌더링과 native 어댑터는 후속이다. M0 Mac gate 미통과와 독립 pure-core 진행을 구분한다.
 

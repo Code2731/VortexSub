@@ -220,6 +220,9 @@ impl Pipeline {
     pub fn version(&self) -> u64 {
         self.version
     }
+    pub fn record(&self, id: SegmentIdentity) -> Option<&Record> {
+        self.index(id).map(|i| &self.records[i])
+    }
     pub fn queue_lengths(&self) -> (usize, usize, usize) {
         (
             self.final_queue.len(),

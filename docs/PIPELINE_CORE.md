@@ -4,8 +4,8 @@
 
 `crates/pipeline-core/`는 `audio-core`의 immutable PCM lease를 사용하는
 단일 처리 스레드용 Rust 코어다. ASR/번역 작업 의도와 결과 적용, 기록의
-권위를 담당한다. native decode·HTTP·worker IPC·UI·오디오 callback은
-연결되지 않았다. fixture는 생성 PCM과 mock 결과를 사용한다.
+권위를 담당한다. native decode·HTTP·UI·오디오 callback은 연결되지 않았다.
+후속 [T01-02b](WORKER_DELIVERY.md)에서 mock worker IPC 전달을 연결했다. fixture는 생성 PCM과 mock 결과를 사용한다.
 M1 전체 수용은 실제 VAD 모델과 전달 경로까지 연결한 뒤 별도로 판정한다.
 
 ## 작업과 결과의 키
@@ -117,6 +117,6 @@ C#↔Rust Unicode/64요청/worker 수명 smoke PASS. 확인한 범위:
 - 생성 PCM→normalizer→VAD→mock ASR→mock 번역→history 연결.
 
 실제 Whisper/번역 응답·Silero state/context·overlap 텍스트 dedup·native callback
-queue·256개 UI event queue/seq 복구·IPC DTO·캡처 장치·Mac·장기 soak는 NOT_RUN이다.
-다음 단위는 worker 전달 계약과 유한 event 큐/버전 snapshot 연결이며,
+queue·캡처 장치·Mac·장기 soak는 NOT_RUN이다. 후속 T01-02b의 유한 worker/C# event
+queue·seq 복구·IPC DTO mock 검증은 [전달 결과](WORKER_DELIVERY.md)를 따른다.
 실제 inference adapter 통합에서는 D-011의 base/partial-off 후보를 따른다.

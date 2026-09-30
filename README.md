@@ -65,7 +65,10 @@ PCM snapshot을 제공합니다. OS·모델 없이 `cargo test -p echosub-audio-
 `crates/pipeline-core/`는 최신 partial 교체, final 우선 큐, 늦은 결과 폐기,
 번역 deadline·terminal 상태와 최대 1,000개 버전 history를 제공합니다.
 `cargo test -p echosub-pipeline-core`로 mock fixture를 실행합니다.
-실제 추론·HTTP·worker 전달 연결은 아직입니다. [상태·큐 계약](docs/PIPELINE_CORE.md)
+worker event 큐·버전 history snapshot과 C# 클라이언트를 연결했습니다.
+실제 추론·HTTP·UI history 표시는 아직입니다. 일반 실행의 history는 비어 있고,
+진단용 생성 이벤트는 `--mock-pipeline`에서만 허용합니다.
+[상태·큐 계약](docs/PIPELINE_CORE.md) · [worker 전달·복구](docs/WORKER_DELIVERY.md)
 
 ## MOCK 자막 오버레이
 

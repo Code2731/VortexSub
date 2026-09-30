@@ -14,6 +14,8 @@ public sealed class WorkerClient : IAsyncDisposable
     private readonly Task stdoutTask;
     private readonly Task stderrTask;
     private bool disposed;
+    private readonly SemaphoreSlim historyGate = new(1, 1);
+    public WorkerEventBuffer Events { get; } = new();
 
     public event Action? Disconnected;
 
@@ -24,7 +26,7 @@ public sealed class WorkerClient : IAsyncDisposable
         stderrTask = DrainStderrAsync();
     }
 
-    public static WorkerClient Start(string workerPath)
+    public static WorkerClient Start(string workerPath, bool enableMockPipeline = false)
     {
         if (!Path.IsPathFullyQualified(workerPath) || !File.Exists(workerPath))
         {
@@ -46,6 +48,7 @@ public sealed class WorkerClient : IAsyncDisposable
                 WorkingDirectory = Path.GetDirectoryName(workerPath)!
             }
         };
+        if (enableMockPipeline) process.StartInfo.ArgumentList.Add("--mock-pipeline");
         if (!process.Start())
         {
             process.Dispose();
@@ -81,6 +84,7 @@ public sealed class WorkerClient : IAsyncDisposable
                 method,
                 @params = parameters ?? new { }
             });
+            if (Encoding.UTF8.GetByteCount(message) > 256 * 1024) throw new IOException("Command exceeds 256 KiB");
             await writeGate.WaitAsync(cancellationToken);
             try
             {
@@ -106,16 +110,23 @@ public sealed class WorkerClient : IAsyncDisposable
     {
         try
         {
-            string? line;
-            while ((line = await process.StandardOutput.ReadLineAsync()) is not null)
+            await foreach (var line in ReadLinesAsync(process.StandardOutput.BaseStream))
             {
                 using var document = JsonDocument.Parse(line);
                 var root = document.RootElement;
-                if (root.GetProperty("v").GetInt32() != 1 ||
-                    root.GetProperty("kind").GetString() != "response")
+                if (root.GetProperty("v").GetInt32() != 1)
                 {
                     throw new IOException("Unexpected worker protocol message");
                 }
+                if (root.GetProperty("kind").GetString() == "event")
+                {
+                    var sequence = root.GetProperty("seq").GetUInt64();
+                    var name = root.GetProperty("event").GetString() ?? throw new IOException("Missing event name");
+                    if (name.Length == 0 || Encoding.UTF8.GetByteCount(name) > 128 || root.GetProperty("payload").ValueKind != JsonValueKind.Object) throw new IOException("Invalid worker event");
+                    Events.Publish(new WorkerEvent(sequence, name, root.GetProperty("payload").Clone()));
+                    continue;
+                }
+                if (root.GetProperty("kind").GetString() != "response") throw new IOException("Unexpected worker message kind");
                 if (!root.TryGetProperty("request_id", out var idElement) ||
                     idElement.ValueKind != JsonValueKind.String ||
                     !pending.TryGetValue(idElement.GetString()!, out var completion))
@@ -143,6 +154,78 @@ public sealed class WorkerClient : IAsyncDisposable
             FailPending(new IOException("Worker disconnected"));
             Disconnected?.Invoke();
         }
+    }
+
+    private static async IAsyncEnumerable<byte[]> ReadLinesAsync(Stream stream)
+    {
+        var buffer = new byte[16384];
+        using var line = new MemoryStream();
+        int read;
+        while ((read = await stream.ReadAsync(buffer)) != 0)
+        {
+            for (var i = 0; i < read; i++)
+            {
+                if (buffer[i] == (byte)'\n')
+                {
+                    yield return line.ToArray();
+                    line.SetLength(0);
+                }
+                else
+                {
+                    if (line.Length >= 256 * 1024) throw new IOException("Worker message exceeds 256 KiB");
+                    line.WriteByte(buffer[i]);
+                }
+            }
+        }
+        if (line.Length != 0) throw new IOException("Unterminated worker message");
+    }
+
+    public async Task<HistorySnapshot> ReadHistoryAsync(CancellationToken cancellationToken = default)
+    {
+        await historyGate.WaitAsync(cancellationToken);
+        try
+        {
+            for (var attempt = 0; attempt < 3; attempt++)
+            {
+                try
+                {
+                    var rows = new List<HistoryRecord>();
+                    ulong? version = null;
+                    var offset = 0;
+                    while (true)
+                    {
+                        object parameters = version is null ? new { offset, limit = 4 } : new { offset, limit = 4, expected_version = version.Value };
+                        var page = await SendAsync("get_history", parameters, cancellationToken);
+                        var returnedVersion = page.GetProperty("history_version").GetUInt64();
+                        if (version is not null && version != returnedVersion) throw new IOException("History version changed without rejection");
+                        version = returnedVersion;
+                        var records = page.GetProperty("records").Deserialize<HistoryRecord[]>() ?? throw new IOException("Missing history records");
+                        if (records.Length > 4) throw new IOException("Oversized history page");
+                        foreach (var record in records)
+                        {
+                            if (record.Source is null || record.Translation is null || Encoding.UTF8.GetByteCount(record.Source) > 4096 || Encoding.UTF8.GetByteCount(record.Translation) > 4096 || record.Source.Contains('\0') || record.Translation.Contains('\0') || record.AudioStartSample >= record.AudioEndSample || record.AudioEndSample - record.AudioStartSample > 128000 || record.SourceRevision == 0 || record.SegmentId == 0 || !double.IsFinite(record.AudioStartSeconds) || !double.IsFinite(record.AudioEndSeconds)) throw new IOException("Invalid history record");
+                            if (record.SourceState is not ("Partial" or "FinalPending" or "Final" or "Failed" or "Skipped" or "Discarded") || record.TranslationState is not ("None" or "Pending" or "Done" or "Failed" or "Skipped" or "Bypassed") || record.AppliedSourceRevision > record.SourceRevision) throw new IOException("Invalid history state");
+                            if (record.SourceState == "Final" && (record.AppliedSourceRevision != record.SourceRevision || string.IsNullOrWhiteSpace(record.Source))) throw new IOException("Invalid final source");
+                        }
+                        rows.AddRange(records);
+                        if (rows.Count > 1000) throw new IOException("History exceeds 1000 records");
+                        var next = page.GetProperty("next_offset");
+                        if (next.ValueKind == JsonValueKind.Null)
+                        {
+                            var sequence = page.GetProperty("last_seq").GetUInt64();
+                            Events.AcceptSnapshot(sequence);
+                            return new HistorySnapshot(version.Value, sequence, rows.AsReadOnly());
+                        }
+                        var nextOffset = next.GetInt32();
+                        if (nextOffset != offset + records.Length || nextOffset <= offset || nextOffset > 1000) throw new IOException("Invalid history page cursor");
+                        offset = nextOffset;
+                    }
+                }
+                catch (WorkerException error) when (error.Code == "STALE_SNAPSHOT") { }
+            }
+            throw new WorkerException("SNAPSHOT_BUSY");
+        }
+        finally { historyGate.Release(); }
     }
 
     private async Task DrainStderrAsync()
@@ -204,6 +287,7 @@ public sealed class WorkerClient : IAsyncDisposable
         process.Dispose();
         writeGate.Dispose();
         requestSlots.Dispose();
+        historyGate.Dispose();
     }
 }
 

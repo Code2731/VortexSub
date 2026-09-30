@@ -1,4 +1,8 @@
-use std::io::{self, BufRead, BufReader, BufWriter, Write};
+use std::io::{self, BufRead, BufReader, Write};
+use std::sync::{mpsc, Arc};
+use std::time::Duration;
+mod runtime;
+mod transport;
 
 use serde_json::{json, Value};
 
@@ -6,28 +10,58 @@ const MAX_MESSAGE_BYTES: usize = 256 * 1024;
 const PROTOCOL_VERSION: u64 = 1;
 
 fn main() {
-    if let Err(error) = serve(io::stdin().lock(), io::stdout().lock()) {
+    if let Err(error) = serve() {
         eprintln!("worker I/O error: {error}");
         std::process::exit(1);
     }
 }
 
-fn serve<R: BufRead, W: Write>(input: R, output: W) -> io::Result<()> {
-    let mut reader = BufReader::new(input);
-    let mut writer = BufWriter::new(output);
+fn serve() -> io::Result<()> {
+    let outbox = Arc::new(transport::Outbox::default());
+    let output = outbox.clone();
+    let writer_thread = std::thread::spawn(move || output.write_to(io::stdout().lock()));
+    let (send, receive) = mpsc::sync_channel(32);
+    std::thread::spawn(move || {
+        let mut reader = BufReader::new(io::stdin().lock());
+        loop {
+            let line = read_line(&mut reader);
+            let done = !matches!(&line, Ok(Some(_)));
+            if send.send(line).is_err() || done {
+                break;
+            }
+        }
+    });
+    let mut writer = transport::ResponseWriter::new(&outbox);
+    let mut runtime = runtime::Runtime::new(std::env::args().any(|a| a == "--mock-pipeline"));
     let mut hello_done = false;
 
     loop {
-        let line = match read_line(&mut reader) {
+        runtime.poll(&outbox)?;
+        if outbox.unhealthy() {
+            runtime.interrupt();
+            return Err(io::Error::other(
+                "UI output stalled for 5 seconds or disconnected",
+            ));
+        }
+        if !outbox.has_response_room() {
+            outbox.wait_tick();
+            continue;
+        }
+        let incoming = match receive.recv_timeout(Duration::from_millis(20)) {
+            Ok(value) => value,
+            Err(mpsc::RecvTimeoutError::Timeout) => continue,
+            Err(mpsc::RecvTimeoutError::Disconnected) => break,
+        };
+        let line = match incoming {
             Ok(Some(line)) => line,
-            Ok(None) => return Ok(()),
+            Ok(None) => break,
             Err(LineError::TooLarge) => {
                 write_response(
                     &mut writer,
                     Value::Null,
                     Err(("INVALID_REQUEST", "Message exceeds 256 KiB")),
                 )?;
-                return Ok(());
+                break;
             }
             Err(LineError::Unterminated) => {
                 write_response(
@@ -35,7 +69,7 @@ fn serve<R: BufRead, W: Write>(input: R, output: W) -> io::Result<()> {
                     Value::Null,
                     Err(("INVALID_REQUEST", "Message must end with newline")),
                 )?;
-                return Ok(());
+                break;
             }
             Err(LineError::Io(error)) => return Err(error),
         };
@@ -116,7 +150,10 @@ fn serve<R: BufRead, W: Write>(input: R, output: W) -> io::Result<()> {
                             "system_audio": false,
                             "output_device_selection": false,
                             "asr": false,
-                            "translation": false
+                            "translation": false,
+                            "events": true,
+                            "history_snapshot": true,
+                            "mock_pipeline": runtime.enabled
                         }
                     }))
                 }
@@ -137,17 +174,34 @@ fn serve<R: BufRead, W: Write>(input: R, output: W) -> io::Result<()> {
                 },
                 "translator": {"state": "Unavailable"},
                 "model": {"state": "NotInstalled"},
-                "last_seq": 0
+                "last_seq": outbox.last_seq(),
+                "history_version": runtime.core.version()
             })),
+            "get_history" if hello_done => runtime.history(params, &outbox),
+            "mock_segment" | "mock_translate" | "mock_burst" if hello_done => {
+                runtime.mock(method, params, &outbox)
+            }
             "shutdown" => {
                 write_response(&mut writer, request_id, Ok(json!({"accepted": true})))?;
-                return Ok(());
+                break;
             }
-            "ping" | "get_state" => Err(("INVALID_STATE", "Call hello first")),
+            "ping" | "get_state" | "get_history" | "mock_segment" | "mock_translate"
+            | "mock_burst" => Err(("INVALID_STATE", "Call hello first")),
             _ => Err(("UNSUPPORTED_CAPABILITY", "Method is not implemented")),
         };
         write_response(&mut writer, request_id, result)?;
     }
+    runtime.interrupt();
+    outbox.close();
+    while !outbox.drained() {
+        if outbox.unhealthy() {
+            return Err(io::Error::other("UI output stalled during shutdown"));
+        }
+        outbox.wait_tick();
+    }
+    writer_thread
+        .join()
+        .map_err(|_| io::Error::other("Writer panicked"))?
 }
 
 fn write_response<W: Write>(

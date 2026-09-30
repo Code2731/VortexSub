@@ -3,45 +3,346 @@
   "$id": "https://echosub.local/schemas/worker-protocol-v1.schema.json",
   "title": "EchoSub worker NDJSON message v1",
   "oneOf": [
-    { "$ref": "#/$defs/command" },
-    { "$ref": "#/$defs/response" }
+    {
+      "$ref": "#/$defs/command"
+    },
+    {
+      "$ref": "#/$defs/response"
+    },
+    {
+      "$ref": "#/$defs/event"
+    }
   ],
   "$defs": {
     "command": {
       "type": "object",
-      "required": ["v", "kind", "request_id", "method", "params"],
+      "required": [
+        "v",
+        "kind",
+        "request_id",
+        "method",
+        "params"
+      ],
       "properties": {
-        "v": { "const": 1 },
-        "kind": { "const": "command" },
-        "request_id": { "type": "string", "minLength": 1, "maxLength": 128, "description": "The worker also limits this value to 128 UTF-8 bytes." },
-        "method": { "type": "string", "minLength": 1 },
-        "params": { "type": "object" }
+        "v": {
+          "const": 1
+        },
+        "kind": {
+          "const": "command"
+        },
+        "request_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "The worker also limits this value to 128 UTF-8 bytes."
+        },
+        "method": {
+          "type": "string",
+          "minLength": 1
+        },
+        "params": {
+          "type": "object"
+        }
       },
-      "additionalProperties": true
+      "additionalProperties": true,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "method": {
+                "const": "get_history"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "params": {
+                "$ref": "#/$defs/historyParams"
+              }
+            }
+          }
+        }
+      ]
     },
     "response": {
       "type": "object",
-      "required": ["v", "kind", "request_id", "ok"],
+      "required": [
+        "v",
+        "kind",
+        "request_id",
+        "ok"
+      ],
       "properties": {
-        "v": { "const": 1 },
-        "kind": { "const": "response" },
-        "request_id": { "type": ["string", "null"] },
-        "ok": { "type": "boolean" },
-        "result": { "type": "object" },
+        "v": {
+          "const": 1
+        },
+        "kind": {
+          "const": "response"
+        },
+        "request_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "result": {
+          "type": "object"
+        },
         "error": {
           "type": "object",
-          "required": ["code", "message"],
+          "required": [
+            "code",
+            "message"
+          ],
           "properties": {
-            "code": { "type": "string" },
-            "message": { "type": "string" }
+            "code": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            }
           },
           "additionalProperties": false
         }
       },
       "oneOf": [
-        { "properties": { "ok": { "const": true } }, "required": ["result"] },
-        { "properties": { "ok": { "const": false } }, "required": ["error"] }
+        {
+          "properties": {
+            "ok": {
+              "const": true
+            }
+          },
+          "required": [
+            "result"
+          ]
+        },
+        {
+          "properties": {
+            "ok": {
+              "const": false
+            }
+          },
+          "required": [
+            "error"
+          ]
+        }
       ],
+      "additionalProperties": false
+    },
+    "event": {
+      "properties": {
+        "kind": {
+          "const": "event"
+        },
+        "v": {
+          "const": 1
+        },
+        "seq": {
+          "maximum": 18446744073709551615,
+          "type": "integer",
+          "minimum": 1
+        },
+        "event": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "The client also limits this name to 128 UTF-8 bytes."
+        },
+        "payload": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "v",
+        "kind",
+        "seq",
+        "event",
+        "payload"
+      ],
+      "type": "object",
+      "additionalProperties": false
+    },
+    "historyParams": {
+      "properties": {
+        "limit": {
+          "maximum": 4,
+          "type": "integer",
+          "minimum": 1
+        },
+        "expected_version": {
+          "maximum": 18446744073709551615,
+          "type": "integer",
+          "minimum": 0
+        },
+        "offset": {
+          "maximum": 1000,
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "type": "object",
+      "additionalProperties": true
+    },
+    "historyRecord": {
+      "properties": {
+        "segment_id": {
+          "maximum": 18446744073709551615,
+          "type": "integer",
+          "minimum": 0
+        },
+        "source_reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source_revision": {
+          "maximum": 18446744073709551615,
+          "type": "integer",
+          "minimum": 0
+        },
+        "translation": {
+          "description": "Also limited to 4096 UTF-8 bytes by worker and client.",
+          "type": "string",
+          "maxLength": 4096
+        },
+        "audio_start_s": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "audio_end_sample": {
+          "maximum": 18446744073709551615,
+          "type": "integer",
+          "minimum": 0
+        },
+        "translation_request_id": {
+          "maximum": 18446744073709551615,
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "source": {
+          "description": "Also limited to 4096 UTF-8 bytes by worker and client.",
+          "type": "string",
+          "maxLength": 4096
+        },
+        "session_id": {
+          "maximum": 18446744073709551615,
+          "type": "integer",
+          "minimum": 0
+        },
+        "translation_reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source_state": {
+          "enum": [
+            "Partial",
+            "FinalPending",
+            "Final",
+            "Failed",
+            "Skipped",
+            "Discarded"
+          ]
+        },
+        "audio_end_s": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "translation_state": {
+          "enum": [
+            "None",
+            "Pending",
+            "Done",
+            "Failed",
+            "Skipped",
+            "Bypassed"
+          ]
+        },
+        "epoch": {
+          "maximum": 18446744073709551615,
+          "type": "integer",
+          "minimum": 0
+        },
+        "audio_start_sample": {
+          "maximum": 18446744073709551615,
+          "type": "integer",
+          "minimum": 0
+        },
+        "applied_source_revision": {
+          "maximum": 18446744073709551615,
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        }
+      },
+      "required": [
+        "segment_id",
+        "source_reason",
+        "source_revision",
+        "translation",
+        "audio_start_s",
+        "audio_end_sample",
+        "translation_request_id",
+        "source",
+        "session_id",
+        "translation_reason",
+        "source_state",
+        "audio_end_s",
+        "translation_state",
+        "epoch",
+        "audio_start_sample",
+        "applied_source_revision"
+      ],
+      "type": "object",
+      "additionalProperties": false
+    },
+    "historyPage": {
+      "properties": {
+        "last_seq": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "implementation": {
+          "const": "mock"
+        },
+        "next_offset": {
+          "maximum": 1000,
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "records": {
+          "items": {
+            "$ref": "#/$defs/historyRecord"
+          },
+          "type": "array",
+          "maxItems": 4
+        },
+        "history_version": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "history_version",
+        "last_seq",
+        "records",
+        "next_offset",
+        "implementation"
+      ],
+      "type": "object",
       "additionalProperties": false
     }
   }

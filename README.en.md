@@ -65,8 +65,11 @@ integration are not implemented yet. See the [audio core](docs/AUDIO_CORE.md) an
 `crates/pipeline-core/` provides latest-partial replacement, final-priority queues,
 stale-result rejection, translation deadlines and terminal states, and versioned
 history capped at 1,000 records. Run mock fixtures with
-`cargo test -p echosub-pipeline-core`. Actual inference, HTTP, and worker delivery
-are not connected yet. See the [state and queue contract](docs/PIPELINE_CORE.md).
+`cargo test -p echosub-pipeline-core`. Bounded worker events, versioned history
+snapshots, and the C# client are connected. Actual inference, HTTP, and history UI
+rendering are pending. Default history is empty; generated diagnostic events
+require `--mock-pipeline`. See the [state and queue contract](docs/PIPELINE_CORE.md)
+and [worker delivery and recovery](docs/WORKER_DELIVERY.md).
 
 ## MOCK caption overlay
 

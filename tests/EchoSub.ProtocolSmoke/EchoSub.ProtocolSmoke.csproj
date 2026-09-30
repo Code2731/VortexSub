@@ -7,6 +7,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../apps/EchoSub.Desktop/WorkerClient.cs" Link="WorkerClient.cs" />
+    <Compile Include="../../apps/EchoSub.Desktop/WorkerHistory.cs" Link="WorkerHistory.cs" />
   </ItemGroup>
 </Project>
 

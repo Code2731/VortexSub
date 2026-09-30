@@ -161,6 +161,8 @@ dependencies = [
 name = "echosub-worker"
 version = "0.1.0"
 dependencies = [
+ "echosub-audio-core",
+ "echosub-pipeline-core",
  "serde_json",
 ]
 

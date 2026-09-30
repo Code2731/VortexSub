@@ -8,18 +8,31 @@ use serde_json::{json, Value};
 struct Worker {
     child: Child,
     output: BufReader<ChildStdout>,
+    events: Vec<Value>,
 }
 
 impl Worker {
     fn start() -> Self {
+        Self::start_with(false)
+    }
+    fn start_with(mock: bool) -> Self {
         let mut child = Command::new(env!("CARGO_BIN_EXE_echosub-worker"))
+            .args(if mock {
+                vec!["--mock-pipeline"]
+            } else {
+                vec![]
+            })
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
             .expect("start worker");
         let output = BufReader::new(child.stdout.take().expect("stdout pipe"));
-        Self { child, output }
+        Self {
+            child,
+            output,
+            events: Vec::new(),
+        }
     }
 
     fn send(&mut self, request: Value) -> Value {
@@ -30,13 +43,20 @@ impl Worker {
     }
 
     fn response(&mut self) -> Value {
-        let mut line = String::new();
-        self.output.read_line(&mut line).expect("read response");
-        assert!(!line.is_empty(), "worker closed without response");
-        let response: Value = serde_json::from_str(&line).expect("stdout must be NDJSON");
-        assert_eq!(response["kind"], "response");
-        assert_eq!(response["v"], 1);
-        response
+        loop {
+            let mut line = String::new();
+            self.output.read_line(&mut line).expect("read response");
+            assert!(!line.is_empty(), "worker closed without response");
+            let response: Value = serde_json::from_str(&line).expect("stdout must be NDJSON");
+            assert!(line.len() <= 256 * 1024 + 1);
+            if response["kind"] == "event" {
+                self.events.push(response);
+                continue;
+            }
+            assert_eq!(response["kind"], "response");
+            assert_eq!(response["v"], 1);
+            return response;
+        }
     }
 
     fn finish(mut self) {
@@ -188,4 +208,144 @@ fn temporarily_slow_reader_recovers_without_stdout_logs() {
     }
     writer.join().unwrap();
     worker.finish();
+}
+
+#[test]
+fn history_capability_is_empty_by_default_and_mock_requires_opt_in() {
+    let mut worker = Worker::start();
+    hello(&mut worker);
+    let page = worker.send(command("history", "get_history", json!({})));
+    assert_eq!(page["result"]["records"], json!([]));
+    assert_eq!(page["result"]["last_seq"], 0);
+    let denied = worker.send(command("mock", "mock_segment", json!({"source":"fake"})));
+    assert_eq!(denied["error"]["code"], "UNSUPPORTED_CAPABILITY");
+    for params in [
+        json!({"limit":5}),
+        json!({"offset":-1}),
+        json!({"expected_version":"0"}),
+        json!({"offset":1}),
+    ] {
+        assert_eq!(
+            worker.send(command("invalid", "get_history", params))["ok"],
+            false
+        );
+    }
+    worker.send(command("stop", "shutdown", json!({})));
+    worker.finish();
+}
+
+#[test]
+fn mock_source_translation_and_versioned_pages_round_trip() {
+    let mut worker = Worker::start_with(true);
+    hello(&mut worker);
+    worker.send(command(
+        "source",
+        "mock_segment",
+        json!({"source":"한국어 日本語 🙂\nnext"}),
+    ));
+    let page = worker.send(command("page", "get_history", json!({"limit":1})));
+    let version = page["result"]["history_version"].as_u64().unwrap();
+    let r = &page["result"]["records"][0];
+    assert_eq!(r["source"], "한국어 日本語 🙂\nnext");
+    assert_eq!(r["audio_end_s"], 0.032);
+    assert_eq!(r["translation_state"], "Pending");
+    let request = r["translation_request_id"].as_u64().unwrap();
+    let wrong = worker.send(command(
+        "wrong",
+        "mock_translate",
+        json!({"session_id":1,"epoch":1,"source_revision":1,"segment_id":1,"translation_request_id":request+1,"text":"bad"}),
+    ));
+    assert_eq!(wrong["error"]["code"], "STALE_RESULT");
+    worker.send(command(
+        "translate",
+        "mock_translate",
+        json!({"session_id":1,"epoch":1,"source_revision":1,"segment_id":1,"translation_request_id":request,"text":"번역\n🙂"}),
+    ));
+    let stale = worker.send(command(
+        "stale",
+        "get_history",
+        json!({"expected_version":version}),
+    ));
+    assert_eq!(stale["error"]["code"], "STALE_SNAPSHOT");
+    let fresh = worker.send(command("fresh", "get_history", json!({})));
+    assert_eq!(fresh["result"]["records"][0]["translation"], "번역\n🙂");
+    worker.send(command(
+        "source2",
+        "mock_segment",
+        json!({"source":"second"}),
+    ));
+    let first = worker.send(command("first", "get_history", json!({"limit":1})));
+    let second = worker.send(command(
+        "second",
+        "get_history",
+        json!({"offset":1,"limit":1,"expected_version":first["result"]["history_version"]}),
+    ));
+    assert_eq!(second["result"]["records"][0]["segment_id"], 2);
+    worker.send(command("stop", "shutdown", json!({})));
+    let mut trailing = String::new();
+    worker.output.read_to_string(&mut trailing).unwrap();
+    for line in trailing.lines() {
+        worker.events.push(serde_json::from_str(line).unwrap());
+    }
+    assert!(worker.events.iter().any(|e| e["event"] == "source.final"));
+    assert!(worker
+        .events
+        .iter()
+        .any(|e| e["event"] == "translation.updated"));
+    let seqs: Vec<_> = worker
+        .events
+        .iter()
+        .map(|e| e["seq"].as_u64().unwrap())
+        .collect();
+    assert!(seqs.windows(2).all(|w| w[0] < w[1]));
+    worker.finish();
+}
+
+#[test]
+fn worst_case_escaped_text_history_stays_below_message_limit() {
+    let mut worker = Worker::start_with(true);
+    hello(&mut worker);
+    for _ in 0..5 {
+        worker.send(command(
+            "source",
+            "mock_segment",
+            json!({"source":format!("a{}","\u{0001}".repeat(4095))}),
+        ));
+    }
+    let page = worker.send(command("page", "get_history", json!({"limit":4})));
+    assert_eq!(page["result"]["records"].as_array().unwrap().len(), 4);
+    assert_eq!(page["result"]["next_offset"], 4);
+    worker.send(command("stop", "shutdown", json!({})));
+    worker.finish();
+}
+
+#[test]
+fn unread_output_disconnects_worker_after_five_seconds() {
+    let mut worker = Worker::start_with(true);
+    hello(&mut worker);
+    let input = worker.child.stdin.as_mut().unwrap();
+    writeln!(
+        input,
+        "{}",
+        command(
+            "burst",
+            "mock_burst",
+            json!({"count":1100,"source":"x".repeat(4096)})
+        )
+    )
+    .unwrap();
+    input.flush().unwrap();
+    let started = Instant::now();
+    loop {
+        if let Some(status) = worker.child.try_wait().unwrap() {
+            assert!(!status.success());
+            break;
+        }
+        assert!(
+            started.elapsed() < Duration::from_secs(10),
+            "stalled worker did not exit"
+        );
+        thread::sleep(Duration::from_millis(25));
+    }
+    assert!(started.elapsed() >= Duration::from_secs(4));
 }
