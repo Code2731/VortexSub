@@ -100,6 +100,10 @@ worker의 실제 WASAPI 수신·16 kHz 정규화, 반복 Start/Stop·활성 종�
 캡처 진단의 `live_asr=false`이며 자막/history를 생성하지 않습니다.
 [캡처 owner·상한·미검증 범위](docs/WORKER_CAPTURE.md)
 
+`scripts/probe-capture-startup.ps1 -Offline`은 모델·재생 없이 새 worker를
+출력 장치별로 시작해 지연·실패·종료를 비교합니다. `-DeviceId default -Rounds 10`으로
+기본 선택만 반복할 수 있습니다. [실행과 측정 한계](docs/CAPTURE_STARTUP_PROBE.md)
+
 `-Rounds 20`으로 시작/정지 반복 측정을 늘릴 수 있습니다. 시작 대기는 10초에
 실패로 기록되며 API 위치·초 단위 경과 시간을 남깁니다. native 종료 시간은
 별도로 확인해야 합니다. [시작 지연 관측](docs/evidence/T02-02c-windows-capture-startup.md)

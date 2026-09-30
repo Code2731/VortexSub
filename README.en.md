@@ -104,6 +104,11 @@ checks real WASAPI reception, 16 kHz normalization, repeated Start/Stop, and act
 shutdown. Capture diagnostics report `live_asr=false` and produce no captions or
 history. See [the owner contract and unverified scope](docs/WORKER_CAPTURE.md).
 
+`scripts/probe-capture-startup.ps1 -Offline` compares fresh-worker startup and
+cleanup across render endpoints without models or playback. Use
+`-DeviceId default -Rounds 10` for the default selection only.
+See [execution and measurement limits](docs/CAPTURE_STARTUP_PROBE.md).
+
 Use `-Rounds 20` for additional startup/stop measurements. Unready startup fails
 at 10 seconds with API phase and elapsed seconds recorded; native termination
 must be checked separately. See [startup observations](docs/evidence/T02-02c-windows-capture-startup.md).

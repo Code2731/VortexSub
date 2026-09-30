@@ -138,6 +138,12 @@ gates. All new timing outputs use seconds.
 
 ## Native worker ASR integration
 
+For startup isolation without inference or playback, run
+`scripts/probe-capture-startup.ps1 -Offline`. It compares fresh worker processes
+using default and pinned render endpoints, records failed cases and cleanup,
+and continues the matrix before returning failure. Reports and endpoint manifests
+remain ignored. See [startup probe scope](../docs/CAPTURE_STARTUP_PROBE.md).
+
 Run `scripts/probe-worker-asr.ps1 -Backend cpu -Offline` to build the optional
 native worker and exercise it through the C# IPC client. It uses existing Whisper
 base and local TTS fixtures, checks source history, silence/hash rejection,

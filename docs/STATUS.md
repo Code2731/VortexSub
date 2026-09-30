@@ -18,6 +18,7 @@
 | T02-01 | PARTIAL: T02-01a/b PASS (Windows CPU 파일 진단) | 실제 Whisper owner·파일 loader·ASR-only history·epoch 취소/재시작 연결. 실제 Silero 파일 probability/state reset 연결. partial·GPU worker·UI·Mac 미검증. [VAD](WORKER_VAD.md) [계약](WORKER_ASR.md) · [측정](evidence/T02-01a-windows-worker-asr.md) |
 | T02-02 | PARTIAL: T02-02a/b PASS (Windows CPU 진단) | WASAPI bounded PCM·QPC/sample 시작점·재시작 gap, 연속 Silero→Whisper final/history, Stop/취소·활성 shutdown/EOF 연결. pinned device polling. 제품 Pause·장치 전환/soak·Mac 미검증. [live 계약](WORKER_LIVE_ASR.md) · [측정](evidence/T02-02b-windows-live-asr.md) |
 | T02-02c | PARTIAL: 시작 실패 처리·관측 구현; 무음 시작 gate 미통과 | 10초 Opening timeout/첫 실패 phase 보존·bounded 관측, STA·shared/event-driven 인수 0 보정, whole-fixture 재생 및 실패 checkpoint 추가. 실제 Initialize 대기를 재현했으며 보정 뒤에도 EOF용 무음 새 worker 시작 실패가 남음. [추가 근거](evidence/T02-02c-windows-capture-startup.md) |
+| T02-02d | PARTIAL: 모델 없는 장치별 새 worker probe 구현·검증 | matrix 62회+PowerShell 5.1 기본 1회 중 정상 시작 62/Initialize timeout 1, 전부 정상 프로세스 종료·강제 종료 0. ASR/VAD 없이도 지연 재현, Failed 뒤 Ping/재시작 거부/정리 확인. 이후 반복 성공으로 시작 안정성 gate를 올리지 않음. [probe 계약](CAPTURE_STARTUP_PROBE.md) · [근거](evidence/T02-02d-windows-capture-startup.md) |
 | M2 | PARTIAL | CPU 실제 VAD 파일 분할·전사·제어/history 연결. WASAPI live final/history 진단 연결. 시작 안정성·화면 자막·제품 session·자연 음성 경계 수용 미통과. |
 | M3~M5 | NOT_STARTED | 해당 제품 통합/실기기 수용 결과 없음. |
 

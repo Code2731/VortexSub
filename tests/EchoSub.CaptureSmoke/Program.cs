@@ -19,6 +19,7 @@ catch (Exception error)
 
 static async Task Run(string[] args)
 {
+    if (args.FirstOrDefault() == "--startup") { await CaptureStartupSmoke.Run(args); return; }
     if (args.Length == 6) { await LiveAsrSmoke.Run(args); return; }
     if (args.Length is not (3 or 4) || !OperatingSystem.IsWindows()) throw new ArgumentException("worker WAV report [rounds] required on Windows");
     var rounds = args.Length == 4 ? int.Parse(args[3]) : 3;

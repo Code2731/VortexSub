@@ -25,6 +25,8 @@ Windows worker의 `--diagnostic-capture`는 파일 추론/mock 모드와 함께 
 
 ### 시작 대기와 진단 (T02-02c)
 
+T02-02d의 `scripts/probe-capture-startup.ps1 -Offline`은 모델/음원 없이 새 worker와 render 장치별 시작을 비교한다. [실행·정리 정책·해석](CAPTURE_STARTUP_PROBE.md)을 따른다. 모델 없는 경로에서도 timeout을 재현했으며, 반복 성공만으로 안정성 gate를 올리지 않는다.
+
 Opening이 Ready 없이 10초에 도달하면 worker poll에서 `CAPTURE_START_TIMEOUT`으로 Failed를 기록하고 Stop을 요청한다. `opening_elapsed_s`는 Opening 동안 증가하고 Running/Stop/Failed 전환 시 고정된다. `startup_deadline_s=10`은 진단 정책이며 native API 반환이나 join의 최대 시간을 보장하지 않는다. Failed 뒤에도 `awaiting_capture_join=true`이면 재시작할 수 없다. native 호출이 반환하지 않으면 소유 프로세스 종료가 필요하다.
 
 `failure_native_phase`는 처음 실패를 관측한 API 위치를 보존한다. `phase_observations`는 최대 16개 `{phase, observed_elapsed_s}`를 IPC poll에서 기록한다. 빠른 단계는 생략될 수 있어 개별 API의 정밀 실행 시간이 아니다. 모든 새 시간은 초다. 실제 API 실패 시 owner도 마지막 native phase를 유지한다. 첫 실패는 후속 VAD 오류/중복 Stop으로 덮어쓰지 않는다.
