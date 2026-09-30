@@ -1,0 +1,262 @@
+{
+  "task": "T00-04.1",
+  "date": "2026-09-30",
+  "status": "PARTIAL",
+  "os": "Windows 10.0.26200 x86_64",
+  "logical_cpu_count": 16,
+  "gpu": "RTX 3080 10240 MiB",
+  "driver": "617.14",
+  "fixture_manifest_sha256": "e2a606cf8dc419df501ca20af256e770ce574ae9a8ddda54b4048d676a472d3e",
+  "model_catalog_sha256": "43fb4f34dfc34c3892c74ff1bcf8810a82966972e948afc5a3ffa897153fcddb",
+  "asr": [
+    {
+      "report_path": "benchmarks/results/asr-cpu-20260930-064943/report.json",
+      "report_sha256": "d7151902eb2681f66401c3f91cce8a897fbc9b50acb72fa497b44a2b4d73bb5a",
+      "runtime": {
+        "binary_sha256": "f3cda05e75ebc37e33113735e9d5d3b967aacc7f28dcc37b08dc40fbf1009bb2",
+        "backend_requested": "cpu",
+        "threads": 8,
+        "fixture_manifest": "J:\\MyProject\\VortexSub\\benchmarks\\fixtures\\local-tts\\manifest.json",
+        "command": "asr benchmarks/fixtures/local-tts/manifest.json benchmarks/model-downloads.json J:\\MyProject\\VortexSub\\benchmarks\\results\\asr-cpu-20260930-064943\\report.json 8 cpu",
+        "started_utc": "2026-09-29T21:49:43.7459939Z"
+      },
+      "engine": "whisper-rs=0.14.4; whisper-rs-sys=0.13.1; bundled whisper.cpp=1.7.4",
+      "actual_backend_verified_by_native_log": "cpu",
+      "models": [
+        {
+          "id": "whisper-base",
+          "model_sha256": "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe",
+          "load_ms": 192.3144,
+          "warm_up_ms": 568.9100000000001,
+          "languages": [
+            {
+              "language": "en",
+              "count": 10,
+              "mean_decode_ms": 620.8271699999999,
+              "mean_rtf": 0.21735049918446614,
+              "pooled_edits": 2.0,
+              "reference_units": 72.0,
+              "pooled_error_rate": 0.027777777777777776
+            },
+            {
+              "language": "ko",
+              "count": 10,
+              "mean_decode_ms": 694.67226,
+              "mean_rtf": 0.2338081956037413,
+              "pooled_edits": 16.0,
+              "reference_units": 123.0,
+              "pooled_error_rate": 0.13008130081300814
+            }
+          ],
+          "process_cumulative_peak_working_set_bytes": 363008000.0,
+          "silence": [
+            {
+              "text": " [BLANK_AUDIO]",
+              "score": {
+                "edits": 1,
+                "error_rate": null,
+                "metric": "WER",
+                "reference_units": 0,
+                "unexpected_text": true
+              }
+            }
+          ]
+        },
+        {
+          "id": "whisper-small",
+          "model_sha256": "1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b",
+          "load_ms": 638.3801,
+          "warm_up_ms": 2340.622,
+          "languages": [
+            {
+              "language": "en",
+              "count": 10,
+              "mean_decode_ms": 2316.6783100000002,
+              "mean_rtf": 0.8197991465599708,
+              "pooled_edits": 2.0,
+              "reference_units": 72.0,
+              "pooled_error_rate": 0.027777777777777776
+            },
+            {
+              "language": "ko",
+              "count": 10,
+              "mean_decode_ms": 2378.6356,
+              "mean_rtf": 0.8012817721982655,
+              "pooled_edits": 14.0,
+              "reference_units": 123.0,
+              "pooled_error_rate": 0.11382113821138211
+            }
+          ],
+          "process_cumulative_peak_working_set_bytes": 822906880.0,
+          "silence": [
+            {
+              "text": " [BLANK_AUDIO]",
+              "score": {
+                "edits": 1,
+                "error_rate": null,
+                "metric": "WER",
+                "reference_units": 0,
+                "unexpected_text": true
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "report_path": "benchmarks/results/asr-cuda-20260930-065609/report.json",
+      "report_sha256": "57ed3957070fe75c11deec672c47ce8388f49e5531cc1da9956901084a2b2dab",
+      "runtime": {
+        "binary_sha256": "a0f2754ffbc775f07c0b11695faf42dbe11109598e29bd17cb8e3ced950e6bda",
+        "backend_requested": "cuda",
+        "threads": 8,
+        "fixture_manifest": "J:\\MyProject\\VortexSub\\benchmarks\\fixtures\\local-tts\\manifest.json",
+        "command": "asr benchmarks/fixtures/local-tts/manifest.json benchmarks/model-downloads.json J:\\MyProject\\VortexSub\\benchmarks\\results\\asr-cuda-20260930-065609\\report.json 8 cuda",
+        "started_utc": "2026-09-29T21:56:09.369037Z"
+      },
+      "engine": "whisper-rs=0.14.4; whisper-rs-sys=0.13.1; bundled whisper.cpp=1.7.4",
+      "actual_backend_verified_by_native_log": "cuda",
+      "models": [
+        {
+          "id": "whisper-base",
+          "model_sha256": "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe",
+          "load_ms": 352.2767,
+          "warm_up_ms": 108.32029999999999,
+          "languages": [
+            {
+              "language": "en",
+              "count": 10,
+              "mean_decode_ms": 45.50703,
+              "mean_rtf": 0.016086541095097204,
+              "pooled_edits": 2.0,
+              "reference_units": 72.0,
+              "pooled_error_rate": 0.027777777777777776
+            },
+            {
+              "language": "ko",
+              "count": 10,
+              "mean_decode_ms": 51.77544,
+              "mean_rtf": 0.01737326480438532,
+              "pooled_edits": 16.0,
+              "reference_units": 123.0,
+              "pooled_error_rate": 0.13008130081300814
+            }
+          ],
+          "process_cumulative_peak_working_set_bytes": 476565504.0,
+          "silence": [
+            {
+              "text": " [BLANK_AUDIO]",
+              "score": {
+                "edits": 1,
+                "error_rate": null,
+                "metric": "WER",
+                "reference_units": 0,
+                "unexpected_text": true
+              }
+            }
+          ]
+        },
+        {
+          "id": "whisper-small",
+          "model_sha256": "1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b",
+          "load_ms": 571.8871,
+          "warm_up_ms": 81.193,
+          "languages": [
+            {
+              "language": "en",
+              "count": 10,
+              "mean_decode_ms": 90.12521,
+              "mean_rtf": 0.031791211643647996,
+              "pooled_edits": 2.0,
+              "reference_units": 72.0,
+              "pooled_error_rate": 0.027777777777777776
+            },
+            {
+              "language": "ko",
+              "count": 10,
+              "mean_decode_ms": 99.95676,
+              "mean_rtf": 0.033573540070425345,
+              "pooled_edits": 14.0,
+              "reference_units": 123.0,
+              "pooled_error_rate": 0.11382113821138211
+            }
+          ],
+          "process_cumulative_peak_working_set_bytes": 542150656.0,
+          "silence": [
+            {
+              "text": " [BLANK_AUDIO]",
+              "score": {
+                "edits": 1,
+                "error_rate": null,
+                "metric": "WER",
+                "reference_units": 0,
+                "unexpected_text": true
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "cpu_cuda_transcript_differences": 0,
+  "translation": {
+    "report_path": "benchmarks/results/translation-local-20260930-065636/report.json",
+    "report_sha256": "e362d04a123cc39def089ed45f1a8746628f61d40dadd7dcbf0d416aac8a784d",
+    "fixture_sha256": "eab4cb74b784705ee212329d26ac7df5eae33cc709799a37bfff3d8f6a860314",
+    "count": 20,
+    "median_ms": 121.61765,
+    "p95_nearest_rank_ms": 147.6043,
+    "min_ms": 85.5172,
+    "max_ms": 291.075,
+    "runtime": {
+      "server_path": "C:\\Users\\USER\\AppData\\Local\\Microsoft\\WinGet\\Packages\\TabbyML.Tabby_Microsoft.Winget.Source_8wekyb3d8bbwe\\tabby_x86_64-windows-msvc-cuda124\\llama-server.exe",
+      "server_sha256": "8ef22515398d453b2e1e3557726e32a33c94f9df230272bfc439a74b709997c9",
+      "pid": 38728,
+      "model_id": "qwen3-4b-instruct-2507-q4_k_m",
+      "model_sha256": "3605803b982cb64aead44f6c1b2ae36e3acdb41d8e46c8a94c6533bc4c67e597",
+      "context_tokens": 4096,
+      "gpu_layers_requested": 99,
+      "actual_backend": "Inspect server-stderr.log; no automatic backend claim",
+      "process_ready_ms": 1950,
+      "process_peak_working_set_bytes": 3196334080,
+      "gpu_memory_snapshot_after": [
+        "15952, [N/A]",
+        "17372, [N/A]",
+        "15844, [N/A]",
+        "20472, [N/A]",
+        "4880, [N/A]",
+        "20980, [N/A]",
+        "19196, [N/A]",
+        "23684, [N/A]",
+        "12896, [N/A]",
+        "25784, [N/A]",
+        "22156, [N/A]",
+        "30324, [N/A]",
+        "33136, [N/A]",
+        "41304, [N/A]",
+        "20060, [N/A]",
+        "33040, [N/A]",
+        "17012, [N/A]",
+        "41240, [N/A]",
+        "64944, [N/A]",
+        "24620, [N/A]",
+        "102368, [N/A]",
+        "101712, [N/A]",
+        "38728, [N/A]"
+      ],
+      "gpu_peak_measured": false
+    },
+    "actual_backend_verified": "CUDA; 37/37 layers offloaded",
+    "repeat_output_differences": 0,
+    "quality_gate_passed": false,
+    "critical_semantic_error": "en-03: return condition changed to departure condition",
+    "review": "T00-04.1-translation-review.md"
+  },
+  "limits": [
+    "Synthetic speech only; ja audio absent",
+    "No natural/long/background speech quality evidence",
+    "Timings are not end-to-end subtitle latency",
+    "Process working-set peaks are cumulative; VRAM peak unmeasured",
+    "Mac, cancellation, concurrent ASR/translation and game coexistence untested"
+  ]
+}

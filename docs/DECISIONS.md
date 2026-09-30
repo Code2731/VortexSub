@@ -1,0 +1,17 @@
+# 구현 결정 기록
+
+| ID | 결정 | 근거·확인 범위 | 재검토 시점 |
+|---|---|---|---|
+| D-001 | Avalonia UI가 Rust worker 한 개를 자식 프로세스로 소유하며 stdin/stdout NDJSON으로 제어한다. | 설계 명세 03/05. T00-01 Windows 빌드 및 클라이언트↔worker 시험 확인. | Mac 프로세스/앱 번들 검증 T00-03 |
+| D-002 | `rust-toolchain.toml`에 Rust 1.90.0, `global.json`에 .NET SDK 10.0.102를 고정한다. Avalonia 12.0.1과 `serde_json` 1.0.151을 사용한다. | 설치된 Windows SDK와 로컬 패키지로 컴파일 확인. `Cargo.lock`과 `packages.lock.json`은 실제 복원 결과이며 검증 스크립트는 lock 모드를 사용한다. | Mac 빌드 및 native 통합 전 |
+| D-003 | 첫 worker는 `hello`/`ping`/`get_state`/`shutdown`만 처리하고 다른 명령은 `UNSUPPORTED_CAPABILITY`를 반환한다. | 설계 명세 05의 T00-01 범위. `implementation=mock`, `system_audio=false`를 반환한다. | 캡처 기능 구현 시 capability 변경 |
+| D-004 | 잘못된 JSON/필수 필드/길이는 `INVALID_REQUEST`, 버전 불일치는 `PROTOCOL_MISMATCH`로 응답한다. 식별 불가 메시지의 응답 ID는 null이다. | 명세에 없던 오류 구분을 IPC 구현·스키마와 함께 고정했다. | 프로토콜 v1 확장 시 |
+| D-005 | 검증/실행 스크립트에서 Avalonia 빌드 telemetry를 opt out하고 패키지 캐시를 저장소의 무시된 `.nuget/`에 둔다. | 현재 Windows sandbox의 허용 경로에서 패키지 복원과 빌드를 재현하기 위해 결정. 앱의 런타임 telemetry와는 별개다. | 일반 Windows/Mac 개발 환경 확인 시 |
+| D-006 | Windows 캡처는 WASAPI render endpoint의 shared loopback/event 방식으로 먼저 독립 probe에 구현한다. 기본 모드는 console 기본 장치를 250ms 간격으로 확인하고, 고정 ID 모드는 다른 장치로 넘어가지 않는다. 원본 PCM은 저장하지 않는다. | T00-02에서 실제 mix format, 패킷 위치, QPC, 플래그, 레벨을 직접 관측한다. polling은 M0 probe의 장치 감지 방식이며 UI/worker 통합 계약은 아직 아니다. | T02-02에서 알림 기반 장치 수명·버퍼 소유권·worker 연결 설계 시 |
+| D-007 | T00-04.3은 worker와 독립된 MOCK 자막 창으로 구현한다. Avalonia의 Topmost/Transparent/ShowActivated=false에 Windows 어댑터의 NOACTIVATE/TOOLWINDOW를 적용한다. 표시·숨김·폭/불투명도·위치 초기화는 메인 창에서 조작한다. | HWND 속성과 125% 배율에서의 렌더·크기/위치 변경을 확인했다. foreground HWND 0으로 실제 포커스 검증은 BLOCKED다. [Windows extended styles](https://learn.microsoft.com/en-us/windows/win32/winmsg/extended-window-styles), [Avalonia Window](https://docs.avaloniaui.net/controls/primitives/window). | T03-02의 실제 자막 연결과 Mac 창 어댑터·게임/입력 검증 시 |
+| D-008 | 독립 ASR adapter는 whisper-rs 0.14.4 / sys 0.13.1의 bundled whisper.cpp 1.7.4를 Cargo.lock checksum으로 고정한다. state/context를 한 소유 객체에 보관하고 `&mut`로 decode를 직렬화한다. Windows ABI 바인딩을 LLVM으로 생성한다. | CPU 모델 실행 확인. native upstream commit ID는 별도로 추정하지 않는다. CUDA는 Ninja/MSVC flags와 현재 GPU architecture를 명시한다. 기본 workspace feature는 native off다. | T00-04.2 취소·수명 probe 및 Mac Metal 실행 |
+| D-009 | Whisper base/small과 Qwen3-4B-Instruct-2507 Q4_K_M은 실행 후보로 유지하되 제품 채택을 보류한다. 모델 revision·hash·license는 catalogue에 둔다. | 사용자 동의 후 세 파일 검증. 합성 ASR 진단은 자연 발화 품질을 대신하지 않으며 번역 en-03에 중대 의미 오류가 있다. 프로세스 VRAM peak 미측정. Windows 동시 부하에서 base 건너뜀 0, small 전사 19개를 관측했다. | 자연/ja 음원 보완, T00-04.4, M2/M3 품질 재평가 |
+| D-010 | native 모델 작업은 일회성 원자적 token으로 협력 취소하고, owner에서 full 반환을 기다려 state/context를 해제한다. 실행 중 thread/context 강제 파괴는 사용하지 않는다. 무응답 시 프로세스 재시작을 복구 후보로 둔다. | T00-04.2 실제 취소·같은 context 복구·정상 종료·소유 자식 강제 종료 후 복구 측정. encoder/후반 시점별 결과를 구분하며 UI/캡처 Stop과 분리한다. binding 0.14.4의 safe abort helper 대신 수명이 명확한 raw callback을 사용한다. | M1/M2의 epoch·PCM/큐 소유권 통합, 동시 부하 중 취소 재측정과 Mac Metal |
+| D-011 | M2 첫 통합은 base를 성능 후보로 유지하고 partial off부터 연결한다. small+Qwen의 4 Hz 요청 조합을 여유 있는 기본값으로 채택하지 않는다. | T00-04.4에서 base 동시 각 1208회 완료·건너뜀 0, small 전사 19개 건너뜀. 품질 채택은 여전히 보류한다. probe의 건너뜀을 실제 PCM/final 자막 폐기로 옮기지 않는다. | M1 유한 큐, M2 2 Hz partial 비교, M3 final 우선 번역, M5 게임/VRAM/장기 부하와 Mac |
+
+Mac 캡처 권한과 배포 결정은 아직 없다. 실측 또는 해당 플랫폼 실행 결과가 나오면 별도 행으로 기록한다.

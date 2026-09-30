@@ -1,0 +1,83 @@
+# EchoSub 제안 설정 스키마 v1. 아직 앱 구현은 없으며 모델 경로/ID는 비어 있다.
+# translation.enabled=false이므로 번역 서버 없이 설정을 구성할 수 있다.
+# 모델이 없으면 Start는 MODEL_NOT_INSTALLED를 반환하도록 구현한다.
+schema_version = 1
+mode = "transcribe"
+source_language = "ja"
+target_language = "ko"
+profile = "balanced"
+
+[capture]
+backend = "auto"              # Windows: wasapi / macOS: screencapturekit
+scope = "system"
+follow_default_device = true  # Windows에서만 적용. Mac은 capability로 숨김.
+device_id = ""
+queue_capacity_ms = 2000
+backlog_reset_ms = 1000
+
+[audio]
+normalized_sample_rate = 16000
+normalized_channels = 1
+rolling_buffer_ms = 12000
+
+[vad]
+backend = "silero_onnx_cpu"
+model_path = ""
+threshold = 0.5
+frame_samples = 512
+minimum_speech_ms = 160
+pre_roll_ms = 300
+post_roll_ms = 200
+end_silence_ms = 480
+maximum_utterance_ms = 8000
+split_overlap_ms = 600
+
+[asr]
+backend = "whisper_cpp"
+model_path = ""
+model_sha256 = ""
+acceleration = "auto"         # 활성 backend를 실제 상태로 UI에 표시
+threads = 4                  # 초기 후보. 실제 장치에서 측정 후 조정
+partial_enabled = true
+partial_interval_ms = 1000
+minimum_decode_audio_ms = 800
+maximum_pending_finals = 2
+
+[translation]
+enabled = false
+provider_id = "external_local"
+base_url = "http://127.0.0.1:1234/v1"  # LM Studio 문서의 예시 포트; 고정 요구 아님
+model_id = ""                         # GET /v1/models로 선택
+secret_ref = ""                       # raw API key 저장 금지
+final_only = true
+maximum_concurrency = 1
+maximum_pending = 2
+context_segments = 2
+context_characters = 600
+maximum_input_characters = 2000
+connect_timeout_ms = 2000
+segment_deadline_ms = 8000
+maximum_retries = 1
+temperature = 0.2
+maximum_output_tokens = 256
+
+[privacy]
+inference_network = "loopback_only"
+store_audio = false
+autosave_transcript = false
+log_transcript = false
+telemetry_enabled = false
+
+[overlay]
+enabled = true
+show_source = true
+show_translation = true
+font_size_dip = 26
+background_opacity = 0.65
+visible_segment_count = 2
+linger_ms = 5000
+click_through = false          # P0B 기능. 지원 여부를 확인한 뒤 켜기
+
+[history]
+maximum_segments = 1000
+

@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "note": "Project-authored texts for local Windows TTS diagnostics, not natural-speech quality evaluation.",
+  "texts": [
+    {"id":"en-01","language":"en","text":"We should take the left path."},
+    {"id":"en-02","language":"en","text":"There are three enemies near the gate."},
+    {"id":"en-03","language":"en","text":"Do not open the door until I return."},
+    {"id":"en-04","language":"en","text":"I need two more healing potions."},
+    {"id":"en-05","language":"en","text":"The bridge will collapse in ten seconds."},
+    {"id":"en-06","language":"en","text":"We cannot win this fight without your help."},
+    {"id":"en-07","language":"en","text":"Meet me at the old station after sunset."},
+    {"id":"en-08","language":"en","text":"No, no, that is not what I meant."},
+    {"id":"en-09","language":"en","text":"Turn off the engine and stay inside."},
+    {"id":"en-10","language":"en","text":"Your shield has only fifteen points left."},
+    {"id":"ko-01","language":"ko","text":"왼쪽 길로 가는 게 좋겠어."},
+    {"id":"ko-02","language":"ko","text":"문 근처에 적이 세 명 있어."},
+    {"id":"ko-03","language":"ko","text":"내가 돌아올 때까지 문을 열지 마."},
+    {"id":"ko-04","language":"ko","text":"회복 물약이 두 개 더 필요해."},
+    {"id":"ko-05","language":"ko","text":"다리가 십 초 뒤에 무너질 거야."},
+    {"id":"ko-06","language":"ko","text":"네 도움이 없으면 이 싸움에서 이길 수 없어."},
+    {"id":"ko-07","language":"ko","text":"해가 지면 오래된 역에서 만나자."},
+    {"id":"ko-08","language":"ko","text":"아니 아니, 내가 말한 건 그게 아니야."},
+    {"id":"ko-09","language":"ko","text":"엔진을 끄고 안에 있어."},
+    {"id":"ko-10","language":"ko","text":"방패가 버틸 수 있는 수치는 십오야."}
+  ]
+}

@@ -1,0 +1,21 @@
+[package]
+name = "echosub-model-probe"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+
+[features]
+default = []
+native = ["echosub-asr-whisper/native"]
+cuda = ["native", "echosub-asr-whisper/cuda"]
+metal = ["native", "echosub-asr-whisper/metal"]
+
+[dependencies]
+echosub-asr-whisper = { path = "../asr-whisper" }
+serde = { version = "=1.0.228", features = ["derive"] }
+serde_json = "=1.0.151"
+sha2 = "=0.10.9"
+hound = "=3.5.1"
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "=0.62.2", features = ["Win32_Foundation", "Win32_System_Threading", "Win32_System_ProcessStatus"] }

@@ -1,0 +1,407 @@
+{
+  "schema_version": 1,
+  "task": "T00-04.2",
+  "date": "2026-09-30",
+  "windows_scope": "PASS_PROBE_SCOPE",
+  "macos_scope": "BLOCKED: no device",
+  "time_unit": "seconds",
+  "environment": {
+    "os": "Windows build 26200 x86_64",
+    "logical_cpu_count": 16,
+    "gpu": "RTX 3080 10240 MiB",
+    "driver": "617.14",
+    "rust": "1.90.0",
+    "binding": "whisper-rs 0.14.4 / sys 0.13.1 / whisper.cpp 1.7.4"
+  },
+  "counts": {
+    "cancel_restart": 80,
+    "normal_shutdown": 40,
+    "forced_shutdown_and_fresh_process": 40
+  },
+  "runs": [
+    {
+      "path": "benchmarks/results/cancellation-cpu-20260930-072617/report.json",
+      "report_sha256": "efbadb4aa4436ecc75b7e47d0549cccca60179a0d7ff2300d208ebbbccc0e5e0",
+      "runtime": {
+        "binary_sha256": "375881240c733d2bf2a3477adf06ff2b00204dc986e48d55cffc6c35061213b9",
+        "backend_requested": "cpu",
+        "threads": 8,
+        "iterations": 10,
+        "fixture_manifest": "J:\\MyProject\\VortexSub\\benchmarks\\fixtures\\local-tts\\manifest.json",
+        "started_utc": "2026-09-29T22:26:17.2154576Z",
+        "command": "cancel benchmarks/fixtures/local-tts/manifest.json benchmarks/model-downloads.json J:\\MyProject\\VortexSub\\benchmarks\\results\\cancellation-cpu-20260930-072617\\report.json 8 cpu 10"
+      },
+      "actual_backend_verified_from_parent_and_child_logs": "cpu",
+      "models": [
+        {
+          "model_id": "whisper-base",
+          "model_sha256": "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe",
+          "fixture_id": "en-01",
+          "fixture_sha256": "ff403e1d85e04e892794094dc32c6ec03524899db25f3a6c6eab23c83b1e9062",
+          "stress_audio_s": 120.0,
+          "phases": [
+            {
+              "phase": "encoder_started",
+              "cancel_to_return": {
+                "count": 10,
+                "min_s": 0.5239108,
+                "median_s": 0.6240844999999999,
+                "p95_nearest_rank_s": 0.6522797,
+                "max_s": 0.6522797
+              },
+              "cancel_to_next_start": {
+                "count": 10,
+                "min_s": 0.523917,
+                "median_s": 0.62409055,
+                "p95_nearest_rank_s": 0.6522862,
+                "max_s": 0.6522862
+              },
+              "recovery_decode": {
+                "count": 10,
+                "min_s": 0.5426502,
+                "median_s": 0.6836911999999999,
+                "p95_nearest_rank_s": 0.7117854,
+                "max_s": 0.7117854
+              },
+              "enqueue_completed_before_return_count": 10
+            },
+            {
+              "phase": "native_abort_check",
+              "cancel_to_return": {
+                "count": 10,
+                "min_s": 0.0027133,
+                "median_s": 0.0030121999999999996,
+                "p95_nearest_rank_s": 0.0039568,
+                "max_s": 0.0039568
+              },
+              "cancel_to_next_start": {
+                "count": 10,
+                "min_s": 0.0027195,
+                "median_s": 0.0030184499999999998,
+                "p95_nearest_rank_s": 0.0039629,
+                "max_s": 0.0039629
+              },
+              "recovery_decode": {
+                "count": 10,
+                "min_s": 0.6545114,
+                "median_s": 0.6854023499999999,
+                "p95_nearest_rank_s": 0.702951,
+                "max_s": 0.702951
+              },
+              "enqueue_completed_before_return_count": 10
+            }
+          ],
+          "normal_shutdown_to_release": {
+            "count": 10,
+            "min_s": 0.6377661,
+            "median_s": 0.6530867,
+            "p95_nearest_rank_s": 0.6788226,
+            "max_s": 0.6788226
+          },
+          "forced_termination_to_exit": {
+            "count": 10,
+            "min_s": 0.0146523,
+            "median_s": 0.01760535,
+            "p95_nearest_rank_s": 0.0235514,
+            "max_s": 0.0235514
+          },
+          "fresh_process_recovery": {
+            "count": 10,
+            "min_s": 1.2231196,
+            "median_s": 1.2659257,
+            "p95_nearest_rank_s": 1.3194526,
+            "max_s": 1.3194526
+          },
+          "used_token_rejected": true,
+          "pre_cancel_native_checks": 0,
+          "recovery_text_matched": true,
+          "decode_overlap": false
+        },
+        {
+          "model_id": "whisper-small",
+          "model_sha256": "1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b",
+          "fixture_id": "en-01",
+          "fixture_sha256": "ff403e1d85e04e892794094dc32c6ec03524899db25f3a6c6eab23c83b1e9062",
+          "stress_audio_s": 120.0,
+          "phases": [
+            {
+              "phase": "encoder_started",
+              "cancel_to_return": {
+                "count": 10,
+                "min_s": 2.1707809,
+                "median_s": 2.2143588000000003,
+                "p95_nearest_rank_s": 2.2545692,
+                "max_s": 2.2545692
+              },
+              "cancel_to_next_start": {
+                "count": 10,
+                "min_s": 2.1707879,
+                "median_s": 2.2143652,
+                "p95_nearest_rank_s": 2.2545761,
+                "max_s": 2.2545761
+              },
+              "recovery_decode": {
+                "count": 10,
+                "min_s": 2.2947537000000002,
+                "median_s": 2.320545,
+                "p95_nearest_rank_s": 2.3509857,
+                "max_s": 2.3509857
+              },
+              "enqueue_completed_before_return_count": 10
+            },
+            {
+              "phase": "native_abort_check",
+              "cancel_to_return": {
+                "count": 10,
+                "min_s": 0.0100596,
+                "median_s": 0.0106912,
+                "p95_nearest_rank_s": 0.011794,
+                "max_s": 0.011794
+              },
+              "cancel_to_next_start": {
+                "count": 10,
+                "min_s": 0.0100667,
+                "median_s": 0.0106983,
+                "p95_nearest_rank_s": 0.0118017,
+                "max_s": 0.0118017
+              },
+              "recovery_decode": {
+                "count": 10,
+                "min_s": 2.3199254,
+                "median_s": 2.3467645499999996,
+                "p95_nearest_rank_s": 2.3757975,
+                "max_s": 2.3757975
+              },
+              "enqueue_completed_before_return_count": 10
+            }
+          ],
+          "normal_shutdown_to_release": {
+            "count": 10,
+            "min_s": 2.2183305,
+            "median_s": 2.27102695,
+            "p95_nearest_rank_s": 2.305487,
+            "max_s": 2.305487
+          },
+          "forced_termination_to_exit": {
+            "count": 10,
+            "min_s": 0.0272278,
+            "median_s": 0.03637365,
+            "p95_nearest_rank_s": 0.0644357,
+            "max_s": 0.0644357
+          },
+          "fresh_process_recovery": {
+            "count": 10,
+            "min_s": 2.8443673,
+            "median_s": 2.90056535,
+            "p95_nearest_rank_s": 3.0350739,
+            "max_s": 3.0350739
+          },
+          "used_token_rejected": true,
+          "pre_cancel_native_checks": 0,
+          "recovery_text_matched": true,
+          "decode_overlap": false
+        }
+      ]
+    },
+    {
+      "path": "benchmarks/results/cancellation-cuda-20260930-072350/report.json",
+      "report_sha256": "2c7069e6f6eb4d8847e89a7583b24c40c94fd2d271fb8445a97464c7dd0112af",
+      "runtime": {
+        "binary_sha256": "582cf7197d0e1f334233723ed2a1cd39932b5a371eeaa39d5189fa035ac80221",
+        "backend_requested": "cuda",
+        "threads": 8,
+        "iterations": 10,
+        "fixture_manifest": "J:\\MyProject\\VortexSub\\benchmarks\\fixtures\\local-tts\\manifest.json",
+        "started_utc": "2026-09-29T22:23:50.2722743Z",
+        "command": "cancel benchmarks/fixtures/local-tts/manifest.json benchmarks/model-downloads.json J:\\MyProject\\VortexSub\\benchmarks\\results\\cancellation-cuda-20260930-072350\\report.json 8 cuda 10"
+      },
+      "actual_backend_verified_from_parent_and_child_logs": "cuda",
+      "models": [
+        {
+          "model_id": "whisper-base",
+          "model_sha256": "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe",
+          "fixture_id": "en-01",
+          "fixture_sha256": "ff403e1d85e04e892794094dc32c6ec03524899db25f3a6c6eab23c83b1e9062",
+          "stress_audio_s": 120.0,
+          "phases": [
+            {
+              "phase": "encoder_started",
+              "cancel_to_return": {
+                "count": 10,
+                "min_s": 0.0075947,
+                "median_s": 0.0082054,
+                "p95_nearest_rank_s": 0.009897,
+                "max_s": 0.009897
+              },
+              "cancel_to_next_start": {
+                "count": 10,
+                "min_s": 0.0075986,
+                "median_s": 0.008209399999999999,
+                "p95_nearest_rank_s": 0.0099029,
+                "max_s": 0.0099029
+              },
+              "recovery_decode": {
+                "count": 10,
+                "min_s": 0.0375661,
+                "median_s": 0.0439225,
+                "p95_nearest_rank_s": 0.0605813,
+                "max_s": 0.0605813
+              },
+              "enqueue_completed_before_return_count": 10
+            },
+            {
+              "phase": "native_abort_check",
+              "cancel_to_return": {
+                "count": 10,
+                "min_s": 0.0003887,
+                "median_s": 0.0013862,
+                "p95_nearest_rank_s": 0.0060495,
+                "max_s": 0.0060495
+              },
+              "cancel_to_next_start": {
+                "count": 10,
+                "min_s": 0.0003933,
+                "median_s": 0.00139035,
+                "p95_nearest_rank_s": 0.0060534,
+                "max_s": 0.0060534
+              },
+              "recovery_decode": {
+                "count": 10,
+                "min_s": 0.0373364,
+                "median_s": 0.03879445,
+                "p95_nearest_rank_s": 0.0440106,
+                "max_s": 0.0440106
+              },
+              "enqueue_completed_before_return_count": 10
+            }
+          ],
+          "normal_shutdown_to_release": {
+            "count": 10,
+            "min_s": 0.0187699,
+            "median_s": 0.0205673,
+            "p95_nearest_rank_s": 0.0246477,
+            "max_s": 0.0246477
+          },
+          "forced_termination_to_exit": {
+            "count": 10,
+            "min_s": 0.0387491,
+            "median_s": 0.041842199999999996,
+            "p95_nearest_rank_s": 0.057674,
+            "max_s": 0.057674
+          },
+          "fresh_process_recovery": {
+            "count": 10,
+            "min_s": 1.0106965,
+            "median_s": 1.07589065,
+            "p95_nearest_rank_s": 1.1365725,
+            "max_s": 1.1365725
+          },
+          "used_token_rejected": true,
+          "pre_cancel_native_checks": 0,
+          "recovery_text_matched": true,
+          "decode_overlap": false
+        },
+        {
+          "model_id": "whisper-small",
+          "model_sha256": "1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b",
+          "fixture_id": "en-01",
+          "fixture_sha256": "ff403e1d85e04e892794094dc32c6ec03524899db25f3a6c6eab23c83b1e9062",
+          "stress_audio_s": 120.0,
+          "phases": [
+            {
+              "phase": "encoder_started",
+              "cancel_to_return": {
+                "count": 10,
+                "min_s": 0.0286792,
+                "median_s": 0.02938035,
+                "p95_nearest_rank_s": 0.030814,
+                "max_s": 0.030814
+              },
+              "cancel_to_next_start": {
+                "count": 10,
+                "min_s": 0.0286871,
+                "median_s": 0.02938735,
+                "p95_nearest_rank_s": 0.0308211,
+                "max_s": 0.0308211
+              },
+              "recovery_decode": {
+                "count": 10,
+                "min_s": 0.0770124,
+                "median_s": 0.0849972,
+                "p95_nearest_rank_s": 0.0924716,
+                "max_s": 0.0924716
+              },
+              "enqueue_completed_before_return_count": 10
+            },
+            {
+              "phase": "native_abort_check",
+              "cancel_to_return": {
+                "count": 10,
+                "min_s": 0.0027629,
+                "median_s": 0.0034565,
+                "p95_nearest_rank_s": 0.0038967,
+                "max_s": 0.0038967
+              },
+              "cancel_to_next_start": {
+                "count": 10,
+                "min_s": 0.0027686,
+                "median_s": 0.00346175,
+                "p95_nearest_rank_s": 0.0039025,
+                "max_s": 0.0039025
+              },
+              "recovery_decode": {
+                "count": 10,
+                "min_s": 0.0759456,
+                "median_s": 0.07723374999999999,
+                "p95_nearest_rank_s": 0.0815491,
+                "max_s": 0.0815491
+              },
+              "enqueue_completed_before_return_count": 10
+            }
+          ],
+          "normal_shutdown_to_release": {
+            "count": 10,
+            "min_s": 0.0438589,
+            "median_s": 0.04525075,
+            "p95_nearest_rank_s": 0.0465734,
+            "max_s": 0.0465734
+          },
+          "forced_termination_to_exit": {
+            "count": 10,
+            "min_s": 0.0406879,
+            "median_s": 0.0444653,
+            "p95_nearest_rank_s": 0.047313,
+            "max_s": 0.047313
+          },
+          "fresh_process_recovery": {
+            "count": 10,
+            "min_s": 1.4196072,
+            "median_s": 1.46831125,
+            "p95_nearest_rank_s": 1.5087264,
+            "max_s": 1.5087264
+          },
+          "used_token_rejected": true,
+          "pre_cancel_native_checks": 0,
+          "recovery_text_matched": true,
+          "decode_overlap": false
+        }
+      ]
+    }
+  ],
+  "policy": "Cooperative cancel; owner waits for native return before reuse/release; isolate capture/UI control and invalidate epoch during integration; process restart reserved for abnormal recovery",
+  "additional_checks": [
+    "check.ps1 PASS: Rust fmt/tests 9/workspace, UI, translation, C#-Rust smoke",
+    "CPU/GPU ordinary ASR spotchecks; new duration and segment coordinate fields in seconds",
+    "Stale child evidence rejected before spawning; final harness also checks readiness PID and active snapshot",
+    "Child paths use fresh run directories and cannot be reused"
+  ],
+  "post_measurement_guard_binary_sha256": "f896f88f6635b4a9ee7b72b81ae36ca5e191c795e849c26c9bbbf687dece56dc",
+  "stale_evidence_rejection_report": "benchmarks/results/cancellation-stale-check-fed297a22c4542b4896e3a673d389e09/report.json",
+  "limits": [
+    "Synthetic repeated English stress input",
+    "Encoder-begin and later abort-check phases only; pre-encoder spectrogram not separately instrumented",
+    "Small samples are not a guaranteed abort deadline",
+    "Marker absence is not an instruction-level termination trace",
+    "Capture Stop, IPC epoch/UI, Mac, concurrent inference/game and soak remain untested"
+  ]
+}

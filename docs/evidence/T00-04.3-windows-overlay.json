@@ -1,0 +1,93 @@
+{
+  "task": "T00-04.3",
+  "os": "Microsoft Windows NT 10.0.26200.0",
+  "framework": "Avalonia 12.0.1",
+  "mock": true,
+  "foreground_before": "0x0",
+  "foreground_after_show": "0x0",
+  "foreground_after_reshow": "0x0",
+  "focus_preserved": null,
+  "focus_result": "BLOCKED: foreground HWND unavailable in this session/platform",
+  "native_properties_result": "PASS",
+  "geometry_visibility_transparency_result": "PASS",
+  "shown": {
+    "visible": true,
+    "width": 760,
+    "height": 189.6,
+    "x": 805,
+    "y": 1102,
+    "scale": 1.25,
+    "transparency": "Transparent",
+    "native": {
+      "Available": true,
+      "Visible": true,
+      "Topmost": true,
+      "NoActivate": true,
+      "ToolWindow": true,
+      "Hwnd": "0xF09B6",
+      "ExtendedStyle": "0x8200088"
+    }
+  },
+  "adjusted": {
+    "visible": true,
+    "width": 620,
+    "height": 220,
+    "x": 829,
+    "y": 1078,
+    "scale": 1.25,
+    "transparency": "Transparent",
+    "native": {
+      "Available": true,
+      "Visible": true,
+      "Topmost": true,
+      "NoActivate": true,
+      "ToolWindow": true,
+      "Hwnd": "0xF09B6",
+      "ExtendedStyle": "0x8200088"
+    }
+  },
+  "hidden": {
+    "visible": false,
+    "width": 620,
+    "height": 220,
+    "x": 829,
+    "y": 1078,
+    "scale": 1.25,
+    "transparency": "Transparent",
+    "native": {
+      "Available": true,
+      "Visible": false,
+      "Topmost": true,
+      "NoActivate": true,
+      "ToolWindow": true,
+      "Hwnd": "0xF09B6",
+      "ExtendedStyle": "0x8200088"
+    }
+  },
+  "reshown": {
+    "visible": true,
+    "width": 620,
+    "height": 220,
+    "x": 829,
+    "y": 1078,
+    "scale": 1.25,
+    "transparency": "Transparent",
+    "native": {
+      "Available": true,
+      "Visible": true,
+      "Topmost": true,
+      "NoActivate": true,
+      "ToolWindow": true,
+      "Hwnd": "0xF09B6",
+      "ExtendedStyle": "0x8200088"
+    }
+  },
+  "rendered_frame": "J:\\MyProject\\VortexSub\\docs\\evidence\\T00-04.3-windows-overlay.png",
+  "unverified": [
+    "physical drag/resize",
+    "borderless game composition",
+    "other-app typing/mouse interaction",
+    "multi-monitor/DPI changes",
+    "macOS Spaces"
+  ]
+}

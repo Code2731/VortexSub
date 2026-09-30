@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "source": "Project-authored diagnostic examples; manual review required; not a representative translation benchmark.",
+  "cases": [
+    {"id":"en-01","language":"en","source":"We should take the left path.","reference":"왼쪽 길로 가는 게 좋겠어."},
+    {"id":"en-02","language":"en","source":"There are three enemies near the gate.","reference":"문 근처에 적이 세 명 있어."},
+    {"id":"en-03","language":"en","source":"Do not open the door until I return.","reference":"내가 돌아올 때까지 문을 열지 마."},
+    {"id":"en-04","language":"en","source":"I need two more healing potions.","reference":"회복 물약이 두 개 더 필요해."},
+    {"id":"en-05","language":"en","source":"The bridge will collapse in ten seconds.","reference":"다리가 십 초 뒤에 무너질 거야."},
+    {"id":"en-06","language":"en","source":"We cannot win this fight without your help.","reference":"네 도움이 없으면 이 싸움에서 이길 수 없어."},
+    {"id":"en-07","language":"en","source":"Meet me at the old station after sunset.","reference":"해가 지면 오래된 역에서 만나자."},
+    {"id":"en-08","language":"en","source":"No, no, that is not what I meant.","reference":"아니 아니, 내가 말한 건 그게 아니야."},
+    {"id":"en-09","language":"en","source":"Turn off the engine and stay inside.","reference":"엔진을 끄고 안에 있어."},
+    {"id":"en-10","language":"en","source":"Your shield has only fifteen points left.","reference":"방패 내구도가 십오밖에 남지 않았어."},
+    {"id":"ja-01","language":"ja","source":"左の道へ進もう。","reference":"왼쪽 길로 가자."},
+    {"id":"ja-02","language":"ja","source":"門の近くに敵が三人いる。","reference":"문 근처에 적이 세 명 있어."},
+    {"id":"ja-03","language":"ja","source":"戻るまでドアを開けないで。","reference":"돌아올 때까지 문을 열지 마."},
+    {"id":"ja-04","language":"ja","source":"回復薬があと二つ必要だ。","reference":"회복약이 두 개 더 필요해."},
+    {"id":"ja-05","language":"ja","source":"十秒後に橋が崩れる。","reference":"십 초 뒤에 다리가 무너져."},
+    {"id":"ja-06","language":"ja","source":"君の助けなしでは勝てない。","reference":"네 도움이 없으면 이길 수 없어."},
+    {"id":"ja-07","language":"ja","source":"日が沈んだら古い駅で会おう。","reference":"해가 지면 오래된 역에서 만나자."},
+    {"id":"ja-08","language":"ja","source":"違う、違う、そういう意味じゃない。","reference":"아니 아니, 그런 뜻이 아니야."},
+    {"id":"ja-09","language":"ja","source":"エンジンを止めて中にいて。","reference":"엔진을 끄고 안에 있어."},
+    {"id":"ja-10","language":"ja","source":"盾の耐久値は残り十五だ。","reference":"방패 내구도는 십오가 남았어."}
+  ]
+}

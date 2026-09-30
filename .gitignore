@@ -1,0 +1,13 @@
+/target/
+/.nuget/
+**/bin/
+**/obj/
+.vs/
+.idea/
+.DS_Store
+*.user
+/models/
+/logs/
+/benchmarks/fixtures/local-tts/
+/benchmarks/results/
+

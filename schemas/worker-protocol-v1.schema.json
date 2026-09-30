@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://echosub.local/schemas/worker-protocol-v1.schema.json",
+  "title": "EchoSub worker NDJSON message v1",
+  "oneOf": [
+    { "$ref": "#/$defs/command" },
+    { "$ref": "#/$defs/response" }
+  ],
+  "$defs": {
+    "command": {
+      "type": "object",
+      "required": ["v", "kind", "request_id", "method", "params"],
+      "properties": {
+        "v": { "const": 1 },
+        "kind": { "const": "command" },
+        "request_id": { "type": "string", "minLength": 1, "maxLength": 128, "description": "The worker also limits this value to 128 UTF-8 bytes." },
+        "method": { "type": "string", "minLength": 1 },
+        "params": { "type": "object" }
+      },
+      "additionalProperties": true
+    },
+    "response": {
+      "type": "object",
+      "required": ["v", "kind", "request_id", "ok"],
+      "properties": {
+        "v": { "const": 1 },
+        "kind": { "const": "response" },
+        "request_id": { "type": ["string", "null"] },
+        "ok": { "type": "boolean" },
+        "result": { "type": "object" },
+        "error": {
+          "type": "object",
+          "required": ["code", "message"],
+          "properties": {
+            "code": { "type": "string" },
+            "message": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "oneOf": [
+        { "properties": { "ok": { "const": true } }, "required": ["result"] },
+        { "properties": { "ok": { "const": false } }, "required": ["error"] }
+      ],
+      "additionalProperties": false
+    }
+  }
+}
