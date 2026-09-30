@@ -36,4 +36,4 @@ shutdown/EOF/프로토콜 오류는 취소 후 loader/native를 join한다. stdo
 
 [Windows 측정](evidence/T02-01a-windows-worker-asr.md)은 합성 en/ko 각 10개, digital silence, 파일/모델 해시 오류, 실제 native running 관측 뒤 10회 epoch 취소·재시작, 추론 중 정상 shutdown을 확인한다. 취소 반환 전에 새 epoch WAV를 제출하고 같은 context의 재전사가 기준 원문과 일치하는지 확인한다. ping을 모델 로딩·추론 중 반복한다.
 
-다음 T02-01b는 고정 Silero ONNX/model/runtime·라이선스와 다운로드 범위를 확정하고 동의를 받은 뒤 실제 VAD probability/state reset을 연결한다. T02-02에서 WASAPI callback 큐·device/clock·capture 수명을 통합한다. 파일 진단의 빠른 제어 응답을 실제 게임 자막 지연으로 해석하지 않는다.
+T02-01b에서 동의받은 고정 Silero 모델·ONNX runtime을 별도 opt-in [VAD 파일 경로](WORKER_VAD.md)에 연결했다. 위 T02-01a 단독 경로는 여전히 VAD=false다. 다음 T02-02에서 WASAPI callback 큐·device/clock·capture 수명을 통합한다. 파일 진단의 빠른 제어 응답을 실제 게임 자막 지연으로 해석하지 않는다.

@@ -184,3 +184,5 @@ T01-02b/T02-01a의 진단 worker는 숫자 u64 session/epoch/segment ID, `event`
 
 `native-asr-fixture` implementation과 선택적 `transcribe_fixture`/`reset_fixture_epoch`, source.final/history의 실제 원문, VAD·번역 미지원 범위는 [worker ASR](WORKER_ASR.md)을 따른다. 제품 통합 전에 진단 command/ID namespace와 UI의 session 계약을 명시적으로 정리한다.
 
+T02-01b의 추가 `--diagnostic-vad` 모드는 별도 fixture_id와 실제 segment_id 목록을 `fixture.segmented`로 전달한다. segment final/history identity는 그대로다. VAD 모델·DLL hash 오류는 fixture.failed로 종료하며 ASR을 요청하지 않는다. [VAD wire/수명 계약](WORKER_VAD.md)을 따른다.
+

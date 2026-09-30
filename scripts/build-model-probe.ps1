@@ -1,7 +1,8 @@
 param(
     [ValidateSet('cpu', 'cuda')] [string] $Backend = 'cpu',
     [switch] $Offline,
-    [ValidateSet('echosub-model-probe', 'echosub-worker')] [string] $Package = 'echosub-model-probe'
+    [ValidateSet('echosub-model-probe', 'echosub-worker')] [string] $Package = 'echosub-model-probe',
+    [switch] $Vad
 )
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
@@ -51,6 +52,10 @@ try {
     }
     $arguments = @('build', '-p', $Package, '--release', '--locked', '--features')
     if ($Backend -eq 'cuda') { $arguments += 'cuda' } elseif ($Package -eq 'echosub-worker') { $arguments += 'native-asr' } else { $arguments += 'native' }
+    if ($Vad) {
+        if ($Package -ne 'echosub-worker') { throw '-Vad requires echosub-worker package' }
+        $arguments[$arguments.Count - 1] += ',native-vad'
+    }
     if ($Offline -or $env:ECHOSUB_OFFLINE -eq '1') { $arguments += '--offline' }
     $arguments += @('--target-dir', $targetRoot)
     & cargo @arguments

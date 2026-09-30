@@ -19,6 +19,20 @@ pub struct ModelConfig {
     pub hash: String,
     pub gpu: bool,
     pub threads: i32,
+    pub vad: Option<VadConfig>,
+}
+#[cfg_attr(not(feature = "native-vad"), allow(dead_code))]
+pub struct VadConfig {
+    pub model: String,
+    pub model_hash: String,
+    pub runtime: String,
+    pub runtime_hash: String,
+}
+pub struct LoadedPcm {
+    pub pcm: Vec<f32>,
+    pub ranges: Option<Vec<echosub_audio_core::SampleRange>>,
+    pub vad_calls: u64,
+    pub vad_s: f64,
 }
 pub struct Input {
     pub id: SegmentIdentity,
@@ -29,7 +43,7 @@ pub struct Input {
 pub struct LoadedInput {
     pub id: SegmentIdentity,
     pub language: String,
-    pub result: Result<Vec<f32>, &'static str>,
+    pub result: Result<LoadedPcm, &'static str>,
 }
 pub struct Decode {
     pub job: AsrJob,
@@ -58,6 +72,9 @@ pub struct NativeOwner {
 }
 pub fn config_from_args(args: &[String]) -> Result<Option<ModelConfig>, &'static str> {
     if !args.iter().any(|s| s == "--diagnostic-asr") {
+        if args.iter().any(|s| s == "--diagnostic-vad") {
+            return Err("VAD requires diagnostic ASR");
+        }
         return Ok(None);
     }
     if !cfg!(feature = "native-asr") {
@@ -89,11 +106,36 @@ pub fn config_from_args(args: &[String]) -> Result<Option<ModelConfig>, &'static
         "cuda" if cfg!(feature = "cuda") => true,
         _ => return Err("Requested backend is not compiled"),
     };
+    let vad = if args.iter().any(|s| s == "--diagnostic-vad") {
+        if !cfg!(feature = "native-vad") {
+            return Err("Native VAD is not compiled");
+        }
+        let model = value(args, "--vad-model").ok_or("Missing VAD model")?;
+        let model_hash = value(args, "--vad-sha256").ok_or("Missing VAD hash")?;
+        let runtime = value(args, "--vad-runtime").ok_or("Missing VAD runtime")?;
+        let runtime_hash = value(args, "--vad-runtime-sha256").ok_or("Missing runtime hash")?;
+        if !Path::new(model).is_absolute()
+            || !Path::new(runtime).is_absolute()
+            || !valid_hash(model_hash)
+            || !valid_hash(runtime_hash)
+        {
+            return Err("VAD paths must be absolute with explicit hashes");
+        }
+        Some(VadConfig {
+            model: model.into(),
+            model_hash: model_hash.into(),
+            runtime: runtime.into(),
+            runtime_hash: runtime_hash.into(),
+        })
+    } else {
+        None
+    };
     Ok(Some(ModelConfig {
         path: path.into(),
         hash: hash.to_ascii_lowercase(),
         gpu,
         threads,
+        vad,
     }))
 }
 pub fn valid_hash(hash: &str) -> bool {
@@ -145,12 +187,60 @@ impl NativeOwner {
         let (inputs, input_rx) = mpsc::sync_channel::<Input>(1);
         let (loaded_tx, loaded) = mpsc::sync_channel(1);
         let loader_stop = stop.clone();
+        let vad_config = config.vad;
         let loader = std::thread::spawn(move || {
+            #[cfg(feature = "native-vad")]
+            let mut vad = vad_config.map(|v| {
+                echosub_vad_silero::native::OnnxBackend::load(
+                    Path::new(&v.model),
+                    &v.model_hash,
+                    Path::new(&v.runtime),
+                    &v.runtime_hash,
+                )
+                .map(|backend| {
+                    echosub_vad_silero::Detector::new(
+                        backend,
+                        echosub_audio_core::AudioIdentity {
+                            session_id: 1,
+                            epoch: 0,
+                        },
+                        0,
+                    )
+                })
+            });
+            #[cfg(not(feature = "native-vad"))]
+            let _ = vad_config;
             while let Ok(input) = input_rx.recv() {
                 if loader_stop.load(Ordering::Acquire) {
                     break;
                 }
-                let result = load_wav(&input.path, &input.hash);
+                let result = load_wav(&input.path, &input.hash).and_then(|pcm| {
+                    #[allow(unused_mut)]
+                    let mut loaded = LoadedPcm {
+                        pcm,
+                        ranges: None,
+                        vad_calls: 0,
+                        vad_s: 0.,
+                    };
+                    #[cfg(feature = "native-vad")]
+                    if let Some(vad) = &mut vad {
+                        let detector = vad.as_mut().map_err(|_| "VAD_MODEL_FAILED")?;
+                        let identity = echosub_audio_core::AudioIdentity {
+                            session_id: 1,
+                            epoch: input.id.segment_id,
+                        };
+                        detector
+                            .reset(identity, 0)
+                            .map_err(|_| "VAD_RESET_FAILED")?;
+                        let start = Instant::now();
+                        let result = echosub_vad_silero::segment(detector, identity, &loaded.pcm)
+                            .map_err(|_| "VAD_INFERENCE_FAILED")?;
+                        loaded.vad_s = start.elapsed().as_secs_f64();
+                        loaded.vad_calls = result.model_calls;
+                        loaded.ranges = Some(result.ranges);
+                    }
+                    Ok(loaded)
+                });
                 if loader_stop.load(Ordering::Acquire) {
                     break;
                 }
@@ -280,6 +370,7 @@ mod tests {
     #[test]
     fn invalid_native_arguments_are_rejected() {
         assert!(config_from_args(&["--diagnostic-asr".into()]).is_err());
+        assert!(config_from_args(&["--diagnostic-vad".into()]).is_err());
         assert!(!valid_hash("bad"));
         assert!(valid_hash(&"f".repeat(64)));
     }

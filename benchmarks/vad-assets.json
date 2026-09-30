@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "download_consent": "2026-09-30 user approved Silero v6.0 and ONNX Runtime 1.22.0 Windows x64 CPU",
+  "assets": [
+    {
+      "id": "silero-v6",
+      "path": "../models/silero-vad-v6.0.onnx",
+      "file": "silero-vad-v6.0.onnx",
+      "bytes": 2327524,
+      "sha256": "597d30b3ec076608d059477bb14cfeffdf951bf5cae370d38f65d33bbfe82004",
+      "revision": "fba061dc5559f696e62171e9a0741782b0fdc23c",
+      "git_blob_sha1": "cb605195e6975825c5fb941ad97e2e27f636d25a",
+      "url": "https://raw.githubusercontent.com/snakers4/silero-vad/fba061dc5559f696e62171e9a0741782b0fdc23c/src/silero_vad/data/silero_vad.onnx",
+      "license": "MIT",
+      "license_url": "https://github.com/snakers4/silero-vad/blob/v6.0/LICENSE"
+    },
+    {
+      "id": "ort-win-x64",
+      "path": "../models/onnxruntime-win-x64-1.22.0/lib/onnxruntime.dll",
+      "sha256": "579b636403983254346a5c1d80bd28f1519cd1e284cd204f8d4ff41f8d711559",
+      "archive": "onnxruntime-win-x64-1.22.0.zip",
+      "archive_bytes": 72368545,
+      "archive_sha256": "174c616efc0271194488642a72f1a514e01487da4dfe84c49296d66e40ebe0da",
+      "url": "https://github.com/microsoft/onnxruntime/releases/download/v1.22.0/onnxruntime-win-x64-1.22.0.zip",
+      "license": "MIT",
+      "license_url": "https://github.com/microsoft/onnxruntime/blob/v1.22.0/LICENSE",
+      "hash_provenance": "SHA-256 measured from official release download; upstream asset digest was null"
+    }
+  ]
+}

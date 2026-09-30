@@ -4,7 +4,7 @@
 
 EchoSub aims to provide system-audio transcription and Korean translation in a Windows/macOS desktop app.
 
-**M0 probes, the M1 common core, and an M2 file transcription path are in development.** The repository includes UI↔worker IPC, a Windows capture probe, independent model probes, a MOCK overlay, and actual Whisper file transcription in the worker. Live capture, VAD, translation, and subtitle UI integration are pending. macOS has not been verified on a real device.
+**M0 probes, the M1 core, and an M2 file VAD/transcription path are in development.** The repository includes UI↔worker IPC, a Windows capture probe, model probes, a MOCK overlay, and real Silero VAD→Whisper file transcription. Live capture, translation, and subtitle UI integration are pending. macOS has not been verified on a real device.
 
 ## Build and run on Windows
 
@@ -57,8 +57,9 @@ New ASR, translation, cancellation, and contention timing outputs use **seconds*
 `crates/audio-core/` converts 44.1/48 kHz mono/stereo to 16 kHz mono and
 provides 512-sample frames, a session sample timeline, a 12-second rolling
 buffer, and bounded immutable PCM snapshots. Run fixtures without OS/model
-dependencies using `cargo test -p echosub-audio-core`. Probability-driven segmentation, eight-second chunking, and a packet-stop watchdog are implemented. Actual Silero inference and worker/UI
-integration are not implemented yet. See the [audio core](docs/AUDIO_CORE.md) and [VAD contract and validation](docs/VAD_CORE.md).
+dependencies using `cargo test -p echosub-audio-core`. Segmentation, eight-second
+chunking, a packet-stop watchdog, and actual Silero worker file inference are
+implemented. Live capture/UI integration is pending. See the [audio core](docs/AUDIO_CORE.md) and [VAD contract and validation](docs/VAD_CORE.md).
 
 ## Pipeline state and job queues (M1 in progress)
 
@@ -80,6 +81,13 @@ thread reuses its context while control requests stay responsive. Input is 16 kH
 mono WAV, at most 8 seconds; capture, VAD, and translation are disabled. All measured
 durations are seconds. See the [owner contract](docs/WORKER_ASR.md) and
 [CPU evidence](docs/evidence/T02-01a-windows-worker-asr.md).
+
+Run `scripts/probe-worker-vad.ps1 -Offline` with the consented Silero v6.0 model
+and ONNX Runtime 1.22.0 CPU assets. It checks real speech segmentation, silence
+and generated tone/noise suppression, two utterances, epoch resets, and hash
+errors. One extra Korean fixture candidate produced an empty ASR result and
+remains Failed; **the quality gate has not passed**. See the
+[VAD contract](docs/WORKER_VAD.md) and [evidence](docs/evidence/T02-01b-windows-worker-vad.md).
 
 ## MOCK caption overlay
 

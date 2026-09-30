@@ -93,6 +93,7 @@ fn hello(worker: &mut Worker) {
     ));
     assert_eq!(response["ok"], true);
     assert_eq!(response["result"]["capabilities"]["system_audio"], false);
+    assert_eq!(response["result"]["capabilities"]["vad"], false);
     assert_eq!(response["result"]["implementation"], "mock");
 }
 

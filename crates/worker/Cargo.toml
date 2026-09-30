@@ -8,6 +8,7 @@ rust-version.workspace = true
 default = []
 native-asr = ["echosub-asr-whisper/native"]
 cuda = ["native-asr", "echosub-asr-whisper/cuda"]
+native-vad = ["native-asr", "echosub-vad-silero/onnx"]
 
 [dependencies]
 serde_json = "=1.0.151"
@@ -16,3 +17,4 @@ echosub-pipeline-core = { path = "../pipeline-core" }
 echosub-asr-whisper = { path = "../asr-whisper" }
 sha2 = "=0.10.9"
 hound = "=3.5.1"
+echosub-vad-silero = { path = "../vad-silero" }

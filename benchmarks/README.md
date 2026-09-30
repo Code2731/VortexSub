@@ -145,3 +145,10 @@ base and local TTS fixtures, checks source history, silence/hash rejection,
 under `benchmarks/results/worker-asr-*/` omit transcripts. No capture, Silero VAD,
 translation, or subtitle UI is involved. See [the contract](../docs/WORKER_ASR.md)
 and [Windows CPU evidence](../docs/evidence/T02-01a-windows-worker-asr.md).
+
+`scripts/probe-worker-vad.ps1 -Offline` adds actual Silero v6.0 CPU segmentation.
+Pinned model/runtime assets and hashes are in `vad-assets.json`. Obtain download
+consent before `scripts/download-vad-assets.ps1 -Consent`; without that switch,
+the script verifies existing assets only. Reports retain counts/timings, including
+empty-ASR failures; a passing smoke result is not a quality gate. See
+[worker VAD](../docs/WORKER_VAD.md).

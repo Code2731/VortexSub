@@ -154,7 +154,7 @@ fn serve() -> io::Result<()> {
                             "output_device_selection": false,
                             "asr": runtime.has_native(),
                             "fixture_asr": runtime.has_native(),
-                            "vad": false,
+                            "vad": runtime.has_vad(),
                             "translation": false,
                             "events": true,
                             "history_snapshot": true,

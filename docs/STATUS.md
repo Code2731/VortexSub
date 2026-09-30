@@ -1,6 +1,6 @@
 # 구현 상태
 
-최종 갱신: 2026-09-30. 결과 범위: Windows T00-01, 독립형 T00-02 WASAPI probe, T00-04.1 모델 harness, T00-04.2 실제 취소·수명 probe, T00-04.4 동시 부하, T00-04.3 MOCK 오버레이, T01-01a/b 독립 오디오·발화 코어, T01-02a 독립 상태·작업 큐, T01-02b mock worker 전달·버전 history. T02-01a에서 실제 Whisper를 worker 파일 진단과 history에 연결했다. 실시간 캡처·VAD·번역·실제 자막 UI와 macOS 번들은 미구현/미검증이다.
+최종 갱신: 2026-09-30. 결과 범위: Windows T00-01, 독립형 T00-02 WASAPI probe, T00-04.1 모델 harness, T00-04.2 실제 취소·수명 probe, T00-04.4 동시 부하, T00-04.3 MOCK 오버레이, T01-01a/b 독립 오디오·발화 코어, T01-02a 독립 상태·작업 큐, T01-02b mock worker 전달·버전 history. T02-01a에서 실제 Whisper를 worker 파일 진단과 history에 연결했다. T02-01b에서 실제 Silero VAD도 파일 경로에 연결했다. 실시간 캡처·번역·실제 자막 UI와 macOS 번들은 미구현/미검증이다.
 
 | 작업 | 상태 | 근거 및 다음 단계 |
 |---|---|---|
@@ -14,9 +14,9 @@
 | T00-04.3 | PARTIAL (Windows); BLOCKED (macOS) | MOCK 오버레이, 표시/숨김, 메인 창 폭·불투명도 조절, 드래그 핸들, 화면 작업 영역 기준 초기 위치 구현. 125% 배율의 HWND 속성·투명도·크기/위치 변경 확인. 다른 앱 포커스·게임 합성·실제 마우스 조작은 미검증. |
 | T01-01 | PARTIAL: T01-01a/b PASS (Windows fixture scope) | 공통 float32 mono/stereo 정규화, 16 kHz/512-frame, sample 시간축·gap, 12초 rolling/유한 immutable snapshot 구현. 정규화 15개+VAD 15개 fixture. 확률 기반 발화·8초 분할·watchdog 구현. 실제 Silero·native clock·worker/Mac 미검증. [오디오](AUDIO_CORE.md) · [VAD](VAD_CORE.md) |
 | T01-02 | PASS (Windows mock core/IPC scope); 실제 inference 통합 미검증 | 단일 실행·final 2/partial 1·번역 2 대기, 전체 키 검증, final 동결, 취소 반환 대기, 번역 terminal과 버전 history 구현. 코어 fixture 23개+전달 신규 9개 Rust 시험·확장 C# smoke. worker event 256/응답 32 예약·seq/페이지 복구 구현. 실제 native 파일 ASR은 T02-01a에서 별도 연결; HTTP/UI history/Mac 미연결. [코어](PIPELINE_CORE.md) · [전달](WORKER_DELIVERY.md) |
-| M1 | PARTIAL | 정규화·발화·상태/작업 큐의 결정론적 코어 구현. 유한 event 큐·버전 IPC snapshot/C# 클라이언트도 연결. 실제 Silero state/context·native callback 큐·UI 렌더링은 미검증. |
-| T02-01 | PARTIAL: T02-01a PASS (Windows CPU 파일 진단) | 실제 Whisper owner·파일 loader·ASR-only history·epoch 취소/재시작 연결. 실제 Silero·partial·GPU worker·UI·Mac 미검증. [계약](WORKER_ASR.md) · [측정](evidence/T02-01a-windows-worker-asr.md) |
-| M2 | PARTIAL | CPU 실제 파일 전사와 제어·history 연결. 실시간 캡처/VAD/화면 자막 수용 미통과. |
+| M1 | PARTIAL | 정규화·발화·상태/작업 큐의 결정론적 코어 구현. 유한 event 큐·버전 IPC snapshot/C# 클라이언트도 연결. 실제 Silero state/context의 파일 경로는 T02-01b에서 확인. native callback 큐·UI 렌더링은 미검증. |
+| T02-01 | PARTIAL: T02-01a/b PASS (Windows CPU 파일 진단) | 실제 Whisper owner·파일 loader·ASR-only history·epoch 취소/재시작 연결. 실제 Silero 파일 probability/state reset 연결. partial·GPU worker·UI·Mac 미검증. [VAD](WORKER_VAD.md) [계약](WORKER_ASR.md) · [측정](evidence/T02-01a-windows-worker-asr.md) |
+| M2 | PARTIAL | CPU 실제 VAD 파일 분할·전사·제어/history 연결. 실시간 캡처/화면 자막·자연 음성 경계 수용 미통과. |
 | M3~M5 | NOT_STARTED | 해당 제품 통합/실기기 수용 결과 없음. |
 
 ## 확인된 Windows 개발 환경
@@ -71,7 +71,7 @@ Windows probe는 render endpoint의 loopback만 열며 microphone endpoint를 �
 
 T00-04.3의 Windows 창 속성과 Avalonia 프레임은 확인했으나 다른 앱의 입력 포커스를 조회할 수 없었다. `ShowActivated=false`와 `WS_EX_NOACTIVATE`의 적용 사실을 입력 유지의 실측으로 확대하지 않는다. [실행 및 수동 검증 절차](OVERLAY_PROBE.md)를 일반 사용자 데스크톱에서 수행한다.
 
-T00-04.4 Windows 동시 부하 probe를 완료했다. T01-01a 독립 오디오 코어도 구현했다. T01-01b 확률 기반 발화 구간·packet-stop watchdog도 구현했다. T01-02a 상태기계·유한 작업 큐도 구현했다. T01-02b mock worker 전달·유한 event 큐·버전 snapshot/C# 복구도 구현했다. T02-01a에서 실제 ASR owner를 파일 진단으로 연결했다. 다음 단위는 T02-01b 실제 Silero 모델/runtime·다운로드 범위 확정 및 동의 후 VAD 어댑터 연결이다. T00-04.1은 자연 음성/일본어/Mac, T00-04.2는 Mac·실제 worker 통합 보완이 필요하며 M0 전체는 미통과다. T00-02의 통제 음원 10분·장치 전환/분리와 T00-04.3의 다른 앱 입력·게임 위 표시·수동 조절은 실제 조작으로 완료한다.
+T00-04.4 Windows 동시 부하 probe를 완료했다. T01-01a 독립 오디오 코어도 구현했다. T01-01b 확률 기반 발화 구간·packet-stop watchdog도 구현했다. T01-02a 상태기계·유한 작업 큐도 구현했다. T01-02b mock worker 전달·유한 event 큐·버전 snapshot/C# 복구도 구현했다. T02-01a에서 실제 ASR owner를 파일 진단으로 연결했다. T02-01b에서 동의받은 Silero/ORT를 파일 분할과 연결했다. 다음 단위는 T02-02 Windows capture callback 큐·clock/device/epoch와 worker 연결이다. T00-04.1은 자연 음성/일본어/Mac, T00-04.2는 Mac·실제 worker 통합 보완이 필요하며 M0 전체는 미통과다. T00-02의 통제 음원 10분·장치 전환/분리와 T00-04.3의 다른 앱 입력·게임 위 표시·수동 조절은 실제 조작으로 완료한다.
 
 
 T00-04.4 추가 검증: 총 8437회 추론 완료, 실패 0, small 전사 요청 건너뜀 19. GPU 사용과 번역 full offload를 로그로 확인했고 소유 프로세스/API key 잔여는 0이다. 장치 전체 GPU 메모리 관측 최대는 small 동시 6721 MiB이며 프로세스 VRAM peak가 아니다. 모든 새 번역·동시 부하 시간도 초다. 실제 자막 latency·게임 공존·품질 gate·Mac은 미검증이다.
@@ -86,3 +86,5 @@ T01-02a 추가 검증: 생성 PCM/mock 결과 fixture 23개와 기존 39개, Rus
 T01-02b 추가 검증: transport 5개+protocol 신규 4개, 기존 62개로 Rust 71개·fmt/workspace·C# 빌드·확장 smoke 통과. event 256/제어 예약 32, seq/로컬 수신 고갈 복구, typed Unicode/초 단위 DTO와 301개 history 페이지를 확인했다. stdout unread 시 약 5초 후 오류 종료했다. 일반 실행은 empty history·실제 추론 capability false이며 생성 결과는 명시적 mock opt-in에서만 전달한다. 실제 native 캡처 안전 종료·모델·UI history·Mac은 미검증이다. [계약·시험](WORKER_DELIVERY.md)
 
 T02-01a 추가 검증: Rust 74개·fmt/workspace·C# 빌드/IPC smoke와 실제 CPU base worker probe 통과. 합성 en/ko final 20개 평균 0.577181초, 취소/재시작 10회, reset 응답 최대 0.000187초·native 반환 최대 0.565063초, 추론 중 정상 종료 0.516145초를 관측했다. 무음/잘못된 WAV 해시는 ASR 0회이며 모델 해시 오류 뒤에도 제어 응답이 가능하다. 실제 Silero·캡처·UI·GPU worker·Mac은 미검증이다. [근거](evidence/T02-01a-windows-worker-asr.md)
+
+T02-01b 추가 검증: Rust 79개·기본 C# IPC smoke와 CPU 실제 Silero→Whisper 파일 진단 통과. final 32개·ko-08 빈 ASR 실패 1개를 보존, 무음·톤·잡음 3개는 ASR 0회다. epoch reset 10회·두 발화 분리·모델/DLL 해시 오류를 확인했다. 파일별 VAD 평균 0.008699초·최대 0.014931초이며 화면 latency가 아니다. 품질 gate false, live capture·UI·자연/일본어 음성·Mac은 미검증. [근거](evidence/T02-01b-windows-worker-vad.md)

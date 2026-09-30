@@ -26,9 +26,12 @@ pub struct Runtime {
     flight: Option<(JobIdentity, Cancellation)>,
     load_s: Option<f64>,
     completed_jobs: u64,
+    vad_enabled: bool,
+    next_fixture: u64,
 }
 impl Runtime {
     pub fn new(enabled: bool, config: Option<ModelConfig>) -> Self {
+        let vad_enabled = config.as_ref().is_some_and(|c| c.vad.is_some());
         let epoch = AudioIdentity {
             session_id: 1,
             epoch: 1,
@@ -57,6 +60,8 @@ impl Runtime {
             flight: None,
             load_s: None,
             completed_jobs: 0,
+            vad_enabled,
+            next_fixture: 1,
         }
     }
     pub fn implementation(&self) -> &str {
@@ -69,8 +74,11 @@ impl Runtime {
     pub fn has_native(&self) -> bool {
         self.native.is_some()
     }
+    pub fn has_vad(&self) -> bool {
+        self.vad_enabled
+    }
     pub fn state(&self, q: &Outbox) -> Value {
-        json!({"session":{"session_id":null,"epoch":0,"state":"Idle","elapsed_ms":0},"translator":{"state":"Unavailable"},"model":{"state":self.model_state},"last_seq":q.last_seq(),"history_version":self.core.version(),"diagnostic_asr":{"enabled":self.has_native(),"epoch":self.epoch.epoch,"pending_inputs":self.pending_inputs.len(),"decoding":self.flight.is_some(),"native_running":self.flight.as_ref().is_some_and(|(_,token)|token.snapshot().running),"completed_jobs":self.completed_jobs,"model_load_s":self.load_s,"vad":false}})
+        json!({"session":{"session_id":null,"epoch":0,"state":"Idle","elapsed_ms":0},"translator":{"state":"Unavailable"},"model":{"state":self.model_state},"last_seq":q.last_seq(),"history_version":self.core.version(),"diagnostic_asr":{"enabled":self.has_native(),"epoch":self.epoch.epoch,"pending_inputs":self.pending_inputs.len(),"decoding":self.flight.is_some(),"native_running":self.flight.as_ref().is_some_and(|(_,token)|token.snapshot().running),"completed_jobs":self.completed_jobs,"model_load_s":self.load_s,"vad":self.vad_enabled}})
     }
     pub fn fixture(&mut self, method: &str, p: &Value, q: &Outbox) -> Reply {
         if self.native.is_none() {
@@ -104,7 +112,11 @@ impl Runtime {
                 }
                 let id = SegmentIdentity {
                     audio: self.epoch,
-                    segment_id: self.next_segment,
+                    segment_id: if self.vad_enabled {
+                        self.next_fixture
+                    } else {
+                        self.next_segment
+                    },
                 };
                 let input = Input {
                     id,
@@ -118,8 +130,17 @@ impl Runtime {
                     .inputs
                     .try_send(input)
                     .map_err(|_| ("BUSY", "Fixture loader is occupied"))?;
-                self.next_segment += 1;
+                if self.vad_enabled {
+                    self.next_fixture += 1;
+                } else {
+                    self.next_segment += 1;
+                }
                 self.pending_inputs.push(id);
+                if self.vad_enabled {
+                    return Ok(
+                        json!({"accepted":true,"session_id":id.audio.session_id,"epoch":id.audio.epoch,"fixture_id":id.segment_id,"input":"wav_fixture","vad":true}),
+                    );
+                }
                 Ok(
                     json!({"accepted":true,"session_id":id.audio.session_id,"epoch":id.audio.epoch,"segment_id":id.segment_id,"input":"wav_fixture","vad":false}),
                 )
@@ -225,20 +246,59 @@ impl Runtime {
             if input.id.audio != self.epoch {
                 q.publish(
                     "fixture.cancelled",
-                    json!({"epoch":input.id.audio.epoch,"segment_id":input.id.segment_id}),
+                    json!({"epoch":input.id.audio.epoch,"segment_id":input.id.segment_id,"fixture_id":if self.vad_enabled {Some(input.id.segment_id)} else {None}}),
                     None,
                 )?;
                 continue;
             }
             match input.result {
                 Err(code) => {
-                    q.publish("fixture.failed",json!({"epoch":input.id.audio.epoch,"segment_id":input.id.segment_id,"code":code}),None)?;
+                    q.publish("fixture.failed",json!({"epoch":input.id.audio.epoch,"segment_id":input.id.segment_id,"fixture_id":if self.vad_enabled {Some(input.id.segment_id)} else {None},"code":code}),None)?;
                 }
-                Ok(pcm) => {
+                Ok(loaded) => {
+                    let pcm = loaded.pcm;
                     let start = self.ring.retained_range().end;
                     self.ring
                         .append(self.epoch, start, &pcm)
                         .map_err(|_| std::io::Error::other("Fixture PCM rejected"))?;
+                    if let Some(ranges) = loaded.ranges {
+                        let mut segments = Vec::new();
+                        for range in ranges {
+                            let id = SegmentIdentity {
+                                audio: self.epoch,
+                                segment_id: self.next_segment,
+                            };
+                            self.next_segment += 1;
+                            let now = self.now();
+                            let admitted = self
+                                .core
+                                .submit_asr(
+                                    id,
+                                    SampleRange {
+                                        start: start + range.start,
+                                        end: start + range.end,
+                                    },
+                                    AsrKind::Final,
+                                    &self.ring,
+                                    &mut self.pool,
+                                    now,
+                                )
+                                .map_err(|_| {
+                                    std::io::Error::other("VAD range admission rejected")
+                                })?;
+                            segments.push(json!({"segment_id":id.segment_id,"queued":admitted.queued,"audio_start_s":(start+range.start) as f64/16000.,"audio_end_s":(start+range.end) as f64/16000.}));
+                            if admitted.queued {
+                                self.languages.push((admitted.key, input.language.clone()));
+                            } else {
+                                self.changed_record(id.segment_id, "segment.skipped", q)
+                                    .map_err(|_| {
+                                        std::io::Error::other("VAD skip event unavailable")
+                                    })?;
+                            }
+                        }
+                        q.publish("fixture.segmented",json!({"fixture_id":input.id.segment_id,"epoch":input.id.audio.epoch,"segments":segments,"vad_calls":loaded.vad_calls,"vad_s":loaded.vad_s,"audio_duration_s":pcm.len() as f64/16000.,"vad":true}),None)?;
+                        continue;
+                    }
                     if !echosub_audio_core::VadSegmenter::requires_probability(&pcm) {
                         q.publish("fixture.suppressed",json!({"epoch":input.id.audio.epoch,"segment_id":input.id.segment_id,"reason":"digital_silence","audio_duration_s":pcm.len() as f64/16000.0}),None)?;
                         continue;

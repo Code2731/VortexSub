@@ -88,3 +88,8 @@ UT-003/005의 결정론적 segmentation subset만 검증했다. 실제 Silero st
 음악/효과음 오검출, 자연 발화 경계, native 장치 중단과 Mac은 NOT_RUN이다.
 다음은 T01-02의 segment/revision/epoch 상태기계, 유한 큐·취소·final 실패,
 history snapshot 일관성·번역 terminal 상태 계약이다.
+
+T02-01b 갱신: 실제 Silero v6.0/ORT CPU adapter를 worker 파일 경로에 연결했다.
+ModelReset·파일/epoch 경계에서 recurrence를 초기화하며 true tail 범위를 보존한다.
+파일 진단과 ko-08 빈 ASR 실패의 품질 보류는 [worker VAD](WORKER_VAD.md)를 따른다.
+위 독립 core 시험 결과와 live capture/자연 음성 수용을 구분한다.

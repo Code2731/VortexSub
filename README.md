@@ -4,7 +4,7 @@
 
 EchoSub는 Windows/macOS의 시스템 오디오를 전사하고 한국어로 번역하는 데스크톱 앱을 목표로 합니다.
 
-**현재는 M0 probe·M1 공통 코어와 M2 파일 전사 경로를 개발하는 단계입니다.** UI↔worker IPC, Windows 캡처 probe, 독립 전사·번역·취소·동시 부하 probe, MOCK 오버레이와 worker의 실제 Whisper 파일 전사를 구현했습니다. 실시간 캡처·VAD·번역·자막 UI는 아직 연결하지 않았습니다. macOS는 실기기에서 검증하지 않았습니다.
+**현재는 M0 probe·M1 코어와 M2 파일 VAD/전사 경로를 개발하는 단계입니다.** UI↔worker IPC, Windows 캡처 probe, 모델 probe, MOCK 오버레이와 실제 Silero VAD→Whisper 파일 전사를 구현했습니다. 실시간 캡처·번역·자막 UI는 아직 연결하지 않았습니다. macOS는 실기기에서 검증하지 않았습니다.
 
 ## Windows에서 빌드하고 실행하기
 
@@ -57,8 +57,9 @@ probe는 WASAPI loopback에서 실제 오디오 형식, 패킷·프레임 수, �
 `crates/audio-core/`는 44.1/48 kHz mono·stereo를 16 kHz mono로 변환하고,
 512-sample frame, 세션 sample 시간축, 12초 rolling buffer와 유한 immutable
 PCM snapshot을 제공합니다. OS·모델 없이 `cargo test -p echosub-audio-core`
-로 fixture를 실행할 수 있습니다. 확률 기반 발화 구간·8초 분할·packet-stop watchdog도 구현했습니다. 실제 Silero 모델과 worker/UI 연결은 아직
-구현하지 않았습니다. [오디오 코어](docs/AUDIO_CORE.md) · [VAD 구간 계약과 검증](docs/VAD_CORE.md)
+로 fixture를 실행할 수 있습니다. 발화 구간·8초 분할·packet-stop watchdog과
+실제 Silero의 worker 파일 연결도 구현했습니다. live 캡처/UI 연결은 후속입니다.
+[오디오 코어](docs/AUDIO_CORE.md) · [VAD 구간 계약과 검증](docs/VAD_CORE.md)
 
 ## 파이프라인 상태·작업 큐 (M1 진행 중)
 
@@ -78,6 +79,12 @@ worker event 큐·버전 history snapshot과 C# 클라이언트를 연결했습�
 않습니다. 입력은 16 kHz mono·최대 8초이며 VAD·번역·실시간 캡처를 사용하지 않습니다.
 모든 측정 시간은 초입니다. [실행·소유권 계약](docs/WORKER_ASR.md) ·
 [CPU 측정](docs/evidence/T02-01a-windows-worker-asr.md)
+
+`scripts/probe-worker-vad.ps1 -Offline`은 동의받아 확보한 Silero v6.0과
+ONNX Runtime 1.22.0 CPU로 발화 범위를 나누고 실제 전사합니다. 무음·생성 톤/잡음
+억제, 두 발화 분리·epoch reset·해시 오류를 확인했습니다. 한국어 fixture의
+추가 후보 하나는 빈 ASR 출력으로 실패 기록이 남으며 **품질 gate는 미통과**입니다.
+[VAD 실행·계약](docs/WORKER_VAD.md) · [측정](docs/evidence/T02-01b-windows-worker-vad.md)
 
 ## MOCK 자막 오버레이
 

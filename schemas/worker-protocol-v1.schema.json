@@ -14,6 +14,31 @@
     }
   ],
   "$defs": {
+    "fixtureSegmented": {
+      "type": "object",
+      "required": ["fixture_id", "epoch", "segments", "vad_calls", "vad_s", "audio_duration_s", "vad"],
+      "properties": {
+        "fixture_id": {"type": "integer", "minimum": 1},
+        "epoch": {"type": "integer", "minimum": 1},
+        "vad": {"const": true},
+        "vad_calls": {"type": "integer", "minimum": 0, "maximum": 250},
+        "vad_s": {"type": "number", "minimum": 0},
+        "audio_duration_s": {"type": "number", "exclusiveMinimum": 0, "maximum": 8},
+        "segments": {
+          "type": "array", "maxItems": 250,
+          "items": {
+            "type": "object",
+            "required": ["segment_id", "queued", "audio_start_s", "audio_end_s"],
+            "properties": {
+              "segment_id": {"type": "integer", "minimum": 1},
+              "queued": {"type": "boolean"},
+              "audio_start_s": {"type": "number", "minimum": 0},
+              "audio_end_s": {"type": "number", "minimum": 0}
+            }, "additionalProperties": false
+          }
+        }
+      }, "additionalProperties": false
+    },
     "command": {
       "type": "object",
       "required": [
@@ -162,6 +187,10 @@
         "event",
         "payload"
       ],
+      "allOf": [{
+        "if": {"properties": {"event": {"const": "fixture.segmented"}}},
+        "then": {"properties": {"payload": {"$ref": "#/$defs/fixtureSegmented"}}}
+      }],
       "type": "object",
       "additionalProperties": false
     },

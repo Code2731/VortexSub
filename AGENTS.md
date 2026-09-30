@@ -2,13 +2,13 @@
 
 ## Project Structure
 
-The M0 scaffold has an Avalonia C# UI in `apps/EchoSub.Desktop/`, a Rust process in `crates/worker/`, WASAPI probe in `crates/capture-windows/`, reusable native adapter in `crates/asr-whisper/`, ASR harness in `crates/model-probe/`, and pure audio core in `crates/audio-core/`, and state/queue core in `crates/pipeline-core/`. Translation diagnostics and model/fixture manifests live in `benchmarks/`. C# IPC smoke checks live in `tests/EchoSub.ProtocolSmoke/`; worker integration tests in `crates/worker/tests/`. IPC schema lives in `schemas/`; plans, requirements, status, and evidence live in `docs/`. Put the native ScreenCaptureKit bridge under `native/macos-capture/` only after its platform probe.
+The repository has an Avalonia C# UI in `apps/EchoSub.Desktop/`, a Rust process in `crates/worker/`, WASAPI probe in `crates/capture-windows/`, reusable native adapter in `crates/asr-whisper/`, ASR harness in `crates/model-probe/`, and pure audio core in `crates/audio-core/`, state/queue core in `crates/pipeline-core/`, and VAD adapter in `crates/vad-silero/`. Translation diagnostics and model/fixture manifests live in `benchmarks/`. C# IPC smoke checks live in `tests/EchoSub.ProtocolSmoke/`; worker integration tests in `crates/worker/tests/`. IPC schema lives in `schemas/`; plans, requirements, status, and evidence live in `docs/`. Put the native ScreenCaptureKit bridge under `native/macos-capture/` only after its platform probe.
 
 ## Build, Test, and Development
 
 Run `scripts/check.ps1` on Windows for formatting, Rust tests, both builds, and the C#↔Rust smoke check; run `bash scripts/check.sh` on macOS once a Mac is available. `scripts/run.ps1` builds the worker and opens the mock UI on Windows. Use `cargo run -p echosub-capture-windows -- --list` to find render endpoints and `--seconds 600` for the loopback probe. The equivalent individual checks are `cargo test --workspace --locked` and `dotnet build apps/EchoSub.Desktop/EchoSub.Desktop.csproj`. The scripts pin the local package cache and disable Avalonia build telemetry. Record which OS and hardware each command actually covers.
 
-For model diagnostics, see `benchmarks/README.md`. Use `scripts/probe-asr.ps1 -Backend cpu|cuda`, `scripts/probe-translation.ps1`, `scripts/probe-cancellation.ps1`, `scripts/probe-contention.ps1`, or `scripts/probe-worker-asr.ps1` for native worker fixtures. Native ASR requires CMake/LLVM/MSVC and CUDA Toolkit for CUDA; default builds omit native inference. Obtain download consent before `scripts/download-probe-models.ps1`. Keep models, generated audio, and full benchmark results out of Git.
+For model diagnostics, see `benchmarks/README.md`. Use `scripts/probe-asr.ps1 -Backend cpu|cuda`, `scripts/probe-translation.ps1`, `scripts/probe-cancellation.ps1`, `scripts/probe-contention.ps1`, `scripts/probe-worker-asr.ps1`, or `scripts/probe-worker-vad.ps1` for worker fixtures. Native ASR requires CMake/LLVM/MSVC and CUDA Toolkit for CUDA; default builds omit native inference. Obtain download consent before model/runtime downloads. Keep models, generated audio, and full benchmark results out of Git.
 
 ## Coding Style
 
