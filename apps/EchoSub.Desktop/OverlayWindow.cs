@@ -61,6 +61,7 @@ public sealed class OverlayWindow : Window
         sourceCaption = new TextBlock
         {
             Text = live ? "원문 대기 중" : "We should take the left path. / 左の道へ進もう。",
+            IsVisible = false,
             Foreground = Brushes.White,
             FontSize = 22,
             TextWrapping = TextWrapping.Wrap
@@ -100,6 +101,8 @@ public sealed class OverlayWindow : Window
 
     public void SetSource(string? source) => sourceCaption.Text =
         string.IsNullOrWhiteSpace(source) ? "원문 대기 중" : source;
+
+    public void SetSourceVisible(bool visible) => sourceCaption.IsVisible = visible;
 
     public void SetCaptions(string? source, string? translation)
     {

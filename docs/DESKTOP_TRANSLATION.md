@@ -42,7 +42,12 @@ in URLs are rejected; proxy and redirects are disabled by the worker adapter.
 ## Presentation contract
 
 History shows source, translation state/reason and completed translation. The
-overlay shows source with a separate Korean line only for a current finalized
+overlay hides the source by default; enable **오버레이에 원문 표시** to show it
+alongside Korean translation. This setting changes immediately and applies only
+to the overlay; history retains the source. The setting lasts for the current app
+run. Translation remains visible when source display is disabled; no source
+fallback appears during translation wait/failure with this option off.
+The overlay shows a Korean line only for a current finalized
 revision with a nonzero translation request ID. It consumes validated snapshot
 records rather than merging asynchronous event text.
 

@@ -24,6 +24,7 @@ public sealed class MainWindow : Window
     private readonly Button pauseButton = new() { Content = "일시정지" };
     private readonly Button resumeButton = new() { Content = "재개" };
     private readonly Button overlayButton = new();
+    private readonly CheckBox overlaySourceEnabled = new() { Content = "오버레이에 원문 표시", IsChecked = false };
     private readonly Button exportTxtButton = new() { Content = "TXT 저장" };
     private readonly Button exportSrtButton = new() { Content = "원문 SRT 저장" };
     private readonly Button clearHistoryButton = new() { Content = "선택 세션 기록 삭제" };
@@ -119,6 +120,7 @@ public sealed class MainWindow : Window
                         exportResult
                     } },
                     new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { overlayButton, resetOverlay } },
+                    overlaySourceEnabled,
                     new TextBlock { Text = "오버레이 폭 / 배경 불투명도" },
                     overlayWidth, cardOpacity
                 }
@@ -212,6 +214,7 @@ public sealed class MainWindow : Window
                 overlay.Closed += (_, _) => { overlay = null; overlayButton.Content = OverlayLabel(false); };
                 overlay.ResetPlacement(this);
             }
+            overlay.SetSourceVisible(overlaySourceEnabled.IsChecked == true);
             if (live) overlay.SetCaptions(latestSource, latestTranslation);
             overlay.Width = overlayWidth.Value;
             overlay.SetCardOpacity(cardOpacity.Value);
@@ -219,6 +222,7 @@ public sealed class MainWindow : Window
             overlayButton.Content = OverlayLabel(true);
         };
         resetOverlay.Click += (_, _) => overlay?.ResetPlacement(this);
+        overlaySourceEnabled.IsCheckedChanged += (_, _) => overlay?.SetSourceVisible(overlaySourceEnabled.IsChecked == true);
         overlayWidth.ValueChanged += (_, _) => { if (overlay is not null) overlay.Width = overlayWidth.Value; };
         cardOpacity.ValueChanged += (_, _) => overlay?.SetCardOpacity(cardOpacity.Value);
         timer.Tick += async (_, _) =>
@@ -247,7 +251,7 @@ public sealed class MainWindow : Window
         UpdateButtons();
     }
 
-    private string OverlayLabel(bool shown) => (live ? "원문 오버레이 " : "샘플 오버레이 ") + (shown ? "숨기기" : "표시");
+    private string OverlayLabel(bool shown) => (live ? "자막 오버레이 " : "샘플 오버레이 ") + (shown ? "숨기기" : "표시");
 
     private async Task ExportAsync(string format)
     {
