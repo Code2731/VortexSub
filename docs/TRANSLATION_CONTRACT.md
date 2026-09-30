@@ -1,6 +1,7 @@
-# Local translation contract (T03-01a)
+# Local translation contract and HTTP owner (T03-01a/b)
 
-`crates/translation/` implements provider-independent request/response validation.
+`crates/translation/` implements provider-independent request/response validation
+and a bounded local HTTP owner.
 It consumes the existing `TranslationJob`, retaining its full source identity,
 request ID and remaining monotonic deadline. The pipeline supplies final jobs and
 same-epoch context; this crate performs no scheduling or history application.
@@ -31,16 +32,32 @@ calls, explicit refusal and truncated/unknown completion reasons fail.
 Reasoning fields are never used as translation. Explanations or semantic errors
 inside otherwise valid plain text still require quality evaluation.
 
-The future HTTP owner must disable proxies/redirects, bound bytes while reading,
-use connection timeout 2 s and the job's remaining overall budget, and validate
-the full key again through pipeline completion. No HTTP calls, retries, secrets,
-worker commands or UI translation are connected in this round.
+The HTTP client disables proxies, redirects and automatic compression. It bounds
+both Content-Length and streamed/chunked bytes while reading. Connection timeout
+is 2 s; headers, body, retry delay and attempts share the remaining job budget.
+Preparation and thread scheduling consume that budget too. Transient connection
+failures and 5xx may retry once with 0.1 s delay; 429 accepts numeric Retry-After
+only when it fits. HTTP-date Retry-After and context-error retry remain unsupported.
+401/404, schema failures and truncated responses are terminal.
+
+An optional bearer token is supplied in memory; headers are marked sensitive.
+Errors expose only typed categories/status, without server bodies or token text.
+This does not implement OS secret storage. Default features exclude TLS/proxy
+discovery; only the validated local HTTP endpoints are supported.
+
+`Owner` has one command slot, one completion slot and one active reservation.
+Cancellation drops the client future and interrupts retry waits; reservation is
+held until completion is polled. Owner destruction cancels and joins its thread.
+This cannot guarantee cancellation of inference already executing at the server.
+Completions retain the full source key/request ID. Worker integration must apply
+results through the pipeline to reject stale epochs; it is the next round.
 
 ## Validation and next step
 
-`cargo test -p echosub-translation --locked --offline` runs eight deterministic
-fixtures covering endpoints, Unicode/budgets, escaping, bypass/deadline, catalog
-and response failures. Windows checks are recorded in
-[T03-01a evidence](evidence/T03-01a-windows-translation-contract.md).
-Next: bounded HTTP owner, model selection and connectivity diagnostics,
-then final-job dispatch/cancellation/history and UI integration.
+`cargo test -p echosub-translation --locked --offline` runs 20 contract/local HTTP
+fixtures, including redirects, status/retries, body stalls, chunked size limits,
+cancellation and owner lifetime. `scripts/probe-translation.ps1 -Contract -Offline`
+uses the Rust owner with an installed llama-server and existing pinned model.
+Without `-Contract`, the earlier C# baseline probe remains available.
+See [T03-01b evidence](evidence/T03-01b-windows-translation-http.md).
+Next: worker final-job dispatch/cancellation/history, followed by UI integration.

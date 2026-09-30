@@ -1,4 +1,6 @@
-//! Bounded local translation contracts. No networking or result application.
+//! Bounded local translation contracts and HTTP owner. No history application.
+pub mod http;
+pub mod owner;
 use echosub_pipeline_core::{TranslationJob, TranslationKey, MAX_TEXT_BYTES};
 use serde_json::{json, Value};
 use std::{collections::HashSet, net::SocketAddr, time::Duration};

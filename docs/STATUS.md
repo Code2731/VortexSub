@@ -30,7 +30,8 @@
 | M2 | PARTIAL | CPU 실제 VAD·전사·제어/history 및 Windows opt-in 부분 전사 연결. 시작 안정성·화면 자막·자연 음성 경계 수용 미통과. |
 | T02-04c | PARTIAL: token 시간·byte 정합과 통제된 파일 무음 | Rust 110개·C# IPC/native CPU PASS. 600초 파일 무음에서 VAD/ASR/history 0; 실제 파일 token 시간 수집 확인. 실제 live dedup·자연 음성·UI·Mac 미검증. [계약](ASR_TOKEN_ALIGNMENT.md) · [근거](evidence/T02-04c-windows-token-alignment.md) |
 | T03-01a | PARTIAL: 로컬 번역 요청·응답 계약 | 신규 fixture 8개 포함 Rust 118개·C# IPC/build PASS. 숫자 loopback 주소, 문맥/Unicode 예산, deadline·bypass, 모델 목록·응답 검사 구현. HTTP owner/worker/UI 연결은 다음 단계. [계약](TRANSLATION_CONTRACT.md) · [근거](evidence/T03-01a-windows-translation-contract.md) |
-| M3 | PARTIAL: 독립 계약 구현 | 외부 서버 HTTP·제품 번역·양 OS E2E 수용은 미구현/미검증. |
+| T03-01b | PARTIAL: bounded HTTP owner·실제 로컬 번역 | Rust 130개·C# IPC/build PASS. 모델 조회/선택, 공유 deadline·최대 1회 재시도·취소/종료·응답 상한 구현. 실제 Qwen en/ja 20/20 응답, 평균 0.133초/최대 0.350초. 귀환 조건 오역/누락으로 품질 보류; worker/UI 연결 후속. [근거](evidence/T03-01b-windows-translation-http.md) |
+| M3 | PARTIAL: 독립 계약·HTTP owner 구현 | 실제 서버 파일 fixture 확인; worker/UI 번역·양 OS E2E 수용은 미구현/미검증. |
 | M4~M5 | NOT_STARTED | 해당 제품 통합/실기기 수용 결과 없음. |
 
 ## 확인된 Windows 개발 환경

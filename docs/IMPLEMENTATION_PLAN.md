@@ -175,6 +175,16 @@ UI/자연 음성/두 OS 수용 gate는 그대로 유지한다.
 TranslationJob의 키/deadline을 보존하면서 로컬 주소, 모델 목록, source/context
 예산, JSON prompt와 응답의 완결성/길이/tool 검사를 구현한다. 신규 fixture 8개를
 포함한 Rust 118개·C# IPC가 통과했다. [계약](TRANSLATION_CONTRACT.md).
-다음 T03-01b는 proxy/redirect 없는 bounded HTTP owner·모델 선택/연결 진단이다.
+후속 T03-01b에서 proxy/redirect 없는 bounded HTTP owner·모델 선택/연결 진단을 구현했다.
 이어 final-only dispatch·취소/epoch·history, UI 번역 표시를 연결한다.
 M2/M3 품질과 양 OS E2E gate의 완료를 뜻하지 않는다.
+
+## T03-01b 로컬 HTTP owner (2026-10-01)
+
+전용 스레드/단일 실행 예약과 취소·join, 2초 연결 제한·기존 deadline 공유,
+최대 한 번 재시도·응답 byte 상한을 연결했다. Rust 130개/C# IPC PASS이며 실제
+Qwen 로컬 서버의 20개 응답을 확인했다. 귀환 조건 오역/누락은 품질 보류로 기록했다.
+[실측·범위](evidence/T03-01b-windows-translation-http.md).
+다음 T03-01c는 기존 pipeline의 final-only 번역 job을 HTTP owner에 전달하고,
+전체 키로 완료를 적용해 history·실패/skip/취소 terminal과 원문 보존을 확인한다.
+서버 설정/모델 조회 진단 명령을 worker에 노출하고, UI 번역 연결은 그 뒤에 진행한다.

@@ -25,6 +25,7 @@ cargo run -p echosub-model-probe -- validate benchmarks/fixtures/local-tts/manif
 .\scripts\probe-asr.ps1 -Backend cpu -Offline
 .\scripts\probe-asr.ps1 -Backend cuda -Offline
 .\scripts\probe-translation.ps1
+.\scripts\probe-translation.ps1 -Contract -Offline
 ```
 
 ASR native builds require MSVC, CMake, LLVM `libclang.dll`, and, for CUDA,
@@ -47,6 +48,10 @@ code. The target folder must be inside this repository.
 enable native inference and do not require native tooling.
 
 Translation requires an installed llama-server supporting the model's GGUF.
+`-Contract` selects the Rust HTTP owner with an eight-second job deadline,
+bounded responses and strict completion checks. The earlier C# baseline remains
+the default. Rust reports include fixture SHA-256 and preserve per-case failures;
+all successful HTTP responses still require semantic review.
 Pass `-ServerPath <exe>` if unavailable on PATH. The script uses loopback,
 an ephemeral API key, a 4096-token context, and requests GPU offload. It stops
 its own server on completion. Inspect logs for actual layer placement.

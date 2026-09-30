@@ -12,7 +12,7 @@ For diagnostics, see `benchmarks/README.md`. Use `scripts/probe-asr.ps1 -Backend
 
 ## Coding Style
 
-Provider-independent translation request/response contracts live in `crates/translation/`; HTTP owner integration is tracked separately in `docs/TRANSLATION_CONTRACT.md`.
+Provider-independent translation contracts and the bounded HTTP owner live in `crates/translation/`; worker integration is tracked separately in `docs/TRANSLATION_CONTRACT.md`. Use `scripts/probe-translation.ps1 -Contract -Offline` for the Rust owner's real local-server diagnostic.
 
 Use Rust's standard formatting and idiomatic `snake_case` for functions/modules and `UpperCamelCase` for types. In C#, use four-space indentation, `UpperCamelCase` for public types and members, and `camelCase` for locals and parameters. Keep pure state and data contracts platform-independent; isolate WASAPI and ScreenCaptureKit behind platform adapters. Keep worker stdout reserved for NDJSON protocol messages and send diagnostics to stderr. Bound queues and avoid blocking, allocation-heavy, or inference work in audio callbacks.
 

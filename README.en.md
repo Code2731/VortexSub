@@ -106,8 +106,10 @@ remain unpassed. See [live execution and contracts](docs/WORKER_LIVE_ASR.md).
 [Token timestamp reconciliation](docs/ASR_TOKEN_ALIGNMENT.md) is implemented.
 Controlled silence covering 600 seconds of **file PCM** produced no VAD calls,
 ASR jobs or history. Live dedup quality remains unverified. The M3
-[local translation contract](docs/TRANSLATION_CONTRACT.md) validates requests and
-responses; HTTP execution and translated captions are the next integration steps.
+[local translation contract](docs/TRANSLATION_CONTRACT.md) now includes an HTTP
+owner, model discovery/selection, cancellation and response validation. Run
+`scripts/probe-translation.ps1 -Contract -Offline` against the installed local
+server. Worker/caption integration and quality acceptance remain pending.
 
 ## MOCK caption overlay
 

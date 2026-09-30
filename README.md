@@ -102,7 +102,8 @@ ONNX Runtime 1.22.0 CPU로 발화 범위를 나누고 실제 전사합니다. �
 전사 경계에는 [token 시간 정합](docs/ASR_TOKEN_ALIGNMENT.md)을 추가했습니다.
 600초 **파일 PCM** 무음 검증에서 VAD/ASR/history 생성이 없었습니다.
 실제 live dedup 품질은 미검증입니다. M3 [로컬 번역 계약](docs/TRANSLATION_CONTRACT.md)은
-요청·응답 검사를 구현했으며 HTTP 실행·화면 번역 연결은 다음 단계입니다.
+HTTP owner·모델 조회/선택·취소·응답 검사를 구현했습니다. `scripts/probe-translation.ps1 -Contract -Offline`로
+실제 로컬 서버를 검사할 수 있습니다. worker·화면 번역 연결과 품질 수용은 후속입니다.
 
 ## MOCK 자막 오버레이
 

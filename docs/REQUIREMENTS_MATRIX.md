@@ -15,7 +15,7 @@
 | ASR-003 | T01-01, T02-01/04c | UT-003/005, IT-005/006 | PARTIAL: exact-zero PCM/VAD·NoSpeech skip·반복 보존 fixture 통과. T02-04c 600초 파일 무음 VAD/ASR/history 0 PASS; 실제 loopback/효과음/음악 수용은 후속 |
 | ASR-004 | T01-02, T02-01/04c | UT-005, 긴 발화 fixture | PARTIAL: span/token 시간·UTF-8 정합 fixture PASS. 실제 8초 분할/0.608초 continuation 확인; 실제 token dedup/무누락 미검증 |
 | ASR-005 (P1) | 후속 별도 작업 | 후속 수용 시험 필요 | DEFERRED |
-| TR-001 | T00-04.1, T03-01a | P0-MODEL, IT-003 schema subset | PARTIAL: en/ja→ko 모델 진단; T03-01a 모델 목록·요청/응답 검증 fixture PASS. HTTP owner/제품 통합 후속 |
+| TR-001 | T00-04.1, T03-01a/b | P0-MODEL, IT-003 subset | PARTIAL: 요청/응답 및 HTTP fixture PASS; 실제 Qwen en/ja 20/20 응답 확인. worker/제품 통합 후속 |
 | TR-002 | T03-01/03 | UT-007, IT-003, HW-E2E, 품질 평가 | OPEN: 귀환 조건 오역·용어/시간 표현 문제 발견; T00-04.1 검토와 M3 재검증 연결 |
 | TR-003 | T01-02, T03-01 | UT-006, IT-004 | PARTIAL: 원문 전체 키+request ID, epoch/새 session 뒤 늦은 응답 폐기·pending terminal fixture 통과; mock 전체 키 IPC 검증; 실제 HTTP/UI 적용 미연결 |
 | TR-004 | T03-01a | 문맥 경계·epoch 초기화 fixture | PARTIAL: 동일 epoch 직전 확정 원문 2개 mock job 및 600 scalar 문맥/2,000 scalar 입력 예산·원문 보존 fixture PASS; 실제 번역 문맥 품질 미검증 |
@@ -30,7 +30,7 @@
 | HIS-002 | T02-03c/d, T03-02 | UT-009/010 subset; `evidence/T02-03c-windows-history-export.md`, `evidence/T02-03d-windows-history-clear.md` | PARTIAL: 원문 TXT/SRT·UTC/sample 시간축·명시적 덮어쓰기·세션별 삭제 IPC 및 실제 Windows 파일 보존 PASS. 번역 SRT·UI 조작·Mac 미검증 |
 | MOD-001 | T00-04.1, T02-01 | P0-MODEL, 모델 경로/해시 오류 시험 필요 | PARTIAL: 고정 모델 3개 해시 확인과 실제 probe 로딩; 제품 설치·오류 수용 미검증 |
 | MOD-002 (P0B) | T04-01 | REL-001, 손상/취소 시험 필요 | PLANNED |
-| SEC-001 | T03-01a | UT-012 endpoint subset | PARTIAL: numeric loopback 주소·경로 제한 fixture PASS. 실제 HTTP proxy/redirect 차단 검증은 다음 단계 |
+| SEC-001 | T03-01a/b | UT-012 endpoint/redirect subset | PARTIAL: numeric loopback 주소·경로 제한과 실제 redirect 미추적 fixture PASS. no_proxy 명시; 환경 proxy 주입 검증·OS 비밀 저장소 후속 |
 | SEC-002 | T03-01/02 | UT-011 | PLANNED |
 | OPS-001 | T00-01, T00-04.2, T02-02/03 | IT-001/002, P0-CANCEL, HW-M02 | PARTIAL: Windows IPC·독립 native 정상/강제 종료 후 복구; worker 출력 stall 약 5초 오류 종료·bounded delivery 검증; 캡처/모델 통합·Mac 미검증 |
 | OPS-002 (P0B) | T05-03 | REL-001, HW-M02 | PLANNED |
