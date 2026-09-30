@@ -60,6 +60,13 @@ PCM snapshot을 제공합니다. OS·모델 없이 `cargo test -p echosub-audio-
 로 fixture를 실행할 수 있습니다. 확률 기반 발화 구간·8초 분할·packet-stop watchdog도 구현했습니다. 실제 Silero 모델과 worker/UI 연결은 아직
 구현하지 않았습니다. [오디오 코어](docs/AUDIO_CORE.md) · [VAD 구간 계약과 검증](docs/VAD_CORE.md)
 
+## 파이프라인 상태·작업 큐 (M1 진행 중)
+
+`crates/pipeline-core/`는 최신 partial 교체, final 우선 큐, 늦은 결과 폐기,
+번역 deadline·terminal 상태와 최대 1,000개 버전 history를 제공합니다.
+`cargo test -p echosub-pipeline-core`로 mock fixture를 실행합니다.
+실제 추론·HTTP·worker 전달 연결은 아직입니다. [상태·큐 계약](docs/PIPELINE_CORE.md)
+
 ## MOCK 자막 오버레이
 
 `scripts/run.ps1` 실행 후 메인 창의 **샘플 오버레이 표시**를 누르세요. 영어/일본어 원문과 한국어 번역의 샘플을 표시하며 이동 핸들·리사이즈 그립, 폭·불투명도 조절, 숨김·위치 초기화를 제공합니다. 메인 창을 닫으면 오버레이도 닫힙니다. Windows 어댑터는 창 비활성화와 tool window 속성을 적용합니다.

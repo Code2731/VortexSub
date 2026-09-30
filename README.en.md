@@ -60,6 +60,14 @@ buffer, and bounded immutable PCM snapshots. Run fixtures without OS/model
 dependencies using `cargo test -p echosub-audio-core`. Probability-driven segmentation, eight-second chunking, and a packet-stop watchdog are implemented. Actual Silero inference and worker/UI
 integration are not implemented yet. See the [audio core](docs/AUDIO_CORE.md) and [VAD contract and validation](docs/VAD_CORE.md).
 
+## Pipeline state and job queues (M1 in progress)
+
+`crates/pipeline-core/` provides latest-partial replacement, final-priority queues,
+stale-result rejection, translation deadlines and terminal states, and versioned
+history capped at 1,000 records. Run mock fixtures with
+`cargo test -p echosub-pipeline-core`. Actual inference, HTTP, and worker delivery
+are not connected yet. See the [state and queue contract](docs/PIPELINE_CORE.md).
+
 ## MOCK caption overlay
 
 Run `scripts/run.ps1` and select **샘플 오버레이 표시** (show sample overlay) in the main window. It shows sample English/Japanese source text and Korean translations, with move/resize handles and controls for width, opacity, hiding, and resetting placement. It closes with the main window. The Windows adapter applies non-activation and tool-window properties.

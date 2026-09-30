@@ -151,6 +151,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "echosub-pipeline-core"
+version = "0.1.0"
+dependencies = [
+ "echosub-audio-core",
+]
+
+[[package]]
 name = "echosub-worker"
 version = "0.1.0"
 dependencies = [

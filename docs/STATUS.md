@@ -1,6 +1,6 @@
 # 구현 상태
 
-최종 갱신: 2026-09-30. 결과 범위: Windows T00-01, 독립형 T00-02 WASAPI probe, T00-04.1 모델 harness, T00-04.2 실제 취소·수명 probe, T00-04.4 동시 부하, T00-04.3 MOCK 오버레이, T01-01a/b 독립 오디오·발화 코어. 실제 캡처·추론·번역을 worker/UI에 연결하는 기능, 실제 자막과 macOS 번들은 미구현/미검증이다.
+최종 갱신: 2026-09-30. 결과 범위: Windows T00-01, 독립형 T00-02 WASAPI probe, T00-04.1 모델 harness, T00-04.2 실제 취소·수명 probe, T00-04.4 동시 부하, T00-04.3 MOCK 오버레이, T01-01a/b 독립 오디오·발화 코어, T01-02a 독립 상태·작업 큐. 실제 캡처·추론·번역을 worker/UI에 연결하는 기능, 실제 자막과 macOS 번들은 미구현/미검증이다.
 
 | 작업 | 상태 | 근거 및 다음 단계 |
 |---|---|---|
@@ -13,7 +13,8 @@
 | T00-04.4 | PASS (Windows probe scope); BLOCKED (macOS) | 5조건 각 302초, 실제 동시 구간 300초 이상. base 동시 전사/번역 각 1208회 완료·건너뜀 0; small 동시 전사 1189회 완료·19개 건너뜀. 오류/OOM 0. base 성능 후보 유지, small 4 Hz 기본값 보류. [측정과 후속 설정](evidence/T00-04.4-windows-contention.md) |
 | T00-04.3 | PARTIAL (Windows); BLOCKED (macOS) | MOCK 오버레이, 표시/숨김, 메인 창 폭·불투명도 조절, 드래그 핸들, 화면 작업 영역 기준 초기 위치 구현. 125% 배율의 HWND 속성·투명도·크기/위치 변경 확인. 다른 앱 포커스·게임 합성·실제 마우스 조작은 미검증. |
 | T01-01 | PARTIAL: T01-01a/b PASS (Windows fixture scope) | 공통 float32 mono/stereo 정규화, 16 kHz/512-frame, sample 시간축·gap, 12초 rolling/유한 immutable snapshot 구현. 정규화 15개+VAD 15개 fixture. 확률 기반 발화·8초 분할·watchdog 구현. 실제 Silero·native clock·worker/Mac 미검증. [오디오](AUDIO_CORE.md) · [VAD](VAD_CORE.md) |
-| M1 | PARTIAL | 정규화·발화 구간의 결정론적 코어 구현. 실제 Silero 어댑터와 T01-02 상태기계·큐는 미구현. |
+| T01-02 | PARTIAL: T01-02a PASS (Windows fixture scope) | 단일 실행·final 2/partial 1·번역 2 대기, 전체 키 검증, final 동결, 취소 반환 대기, 번역 terminal과 버전 history 구현. fixture 23개. 실제 worker/IPC/event 큐·native 미연결. [계약·검증](PIPELINE_CORE.md) |
+| M1 | PARTIAL | 정규화·발화·상태/작업 큐의 결정론적 코어 구현. 실제 Silero 어댑터와 T01-02b worker 전달·유한 event 큐·IPC snapshot은 미구현. |
 | M2~M5 | NOT_STARTED | 해당 제품 통합/실기기 수용 결과 없음. |
 
 ## 확인된 Windows 개발 환경
@@ -68,7 +69,7 @@ Windows probe는 render endpoint의 loopback만 열며 microphone endpoint를 �
 
 T00-04.3의 Windows 창 속성과 Avalonia 프레임은 확인했으나 다른 앱의 입력 포커스를 조회할 수 없었다. `ShowActivated=false`와 `WS_EX_NOACTIVATE`의 적용 사실을 입력 유지의 실측으로 확대하지 않는다. [실행 및 수동 검증 절차](OVERLAY_PROBE.md)를 일반 사용자 데스크톱에서 수행한다.
 
-T00-04.4 Windows 동시 부하 probe를 완료했다. T01-01a 독립 오디오 코어도 구현했다. T01-01b 확률 기반 발화 구간·packet-stop watchdog도 구현했다. 다음 독립 구현은 T01-02 segment/revision/epoch 상태기계·유한 큐다. T00-04.1은 자연 음성/일본어/Mac, T00-04.2는 Mac·실제 worker 통합 보완이 필요하며 M0 전체는 미통과다. T00-02의 통제 음원 10분·장치 전환/분리와 T00-04.3의 다른 앱 입력·게임 위 표시·수동 조절은 실제 조작으로 완료한다.
+T00-04.4 Windows 동시 부하 probe를 완료했다. T01-01a 독립 오디오 코어도 구현했다. T01-01b 확률 기반 발화 구간·packet-stop watchdog도 구현했다. T01-02a 상태기계·유한 작업 큐도 구현했다. 다음 단위는 T01-02b worker 전달·유한 event 큐·버전 snapshot 연결이다. T00-04.1은 자연 음성/일본어/Mac, T00-04.2는 Mac·실제 worker 통합 보완이 필요하며 M0 전체는 미통과다. T00-02의 통제 음원 10분·장치 전환/분리와 T00-04.3의 다른 앱 입력·게임 위 표시·수동 조절은 실제 조작으로 완료한다.
 
 
 T00-04.4 추가 검증: 총 8437회 추론 완료, 실패 0, small 전사 요청 건너뜀 19. GPU 사용과 번역 full offload를 로그로 확인했고 소유 프로세스/API key 잔여는 0이다. 장치 전체 GPU 메모리 관측 최대는 small 동시 6721 MiB이며 프로세스 VRAM peak가 아니다. 모든 새 번역·동시 부하 시간도 초다. 실제 자막 latency·게임 공존·품질 gate·Mac은 미검증이다.
@@ -77,3 +78,5 @@ T01-01a 추가 검증: Windows의 pure PCM fixture 15개와 기존 9개 시험, 
 
 
 T01-01b 추가 검증: mock 확률 VAD fixture 15개와 기존 24개, Rust fmt/workspace·C# 빌드·IPC smoke 통과. 600초 exact-zero PCM에서 mock 모델/ASR 요청 0, 8초/overlap 분할, healthy packet-stop의 실제 PCM만 final, 오류/Pause/Stop 폐기와 gap reset을 확인했다. 실제 Silero state/context·자연 음성·native watchdog·Mac 수용은 미검증이다. [범위와 후속 계약](VAD_CORE.md)
+
+T01-02a 추가 검증: 생성 PCM/mock 결과 fixture 23개와 기존 39개, Rust fmt/workspace·C# 빌드·IPC smoke 통과. 최신 partial·final 우선/동결·큐 초과 기록, epoch/새 session 뒤 stale 결과 거부, native 반환 전 예약 유지, 번역 deadline/terminal, history 버전·1,000개 상한을 확인했다. 실제 native/HTTP·worker 전달/event 큐·IPC snapshot·overlap 텍스트 정합·Mac은 미검증이다. [계약과 다음 단위](PIPELINE_CORE.md)
