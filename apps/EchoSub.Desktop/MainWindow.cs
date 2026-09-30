@@ -26,6 +26,7 @@ public sealed class MainWindow : Window
     private readonly ListBox history = new() { Height = 190 };
     private readonly SemaphoreSlim operationGate = new(1, 1);
     private readonly DispatcherTimer timer = new() { Interval = TimeSpan.FromSeconds(0.5) };
+    private CancellationTokenSource? refreshCancellation;
     private OverlayWindow? overlay;
     private WorkerClient? client;
     private Action? disconnectedHandler;
@@ -33,7 +34,8 @@ public sealed class MainWindow : Window
     private string? latestSource;
     private (ulong Session, ulong Epoch, ulong Segment, ulong Revision)? displayedKey;
     private long sourceSince;
-    private bool closing, busy, modelReady, captureStartable, captureNeedsStop;
+    private bool closing, closeReady, modelReady, captureStartable, captureNeedsStop;
+    private int pendingActions;
 
     public MainWindow()
     {
@@ -93,22 +95,32 @@ public sealed class MainWindow : Window
         {
             if (client is not null) details.Text = (await client.SendAsync("ping", new { nonce = "UI-핑" })).ToString();
         });
-        stateButton.Click += async (_, _) => await ExecuteAsync(RefreshCoreAsync);
-        stopButton.Click += async (_, _) => await ExecuteAsync(DisconnectCoreAsync);
+        stateButton.Click += async (_, _) => await PollAsync();
+        stopButton.Click += async (_, _) =>
+        {
+            ClearSource();
+            await ExecuteAsync(DisconnectCoreAsync);
+        };
         startCaptureButton.Click += async (_, _) => await ExecuteAsync(async () =>
         {
             if (client is null || !captureStartable || !modelReady) return;
             ClearSource();
             await client.SendAsync("start_capture", new { language = language.SelectedItem as string, device_id = (endpoint.SelectedItem as EndpointChoice)?.Id });
-            await RefreshCoreAsync();
+            captureStartable = false;
+            captureNeedsStop = true;
+            status.Text = "캡처 시작 요청 수락 · 상태 확인 중";
         });
-        stopCaptureButton.Click += async (_, _) => await ExecuteAsync(async () =>
+        stopCaptureButton.Click += async (_, _) =>
         {
-            if (client is null) return;
             ClearSource();
-            await client.SendAsync("stop_capture");
-            await RefreshCoreAsync();
-        });
+            await ExecuteAsync(async () =>
+            {
+                if (client is null) return;
+                await client.SendAsync("stop_capture");
+                captureStartable = captureNeedsStop = false;
+                status.Text = "캡처 정지 요청 수락 · 소유 스레드 정리 확인 중";
+            });
+        };
         overlayButton.Click += (_, _) =>
         {
             if (overlay?.IsVisible == true) { overlay.Hide(); overlayButton.Content = OverlayLabel(false); return; }
@@ -127,7 +139,11 @@ public sealed class MainWindow : Window
         resetOverlay.Click += (_, _) => overlay?.ResetPlacement(this);
         overlayWidth.ValueChanged += (_, _) => { if (overlay is not null) overlay.Width = overlayWidth.Value; };
         cardOpacity.ValueChanged += (_, _) => overlay?.SetCardOpacity(cardOpacity.Value);
-        timer.Tick += async (_, _) => { if (!busy && !closing && client is not null) await ExecuteAsync(RefreshCoreAsync); };
+        timer.Tick += async (_, _) =>
+        {
+            ExpireSource();
+            if (pendingActions == 0 && !closing && client is not null) await PollAsync();
+        };
         Opened += async (_, _) =>
         {
             StartupDiagnostics.Write($"Main window opened; live={live}; visible={IsVisible}; native={WindowsOverlayPlatform.Inspect(this)}");
@@ -135,12 +151,15 @@ public sealed class MainWindow : Window
         };
         Closing += async (_, args) =>
         {
-            if (closing) return;
+            if (closeReady) return;
             args.Cancel = true;
+            if (closing) return;
             closing = true;
             timer.Stop();
+            ClearSource();
             overlay?.Close();
             await ExecuteAsync(DisconnectCoreAsync);
+            closeReady = true;
             Close();
         };
         UpdateButtons();
@@ -150,18 +169,41 @@ public sealed class MainWindow : Window
 
     private async Task ExecuteAsync(Func<Task> action)
     {
-        await operationGate.WaitAsync();
-        busy = true;
+        // User commands cancel background reads before waiting for their ownership gate.
+        pendingActions++;
+        refreshCancellation?.Cancel();
         UpdateButtons();
+        await operationGate.WaitAsync();
         try { await action(); }
-        catch (Exception error)
+        catch (Exception error) { ReportError(error); }
+        finally { pendingActions--; UpdateButtons(); operationGate.Release(); }
+    }
+
+    private async Task PollAsync()
+    {
+        // Skip ticks rather than accumulating refresh work behind a user command.
+        if (pendingActions != 0 || closing || client is null) return;
+        if (!await operationGate.WaitAsync(0)) return;
+        using var cancellation = new CancellationTokenSource();
+        refreshCancellation = cancellation;
+        try { await RefreshCoreAsync(cancellation.Token); }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { }
+        catch (Exception error) { ReportError(error); }
+        finally
         {
-            ClearSource();
-            status.Text = "Worker 통신/설정 오류 · 종료 후 다시 연결 가능";
-            details.Text = error.Message;
-            StartupDiagnostics.Write($"Worker operation failed: {error.GetType().Name}");
+            refreshCancellation = null;
+            UpdateButtons();
+            operationGate.Release();
         }
-        finally { busy = false; UpdateButtons(); operationGate.Release(); }
+    }
+
+    private void ReportError(Exception error)
+    {
+        ClearSource();
+        modelReady = captureStartable = false;
+        status.Text = "Worker 통신/설정 오류 · 종료 후 다시 연결 가능";
+        details.Text = error.Message;
+        StartupDiagnostics.Write($"Worker operation failed: {error.GetType().Name}");
     }
 
     private async Task ConnectCoreAsync()
@@ -200,19 +242,30 @@ public sealed class MainWindow : Window
         catch { await DisconnectCoreAsync(); throw; }
     }
 
-    private async Task RefreshCoreAsync()
+    private Task RefreshCoreAsync() => RefreshCoreAsync(CancellationToken.None);
+
+    private async Task RefreshCoreAsync(CancellationToken cancellationToken)
     {
         if (client is null) return;
-        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(TimeSpan.FromSeconds(2));
         var state = await client.SendAsync("get_state", cancellationToken: deadline.Token);
+        deadline.Token.ThrowIfCancellationRequested();
         if (!live) { status.Text = "Worker 연결됨 · MOCK"; details.Text = state.ToString(); return; }
+        var refreshedSnapshot = snapshot;
         if (snapshot?.Version != state.GetProperty("history_version").GetUInt64() || client.Events.SnapshotRequired)
         {
-            snapshot = await client.ReadHistoryAsync(deadline.Token);
-            history.ItemsSource = snapshot.Records.TakeLast(100).Reverse().Select(record =>
-                $"[{record.Epoch}/{record.SegmentId} · {record.AudioStartSeconds:F3}~{record.AudioEndSeconds:F3}초 · {record.SourceState}] {record.SourceReason}\n{record.Source}").ToArray();
+            refreshedSnapshot = await client.ReadHistoryAsync(deadline.Token);
             // A fault/epoch change may occur while reading multiple history pages.
             state = await client.SendAsync("get_state", cancellationToken: deadline.Token);
+        }
+        // An interrupted background read must not repaint source text after Stop was clicked.
+        deadline.Token.ThrowIfCancellationRequested();
+        if (!ReferenceEquals(snapshot, refreshedSnapshot))
+        {
+            snapshot = refreshedSnapshot;
+            history.ItemsSource = snapshot?.Records.TakeLast(100).Reverse().Select(record =>
+                $"[{record.Epoch}/{record.SegmentId} · {record.AudioStartSeconds:F3}~{record.AudioEndSeconds:F3}초 · {record.SourceState}] {record.SourceReason}\n{record.Source}").ToArray();
         }
         var capture = state.GetProperty("diagnostic_capture");
         var captureState = capture.GetProperty("state").GetString();
@@ -248,6 +301,12 @@ public sealed class MainWindow : Window
 
     private void ClearSource() { latestSource = null; if (live) overlay?.SetSource(null); }
 
+    private void ExpireSource()
+    {
+        if (latestSource is not null && Stopwatch.GetElapsedTime(sourceSince).TotalSeconds >= 5)
+            ClearSource();
+    }
+
     private async Task DisconnectCoreAsync()
     {
         timer.Stop();
@@ -273,7 +332,7 @@ public sealed class MainWindow : Window
     private void UpdateButtons()
     {
         var connected = client is not null;
-        var available = !busy && !closing;
+        var available = pendingActions == 0 && !closing;
         connectButton.IsEnabled = available && !connected;
         pingButton.IsEnabled = stateButton.IsEnabled = stopButton.IsEnabled = available && connected;
         startCaptureButton.IsEnabled = available && connected && modelReady && captureStartable;

@@ -104,3 +104,14 @@ T01-01은 a(정규화·sample 시간축·유한 PCM 소유권)와 b(VAD·발화 
 ## T02-02e 진단 UI 연결 (2026-10-01)
 
 Windows live 진단에 출력 장치·언어 선택, 캡처 시작/정지, 실패 phase·pending join·소유 worker 종료/재연결, 원문 history·5초 오버레이를 연결했다. 현재 ASR epoch와 적용된 source revision으로 표시를 제한한다. 저장소 검사와 live 창/worker 연결 로그는 통과했으나 실제 클릭·원문 렌더링 수용은 미검증이다. 다음은 [수동 확인](LIVE_UI.md)과 제품 session/Pause 계약이며 간헐적 Initialize 문제의 해결을 주장하지 않는다.
+
+## T02-02f UI 제어 응답 경로 보완 (2026-10-01)
+
+상태/history 조회가 정지 버튼과 원문 만료를 지연시키던 경로를 분리했다.
+사용자 명령이 조회를 취소하고, 취소된 snapshot은 화면에 적용하지 않는다.
+Start/Stop 수락과 실제 상태를 분리하며 원문 만료는 UI tick에서 진행한다.
+반복 창 닫기는 worker 정리를 건너뛰지 않는다. [계약·확인 범위](LIVE_UI.md).
+실제 원문 화면과 조작 지연 수용은 미검증으로 유지한다. 다음 구현 단위는
+제품 session/Pause다. UUID 제품 ID와 진단 u64 ID의 구분, session 내 segment ID
+증가, Pause/Resume epoch와 capture/VAD join 및 native 반환의 관계를 먼저
+고정한 뒤 worker 명령·UI를 연결한다.

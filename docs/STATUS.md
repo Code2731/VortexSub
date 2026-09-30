@@ -20,6 +20,7 @@
 | T02-02c | PARTIAL: 시작 실패 처리·관측 구현; 무음 시작 gate 미통과 | 10초 Opening timeout/첫 실패 phase 보존·bounded 관측, STA·shared/event-driven 인수 0 보정, whole-fixture 재생 및 실패 checkpoint 추가. 실제 Initialize 대기를 재현했으며 보정 뒤에도 EOF용 무음 새 worker 시작 실패가 남음. [추가 근거](evidence/T02-02c-windows-capture-startup.md) |
 | T02-02d | PARTIAL: 모델 없는 장치별 새 worker probe 구현·검증 | matrix 62회+PowerShell 5.1 기본 1회 중 정상 시작 62/Initialize timeout 1, 전부 정상 프로세스 종료·강제 종료 0. ASR/VAD 없이도 지연 재현, Failed 뒤 Ping/재시작 거부/정리 확인. 이후 반복 성공으로 시작 안정성 gate를 올리지 않음. [probe 계약](CAPTURE_STARTUP_PROBE.md) · [근거](evidence/T02-02d-windows-capture-startup.md) |
 | T02-02e | PARTIAL: 진단 원문 UI 연결·빌드 통과; 화면 수용 미검증 | 장치/언어·Start/Stop·실패/join·worker 재연결, 버전 history·현재 epoch/revision 원문·5초 오버레이 구현. Rust 91개·C# 빌드/IPC 통과, PS5.1 live 창/연결 로그 확인. 실제 클릭/원문/만료/게임 포커스 미검증. [실행·범위](LIVE_UI.md) |
+| T02-02f | PARTIAL: UI 조작·조회 분리; 조작 지연 실측 미검증 | 자동/수동 조회의 버튼 잠금 제거·사용자 명령 시 조회 취소, snapshot 지연 적용, IPC와 독립된 원문 만료, 반복 창 닫기 중 worker 정리 보호. Windows Rust 91개·포맷/빌드·C# 빌드/IPC smoke PASS. 미실행 수동 항목은 [UI 계약](LIVE_UI.md)을 따른다. 제품 session/Pause는 후속. |
 | M2 | PARTIAL | CPU 실제 VAD 파일 분할·전사·제어/history 연결. WASAPI live final/history 진단 연결. 시작 안정성·화면 자막·제품 session·자연 음성 경계 수용 미통과. |
 | M3~M5 | NOT_STARTED | 해당 제품 통합/실기기 수용 결과 없음. |
 
