@@ -4,7 +4,7 @@
 
 EchoSub aims to provide system-audio transcription and Korean translation in a Windows/macOS desktop app.
 
-**M2 transcription and M3 translation integration are in development.** A diagnostic worker connects real Windows loopback→Silero VAD→Whisper→source history. File transcription, source history/overlay UI and UUID session controls/history are connected. An opt-in worker path also verifies file ASR→local HTTP translation→history. Translated desktop captions and full product wire migration are pending. macOS has not been verified on a real device.
+**M2 transcription and M3 translation integration are in development.** A diagnostic worker connects real Windows loopback→Silero VAD→Whisper→source history. File transcription, source history/overlay UI and UUID session controls/history are connected. An opt-in worker path also verifies file ASR→local HTTP translation→history. Local server/model settings and translated history/overlay presentation are connected; rendered UI acceptance and full product wire migration are pending. macOS has not been verified on a real device.
 
 ## Build and run on Windows
 
@@ -29,7 +29,7 @@ On macOS, install the pinned SDKs and run `bash scripts/check.sh`. Platform supp
 
 ## Live source diagnostic UI
 
-Run `./run.cmd -Live -Offline`, wait for model Ready, select an output device and source language, then click **세션 시작** (Start session). Source history and an overlay are connected. Partial output is off by default; select **부분 전사 켜기** before starting a session to enable it. Translation remains pending. See [partial ASR contracts](docs/WORKER_PARTIAL_ASR.md). After Pause/Stop and owner cleanup, select a retained session and use **TXT 저장 / 원문 SRT 저장** (Save TXT / source SRT). See [export, UTC, and timing](docs/HISTORY_EXPORT.md). You can also clear in-memory history for the selected session after confirmation. Saved files remain intact. Actual clicks and source rendering remain unverified. See [execution and verification scope](docs/LIVE_UI.md).
+Run `./run.cmd -Live -Offline`, wait for model Ready, select an output device and source language, then click **세션 시작** (Start session). Source history and an overlay are connected. Partial output is off by default; select **부분 전사 켜기** before starting a session to enable it. Start a local translation server separately and prepare its model with **서버 연결 / 모델 조회** to display Korean translations. See [server setup and presentation contracts](docs/DESKTOP_TRANSLATION.md). See [partial ASR contracts](docs/WORKER_PARTIAL_ASR.md). After Pause/Stop and owner cleanup, select a retained session and use **TXT 저장 / 원문 SRT 저장** (Save TXT / source SRT). See [export, UTC, and timing](docs/HISTORY_EXPORT.md). You can also clear in-memory history for the selected session after confirmation. Saved files remain intact. Actual clicks and source rendering remain unverified. See [execution and verification scope](docs/LIVE_UI.md).
 
 ## Windows system-audio capture probe
 

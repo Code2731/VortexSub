@@ -52,3 +52,6 @@ adapter available for subsequent dialogue. `mock_translate` is disabled in this 
 local Qwen→history; uses existing consented models and an installed llama-server.
 [Evidence and limits](evidence/T03-01c-windows-worker-translation.md).
 Desktop server settings, translated captions/export, live E2E and macOS are next.
+
+
+Desktop settings and presentation: [T03-02a](DESKTOP_TRANSLATION.md).

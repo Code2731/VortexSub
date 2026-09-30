@@ -46,7 +46,7 @@ worker 종료가 5초를 넘으면 소유 프로세스를 종료하고 그 사�
 native 반환 시간과 캡처 Stop 응답 시간은 서로 다르다.
 
 T02-03a부터 UUID session 제어와 Pause/Resume 버튼을 제공한다. source/history의 숫자 namespace와 전체 제품 wire의 차이는 [세션 계약](SESSION_CONTROL.md)을 따른다.
-부분 전사는 선택 기능으로 연결했다. 번역과 실제 경계 품질 수용은 후속이다. 시간/span 기반 정합은 [T02-04b](ASR_RECONCILIATION.md)에 연결했다. [부분 전사](WORKER_PARTIAL_ASR.md). 간헐적 Initialize 대기와
+부분 전사는 선택 기능으로 연결했다. 로컬 번역 설정/history/오버레이는 [T03-02a 안내](DESKTOP_TRANSLATION.md)에 연결했다. 번역 및 실제 경계 품질 수용은 후속이다. 시간/span 기반 정합은 [T02-04b](ASR_RECONCILIATION.md)에 연결했다. [부분 전사](WORKER_PARTIAL_ASR.md). 간헐적 Initialize 대기와
 자연 음성 품질·게임 포커스·macOS 수용은 해결/검증되지 않았다.
 
 ## 이번 확인 범위 (T02-02e, 2026-10-01)

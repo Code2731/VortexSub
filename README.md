@@ -4,7 +4,7 @@
 
 EchoSub는 Windows/macOS의 시스템 오디오를 전사하고 한국어로 번역하는 데스크톱 앱을 목표로 합니다.
 
-**현재는 M2 전사와 M3 번역 통합을 개발하는 단계입니다.** 진단 worker에서 실제 Windows loopback→Silero VAD→Whisper→원문 history를 연결했습니다. 파일 전사도 지원합니다. 진단 원문 history·오버레이 UI, UUID 세션 시작·일시정지·재개·종료와 세션별 history를 연결했습니다. opt-in worker의 파일 전사→로컬 HTTP 번역→history도 확인했습니다. 화면 번역·전체 제품 wire 전환은 후속이며 macOS는 실기기에서 검증하지 않았습니다.
+**현재는 M2 전사와 M3 번역 통합을 개발하는 단계입니다.** 진단 worker에서 실제 Windows loopback→Silero VAD→Whisper→원문 history를 연결했습니다. 파일 전사도 지원합니다. 진단 원문 history·오버레이 UI, UUID 세션 시작·일시정지·재개·종료와 세션별 history를 연결했습니다. opt-in worker의 파일 전사→로컬 HTTP 번역→history도 확인했습니다. 로컬 서버 설정·번역 history/오버레이 표시도 연결했습니다. 실제 화면 수용과 전체 제품 wire 전환은 후속이며 macOS는 실기기에서 검증하지 않았습니다.
 
 ## Windows에서 빌드하고 실행하기
 
@@ -29,7 +29,7 @@ macOS에서는 고정 SDK 설치 후 `bash scripts/check.sh`를 실행합니다.
 
 ## 실제 원문 진단 UI
 
-`./run.cmd -Live -Offline`로 실행하고 모델 Ready 뒤 출력 장치·원문 언어를 선택해 **세션 시작**을 누르세요. 원문 history와 오버레이를 연결했습니다. 부분 전사는 기본 꺼짐이며 세션 시작 전 **부분 전사 켜기**로 선택합니다. 번역은 후속입니다. [부분 전사 계약](docs/WORKER_PARTIAL_ASR.md). 일시정지/종료 후 정리가 끝나면 세션별 **TXT 저장 / 원문 SRT 저장**을 사용할 수 있습니다. [저장·UTC·시간축](docs/HISTORY_EXPORT.md). 선택 세션의 메모리 기록 삭제도 제공합니다. 실제 클릭·원문 화면 수용은 미검증입니다. [실행과 확인 범위](docs/LIVE_UI.md)
+`./run.cmd -Live -Offline`로 실행하고 모델 Ready 뒤 출력 장치·원문 언어를 선택해 **세션 시작**을 누르세요. 원문 history와 오버레이를 연결했습니다. 부분 전사는 기본 꺼짐이며 세션 시작 전 **부분 전사 켜기**로 선택합니다. 로컬 번역 서버를 별도로 실행한 뒤 **서버 연결 / 모델 조회**에서 모델을 준비하면 한국어 번역도 표시합니다. [서버 설정·표시 계약](docs/DESKTOP_TRANSLATION.md). [부분 전사 계약](docs/WORKER_PARTIAL_ASR.md). 일시정지/종료 후 정리가 끝나면 세션별 **TXT 저장 / 원문 SRT 저장**을 사용할 수 있습니다. [저장·UTC·시간축](docs/HISTORY_EXPORT.md). 선택 세션의 메모리 기록 삭제도 제공합니다. 실제 클릭·원문 화면 수용은 미검증입니다. [실행과 확인 범위](docs/LIVE_UI.md)
 
 ## Windows 시스템 오디오 캡처 probe
 

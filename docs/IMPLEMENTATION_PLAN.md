@@ -198,3 +198,13 @@ Qwen 로컬 서버의 20개 응답을 확인했다. 귀환 조건 오역/누락�
 다음 T03-02a는 데스크톱의 로컬 서버 설정/모델 준비 표시, 번역 history·오버레이다.
 서버 실패 시 원문 표시를 유지하고 applied source revision과 번역 request ID로
 갱신을 제한한다. UI 실제 조작·live E2E·Mac·품질 수용은 별도로 판정한다.
+
+## T03-02a 데스크톱 번역 표시 (2026-10-01)
+
+로컬 서버 주소/실제 모델 목록 선택, 준비·실패 상태와 번역 끄기를 연결했다.
+번역 history와 원문+한국어 오버레이를 연결하고 현재 UUID/epoch/applied revision과
+request ID로 표시를 제한한다. 실패 시 원문 유지, 늦은 번역의 5초 수명 연장 금지를
+14개 C# 표시 검사로 확인했다. Rust 138개·C# HTTP/IPC·native CPU/VAD 빌드 PASS.
+실제 UI 조작/화면·live E2E·품질·Mac 수용은 미검증이다.
+[실행 안내](DESKTOP_TRANSLATION.md) · [근거](evidence/T03-02a-windows-desktop-translation.md).
+다음 T03-02b는 서버 복구/다중 모델 선택 진단과 유한 번역 표시 프리셋이다.

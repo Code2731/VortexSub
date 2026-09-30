@@ -41,8 +41,17 @@ public sealed class MainWindow : Window
     private Action? disconnectedHandler;
     private HistorySnapshot? snapshot;
     private string? latestSource;
-    private (ulong Session, ulong Epoch, ulong Segment, ulong Revision)? displayedKey;
-    private long sourceSince;
+    private string? latestTranslation;
+    private CaptionPresentation captions = new();
+    private readonly Stopwatch captionClock = Stopwatch.StartNew();
+    private readonly TextBox translationEndpoint = new() { Text = "http://127.0.0.1:1234/v1/", Width = 350 };
+    private readonly ComboBox translationModel = new() { Width = 350 };
+    private readonly Button catalogButton = new() { Content = "서버 연결 / 모델 조회" };
+    private readonly Button applyTranslationButton = new() { Content = "선택 모델 적용" };
+    private readonly Button disableTranslationButton = new() { Content = "번역 끄기" };
+    private readonly TextBlock translationStatus = new() { Text = "번역 끔 · 로컬 서버를 먼저 실행하세요.", TextWrapping = TextWrapping.Wrap };
+    private bool translationSupported, translationBusy;
+    private string[] translationModels = [];
     private bool closing, closeReady, modelReady, captureStartable, captureNeedsStop;
     private int pendingActions;
     private string? sessionId;
@@ -76,7 +85,7 @@ public sealed class MainWindow : Window
                     new TextBlock { Text = "EchoSub", FontSize = 22 },
                     new TextBlock
                     {
-                        Text = live ? "실제 원문 진단 · 번역 없음 · 부분 전사 선택 가능 · 게임/자연 음성 품질 미검증" : "MOCK · 실제 캡처와 전사는 실행하지 않습니다.",
+                        Text = live ? "실제 자막 진단 · 로컬 한국어 번역 선택 가능 · 부분 전사 선택 가능 · 게임/자연 음성 품질 미검증" : "MOCK · 실제 캡처와 전사는 실행하지 않습니다.",
                         TextWrapping = TextWrapping.Wrap
                     },
                     status,
@@ -92,6 +101,13 @@ public sealed class MainWindow : Window
                             new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { startCaptureButton, pauseButton, resumeButton, stopCaptureButton } }
                         }
                     },
+                    new StackPanel { IsVisible = live, Spacing = 8, Children =
+                    {
+                        new TextBlock { Text = "로컬 번역 서버 · 세션 종료 후 설정 · 모델/API 자격 정보는 저장하지 않습니다.", TextWrapping = TextWrapping.Wrap },
+                        translationEndpoint,
+                        new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { catalogButton, disableTranslationButton } },
+                        translationModel, applyTranslationButton, translationStatus
+                    } },
                     new ScrollViewer { Height = live ? 90 : 80, Content = details },
                     new TextBlock { IsVisible = live, Text = "최근 100개 구간 · UUID별 세션 시작 기준 초 · 텍스트 자동 저장 없음" },
                     history,
@@ -113,6 +129,15 @@ public sealed class MainWindow : Window
         {
             Text = item?.ToString(), TextWrapping = TextWrapping.Wrap
         });
+        catalogButton.Click += async (_, _) => await ConfigureTranslationAsync(false);
+        applyTranslationButton.Click += async (_, _) => await ConfigureTranslationAsync(true);
+        disableTranslationButton.Click += async (_, _) => await ExecuteAsync(async () =>
+        {
+            if (client is null) return;
+            try { await client.SendAsync("disable_translation", new { }); await RefreshCoreAsync(); }
+            catch (Exception error) { translationStatus.Text = "번역 설정 실패: " + error.Message; }
+        });
+        translationModel.SelectionChanged += (_, _) => UpdateButtons();
         exportTxtButton.Click += async (_, _) => await ExportAsync("txt");
         exportSrtButton.Click += async (_, _) => await ExportAsync("srt");
         clearHistoryButton.Click += async (_, _) => await ClearHistoryAsync();
@@ -187,7 +212,7 @@ public sealed class MainWindow : Window
                 overlay.Closed += (_, _) => { overlay = null; overlayButton.Content = OverlayLabel(false); };
                 overlay.ResetPlacement(this);
             }
-            if (live) overlay.SetSource(latestSource);
+            if (live) overlay.SetCaptions(latestSource, latestTranslation);
             overlay.Width = overlayWidth.Value;
             overlay.SetCardOpacity(cardOpacity.Value);
             overlay.Show();
@@ -371,6 +396,7 @@ public sealed class MainWindow : Window
             exportSupported = hello.GetProperty("capabilities").TryGetProperty("history_export", out var exportCapability) && exportCapability.GetBoolean();
             clearSupported = hello.GetProperty("capabilities").TryGetProperty("history_clear", out var clearCapability) && clearCapability.GetBoolean();
             partialSupported = hello.GetProperty("capabilities").TryGetProperty("source_partial", out var partialCapability) && partialCapability.GetBoolean();
+            translationSupported = hello.GetProperty("capabilities").TryGetProperty("translation", out var translationCapability) && translationCapability.GetBoolean();
             StartupDiagnostics.Write($"Worker connected; live={live}");
             snapshot = null;
             await RefreshCoreAsync();
@@ -401,8 +427,7 @@ public sealed class MainWindow : Window
         if (!ReferenceEquals(snapshot, refreshedSnapshot))
         {
             snapshot = refreshedSnapshot;
-            history.ItemsSource = snapshot?.Records.TakeLast(100).Reverse().Select(record =>
-                $"[{record.ProductSessionId ?? record.SessionId.ToString()}/{record.Epoch}/{record.SegmentId} · {record.SessionAudioStartSeconds ?? record.AudioStartSeconds:F3}~{record.SessionAudioEndSeconds ?? record.AudioEndSeconds:F3}초 · {record.SourceState}] {record.SourceReason}\n{record.Source}").ToArray();
+            history.ItemsSource = snapshot?.Records.TakeLast(100).Reverse().Select(CaptionPresentation.HistoryText).ToArray();
             var selectedId = (exportSession.SelectedItem as ExportChoice)?.Id ?? sessionId;
             var choices = snapshot?.Records.Where(r => r.ProductSessionId is not null)
                 .GroupBy(r => r.ProductSessionId!).Select(group => new ExportChoice(group.Key, group.First().SessionStartedAtUtc)).ToArray() ?? [];
@@ -422,6 +447,20 @@ public sealed class MainWindow : Window
         captureNeedsStop = sessionId is not null && sessionState is "Preparing" or "Running" or "Paused" or "Error";
         resumeReady = sessionState == "Paused" && joined && vadJoined && modelReady;
         historyReady = sessionState is "Idle" or "Paused" && joined && vadJoined && !state.GetProperty("diagnostic_asr").GetProperty("decoding").GetBoolean();
+        var translator = state.GetProperty("translator");
+        translationBusy = translator.GetProperty("in_flight").GetBoolean() || translator.GetProperty("catalog_pending").GetBoolean();
+        historyReady &= !translationBusy;
+        var ids = translator.GetProperty("models").EnumerateArray().Select(id => id.GetString()!).ToArray();
+        if (!translationModels.SequenceEqual(ids))
+        {
+            var selected = translationModel.SelectedItem as string;
+            translationModels = ids;
+            translationModel.ItemsSource = ids;
+            translationModel.SelectedItem = ids.Contains(selected) ? selected : translator.GetProperty("model_id").GetString();
+        }
+        translationStatus.Text = $"번역 {translator.GetProperty("state").GetString()} · 모델 {translator.GetProperty("model_id").GetString() ?? "선택 필요"}" +
+            (translator.GetProperty("last_error").GetString() is { } translationError ? $" · {translationError} · 원문은 유지됩니다." : "") +
+            (ids.Length > 1 && translator.GetProperty("model_id").ValueKind == JsonValueKind.Null ? " · 목록에서 모델을 선택하고 적용하세요." : "");
         exportReady = exportSupported && historyReady;
         status.Text = $"세션 {sessionState} · 모델 {state.GetProperty("model").GetProperty("state").GetString()} · 캡처 {captureState}";
         var phase = capture.GetProperty("failure_native_phase").GetString() ??
@@ -437,28 +476,41 @@ public sealed class MainWindow : Window
             details.Text += "\n모델 읽기 실패: 모델/DLL 경로·해시와 native CPU 빌드를 확인하세요.";
         while (client.Events.TryRead(out _)) { }
         var epoch = state.GetProperty("diagnostic_asr").GetProperty("epoch").GetUInt64();
-        var source = sessionState == "Running" && captureState == "Running" ? snapshot?.Records.LastOrDefault(record =>
-            record.ProductSessionId == sessionId && record.SessionId == session.GetProperty("internal_session_id").GetUInt64() && record.Epoch == epoch &&
-            record.SourceState is "Partial" or "FinalPending" or "Final" &&
-            record.AppliedSourceRevision is > 0 && record.AppliedSourceRevision <= record.SourceRevision && !string.IsNullOrWhiteSpace(record.Source)) : null;
-        if (source is not null)
-        {
-            // Pending re-recognition does not renew the last applied text's lifetime.
-            var key = (source.SessionId, source.Epoch, source.SegmentId, source.AppliedSourceRevision!.Value);
-            if (displayedKey != key) { displayedKey = key; sourceSince = Stopwatch.GetTimestamp(); }
-        }
-        latestSource = source is not null && Stopwatch.GetElapsedTime(sourceSince).TotalSeconds < 5
-            ? (source.SourceState == "Partial" ? "[인식 중] " : source.SourceState == "FinalPending" ? "[확정 처리 중] " : "") + source.Source
-            : null;
-        overlay?.SetSource(latestSource);
+        (latestSource, latestTranslation) = captions.Update(snapshot?.Records ?? [], sessionId,
+            sessionId is not null ? session.GetProperty("internal_session_id").GetUInt64() : 0, epoch,
+            sessionState == "Running" && captureState == "Running", captionClock.Elapsed.TotalSeconds);
+        overlay?.SetCaptions(latestSource, latestTranslation);
     }
 
-    private void ClearSource() { latestSource = null; if (live) overlay?.SetSource(null); }
+    private async Task ConfigureTranslationAsync(bool selectedModel)
+    {
+        await ExecuteAsync(async () =>
+        {
+            if (client is null) return;
+            try
+            {
+                await client.SendAsync("configure_translation", new
+                {
+                    endpoint = translationEndpoint.Text?.Trim(),
+                    model_id = selectedModel ? translationModel.SelectedItem as string : null
+                });
+                translationBusy = true;
+                translationStatus.Text = "번역 Preparing · 모델 조회 중";
+                await RefreshCoreAsync();
+            }
+            catch (Exception error) { translationStatus.Text = "번역 설정 실패: " + error.Message; }
+        });
+    }
+
+    private void ClearSource()
+    {
+        latestSource = latestTranslation = null;
+        if (live) overlay?.SetCaptions(null, null);
+    }
 
     private void ExpireSource()
     {
-        if (latestSource is not null && Stopwatch.GetElapsedTime(sourceSince).TotalSeconds >= 5)
-            ClearSource();
+        if (latestSource is not null && captions.IsExpired(captionClock.Elapsed.TotalSeconds)) ClearSource();
     }
 
     private async Task DisconnectCoreAsync()
@@ -468,7 +520,11 @@ public sealed class MainWindow : Window
         client = null;
         ClearSource();
         snapshot = null;
-        displayedKey = null;
+        captions = new CaptionPresentation();
+        translationSupported = translationBusy = false;
+        translationModels = [];
+        translationModel.ItemsSource = null;
+        translationStatus.Text = "번역 끔 · 로컬 서버를 먼저 실행하세요.";
         history.ItemsSource = null;
         modelReady = captureStartable = captureNeedsStop = false;
         sessionId = sessionState = null;
@@ -495,13 +551,16 @@ public sealed class MainWindow : Window
         var available = pendingActions == 0 && !closing;
         connectButton.IsEnabled = available && !connected;
         pingButton.IsEnabled = stateButton.IsEnabled = stopButton.IsEnabled = available && connected;
-        startCaptureButton.IsEnabled = available && connected && modelReady && captureStartable;
+        startCaptureButton.IsEnabled = available && connected && modelReady && captureStartable && !translationBusy;
         stopCaptureButton.IsEnabled = available && connected && captureNeedsStop;
         pauseButton.IsEnabled = available && connected && sessionState is "Preparing" or "Running";
         resumeButton.IsEnabled = available && connected && resumeReady;
         exportTxtButton.IsEnabled = exportSrtButton.IsEnabled = available && connected && exportReady && !selectingExport && exportSession.SelectedItem is ExportChoice;
         clearHistoryButton.IsEnabled = available && connected && clearSupported && historyReady && !selectingExport && exportSession.SelectedItem is ExportChoice;
         language.IsEnabled = endpoint.IsEnabled = available && captureStartable;
+        var translationEditable = available && connected && captureStartable && historyReady && translationSupported && !translationBusy;
+        catalogButton.IsEnabled = disableTranslationButton.IsEnabled = translationEndpoint.IsEnabled = translationModel.IsEnabled = translationEditable;
+        applyTranslationButton.IsEnabled = translationEditable && translationModel.SelectedItem is string;
         partialEnabled.IsEnabled = available && captureStartable && partialSupported;
     }
 

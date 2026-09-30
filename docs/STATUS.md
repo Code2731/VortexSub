@@ -130,3 +130,13 @@ T02-03b: UUID source/history 메타데이터와 세션 상대 시간을 연결�
 T02-03c: 시작 UTC·TXT/원문 SRT와 UUID 세션 선택 저장을 연결했다. 저장소 Rust 94개·C#
 IPC, 실제 두 세션 파일 생성 PASS. Initialize 전 endpoint/thread ID와 실패 덤프 수집을
 추가했다. 모델 없는 16회는 모두 성공해 실패 덤프 분석은 미실행이며 원인은 미확정이다.
+
+## T03-02a 데스크톱 번역 표시 (2026-10-01)
+
+로컬 서버 주소/실제 모델 목록 선택, 준비·실패 상태와 번역 끄기를 연결했다.
+번역 history와 원문+한국어 오버레이를 연결하고 현재 UUID/epoch/applied revision과
+request ID로 표시를 제한한다. 실패 시 원문 유지, 늦은 번역의 5초 수명 연장 금지를
+14개 C# 표시 검사로 확인했다. Rust 138개·C# HTTP/IPC·native CPU/VAD 빌드 PASS.
+실제 UI 조작/화면·live E2E·품질·Mac 수용은 미검증이다.
+[실행 안내](DESKTOP_TRANSLATION.md) · [근거](evidence/T03-02a-windows-desktop-translation.md).
+다음 T03-02b는 서버 복구/다중 모델 선택 진단과 유한 번역 표시 프리셋이다.

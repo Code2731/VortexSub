@@ -10,6 +10,7 @@ public sealed class OverlayWindow : Window
 {
     private readonly Border captionCard;
     private readonly TextBlock sourceCaption;
+    private readonly TextBlock translationCaption;
 
     public OverlayWindow(bool live = false)
     {
@@ -28,7 +29,7 @@ public sealed class OverlayWindow : Window
 
         var moveHandle = new TextBlock
         {
-            Text = live ? "실제 원문 진단 · 번역 없음 · 이 줄을 끌어 이동" : "MOCK · 샘플 자막 · 이 줄을 끌어 이동",
+            Text = live ? "실제 자막 진단 · 이 줄을 끌어 이동" : "MOCK · 샘플 자막 · 이 줄을 끌어 이동",
             FontSize = 12,
             Foreground = Brushes.LightGray,
             Cursor = new Cursor(StandardCursorType.SizeAll)
@@ -64,6 +65,12 @@ public sealed class OverlayWindow : Window
             FontSize = 22,
             TextWrapping = TextWrapping.Wrap
         };
+        translationCaption = new TextBlock
+        {
+            Text = "왼쪽 길로 가자.", IsVisible = !live,
+            Foreground = new SolidColorBrush(Color.Parse("#F7DE92")),
+            FontSize = 26, TextWrapping = TextWrapping.Wrap
+        };
         var captions = new StackPanel
         {
             Spacing = 7,
@@ -71,14 +78,7 @@ public sealed class OverlayWindow : Window
             Children =
             {
                 sourceCaption,
-                new TextBlock
-                {
-                    Text = "왼쪽 길로 가자.",
-                    IsVisible = !live,
-                    Foreground = new SolidColorBrush(Color.Parse("#F7DE92")),
-                    FontSize = 26,
-                    TextWrapping = TextWrapping.Wrap
-                }
+                translationCaption
             }
         };
         Grid.SetRow(captions, 1);
@@ -100,6 +100,13 @@ public sealed class OverlayWindow : Window
 
     public void SetSource(string? source) => sourceCaption.Text =
         string.IsNullOrWhiteSpace(source) ? "원문 대기 중" : source;
+
+    public void SetCaptions(string? source, string? translation)
+    {
+        SetSource(source);
+        translationCaption.Text = translation ?? "";
+        translationCaption.IsVisible = !string.IsNullOrWhiteSpace(source) && !string.IsNullOrWhiteSpace(translation);
+    }
 
     public void SetCardOpacity(double opacity)
     {
