@@ -5,6 +5,17 @@ neither probe is connected to capture, worker IPC, or the overlay.
 
 ## Windows reproduction
 
+To call WASAPI initialization alone, without starting capture or loading models:
+
+```powershell
+cargo run -p echosub-capture-windows --locked --offline -- --initialize-only
+```
+
+This prints the selected endpoint, mix format, and elapsed seconds around a
+single `IAudioClient::Initialize` call with the worker's shared/event loopback
+parameters. It has no worker startup deadline; a successful standalone call
+does not establish that worker startup is reliable.
+
 ```powershell
 # Download only after agreeing to the size and licenses in model-downloads.json.
 .\scripts\download-probe-models.ps1 -Scope all
@@ -41,6 +52,12 @@ an ephemeral API key, a 4096-token context, and requests GPU offload. It stops
 its own server on completion. Inspect logs for actual layer placement.
 
 ## Inputs and interpretation
+
+The worker VAD probe now checks an exact-zero 8-second file 75 times (600 seconds
+of file PCM), with zero VAD/ASR/history expected before the speech corpus. This is
+not a real-time loopback silence acceptance result. Native completion diagnostics
+include input/nonzero sample counts and valid timed tokens. See
+[token alignment evidence](../docs/evidence/T02-04c-windows-token-alignment.md).
 
 `model-downloads.json` pins repository revisions, filenames, sizes, hashes,
 and license sources. Downloads use temporary files and verify before rename.

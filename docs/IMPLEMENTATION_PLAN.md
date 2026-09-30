@@ -164,6 +164,17 @@ Pause/Resume/Stop/export/clear가 통과했다. 첫 시작 timeout은 보존했�
 Rust 105개·C# IPC/native CPU 빌드가 통과했다. 실제 8초 분할/0.608초 겹침과
 확정 결과를 확인했지만 제거 span은 0개였다. 무음 단계에 입력이 있어 해당 gate는
 미통과다. [계약](ASR_RECONCILIATION.md) · [근거](evidence/T02-04b-windows-asr-reconciliation.md).
-다음은 M2 경계 수용 보완: token timestamp로 거친 span의 경계를 판정할 수 있는지
-확인하고, 실제 반복 보존과 격리된 무음/긴 발화 fixture를 검증한다. 이후 M3 외부
-로컬 번역 서버 연결로 진행한다. UI/자연 음성/두 OS 수용 gate는 그대로 유지한다.
+후속 T02-04c에서 token 시간/byte 정합과 통제된 파일 무음 검증을 구현했다.
+실제 반복 보존 fixture와 600초 파일 PCM 무음 검증이 통과했다. 실제 live dedup,
+UI/자연 음성/두 OS 수용 gate는 그대로 유지한다.
+
+## T02-04c 및 T03-01a 번역 계약 착수 (2026-10-01)
+
+[Token 정합](ASR_TOKEN_ALIGNMENT.md)과 [실행 근거](evidence/T02-04c-windows-token-alignment.md)를
+정리하고 독립적인 M3 번역 계약 구현을 진행했다. `crates/translation/`은 기존
+TranslationJob의 키/deadline을 보존하면서 로컬 주소, 모델 목록, source/context
+예산, JSON prompt와 응답의 완결성/길이/tool 검사를 구현한다. 신규 fixture 8개를
+포함한 Rust 118개·C# IPC가 통과했다. [계약](TRANSLATION_CONTRACT.md).
+다음 T03-01b는 proxy/redirect 없는 bounded HTTP owner·모델 선택/연결 진단이다.
+이어 final-only dispatch·취소/epoch·history, UI 번역 표시를 연결한다.
+M2/M3 품질과 양 OS E2E gate의 완료를 뜻하지 않는다.

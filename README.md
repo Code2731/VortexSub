@@ -97,6 +97,13 @@ ONNX Runtime 1.22.0 CPU로 발화 범위를 나누고 실제 전사합니다. �
 시간축 gap, 해시 오류와 활성 종료도 검사합니다. 부분 전사 검사는 `-Partials`로 실행합니다. 화면 수용·번역은 후속이며
 게임/자연 음성 품질 gate는 미통과입니다. [live 실행·계약](docs/WORKER_LIVE_ASR.md)
 
+## 전사 정합·번역 계약
+
+전사 경계에는 [token 시간 정합](docs/ASR_TOKEN_ALIGNMENT.md)을 추가했습니다.
+600초 **파일 PCM** 무음 검증에서 VAD/ASR/history 생성이 없었습니다.
+실제 live dedup 품질은 미검증입니다. M3 [로컬 번역 계약](docs/TRANSLATION_CONTRACT.md)은
+요청·응답 검사를 구현했으며 HTTP 실행·화면 번역 연결은 다음 단계입니다.
+
 ## MOCK 자막 오버레이
 
 `scripts/probe-worker-capture.ps1 -Offline`은 기존 TTS WAV를 잠깐 재생해

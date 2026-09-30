@@ -28,9 +28,16 @@
 | T02-04a | PARTIAL: opt-in 부분 전사·동일 구간 revision·확정 우선 연결 | Rust 98개·C# IPC/native CPU PASS. 실제 부분 6개 revision→확정 3개 및 Pause/Resume/export/clear PASS. 첫 시작 timeout 1회 보존; UI/품질/Mac 미검증. [계약](WORKER_PARTIAL_ASR.md) · [근거](evidence/T02-04a-windows-partial-asr.md) |
 | T02-04b | PARTIAL: 시간/span 기반 경계 정합·빈 결과 skip | Rust 105개·C# IPC/native CPU PASS. 실제 8초 분할/0.608초 겹침/continuation/Final 확인; 제거 span 0으로 실제 dedup 효과 미검증. 무음 단계 입력 격리 실패로 전체 probe exit 1. [계약](ASR_RECONCILIATION.md) · [근거](evidence/T02-04b-windows-asr-reconciliation.md) |
 | M2 | PARTIAL | CPU 실제 VAD·전사·제어/history 및 Windows opt-in 부분 전사 연결. 시작 안정성·화면 자막·자연 음성 경계 수용 미통과. |
-| M3~M5 | NOT_STARTED | 해당 제품 통합/실기기 수용 결과 없음. |
+| T02-04c | PARTIAL: token 시간·byte 정합과 통제된 파일 무음 | Rust 110개·C# IPC/native CPU PASS. 600초 파일 무음에서 VAD/ASR/history 0; 실제 파일 token 시간 수집 확인. 실제 live dedup·자연 음성·UI·Mac 미검증. [계약](ASR_TOKEN_ALIGNMENT.md) · [근거](evidence/T02-04c-windows-token-alignment.md) |
+| T03-01a | PARTIAL: 로컬 번역 요청·응답 계약 | 신규 fixture 8개 포함 Rust 118개·C# IPC/build PASS. 숫자 loopback 주소, 문맥/Unicode 예산, deadline·bypass, 모델 목록·응답 검사 구현. HTTP owner/worker/UI 연결은 다음 단계. [계약](TRANSLATION_CONTRACT.md) · [근거](evidence/T03-01a-windows-translation-contract.md) |
+| M3 | PARTIAL: 독립 계약 구현 | 외부 서버 HTTP·제품 번역·양 OS E2E 수용은 미구현/미검증. |
+| M4~M5 | NOT_STARTED | 해당 제품 통합/실기기 수용 결과 없음. |
 
 ## 확인된 Windows 개발 환경
+
+### Initialize 단독 호출 (2026-10-01)
+
+사용자 요청으로 `cargo run -p echosub-capture-windows --locked --offline -- --initialize-only`를 실행했다. 기본 render endpoint, 48,000 Hz/stereo/float32, shared loopback + event callback, duration/periodicity 0으로 `IAudioClient::Initialize`가 **2.085610초에 Ok(())**를 반환했다. 이 경로는 Start/GetService/PCM 수신과 모델 추론을 실행하지 않는다. 독립 debug probe의 이번 호출에서는 10초 지연을 재현하지 못했으며, worker release의 기존 실패 원인은 확정하지 않았다. 직전 두 worker 실패 중 백신 승인 창은 없었다는 사용자 관찰도 기록한다.
 
 | 항목 | 관측값 |
 |---|---|

@@ -101,6 +101,14 @@ during inference, timeline gaps, hash failures, and active termination. Use `-Pa
 translation remain pending; game/natural-speech quality gates
 remain unpassed. See [live execution and contracts](docs/WORKER_LIVE_ASR.md).
 
+## Source reconciliation and translation contracts
+
+[Token timestamp reconciliation](docs/ASR_TOKEN_ALIGNMENT.md) is implemented.
+Controlled silence covering 600 seconds of **file PCM** produced no VAD calls,
+ASR jobs or history. Live dedup quality remains unverified. The M3
+[local translation contract](docs/TRANSLATION_CONTRACT.md) validates requests and
+responses; HTTP execution and translated captions are the next integration steps.
+
 ## MOCK caption overlay
 
 `scripts/probe-worker-capture.ps1 -Offline` briefly plays an existing TTS WAV and
