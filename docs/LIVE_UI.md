@@ -21,7 +21,8 @@ Whisper base, Silero v6.0, ONNX Runtime CPU 파일은 기존 manifest 경로에
 
 ## 표시·수명 계약
 
-0.5초마다 상태를 조회하고 history 버전/이벤트 복구 요구가 바뀌면
+결과 이벤트 도착 시 0.03초 동안 통지를 모아 상태를 조회한다. 별도로
+0.5초 상태 조회를 유지하고 history 버전/이벤트 복구 요구가 바뀌면
 페이지 snapshot을 읽는다. 페이지 조회 뒤 상태를 다시 읽어 현재 session,
 ASR epoch, Final 상태와 적용된 source revision이 일치하는 최신 원문만 표시한다.
 동일 결과를 재조회해도 5초 표시 시간을 연장하지 않는다.

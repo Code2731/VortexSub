@@ -32,6 +32,13 @@ public sealed record WorkerEvent(ulong Sequence, string Name, JsonElement Payloa
 public sealed class WorkerEventBuffer
 {
     private readonly object gate = new();
+    private readonly Channel<byte> changes = Channel.CreateBounded<byte>(new BoundedChannelOptions(1)
+    {
+        FullMode = BoundedChannelFullMode.DropOldest,
+        SingleReader = true,
+        SingleWriter = true,
+        AllowSynchronousContinuations = false
+    });
     private readonly Channel<WorkerEvent> channel = Channel.CreateBounded<WorkerEvent>(new BoundedChannelOptions(256)
     {
         FullMode = BoundedChannelFullMode.Wait,
@@ -43,6 +50,7 @@ public sealed class WorkerEventBuffer
     private bool needsSnapshot;
     public bool SnapshotRequired { get { lock (gate) return needsSnapshot; } }
     public ulong LastSequence { get { lock (gate) return lastSequence; } }
+    public ValueTask<byte> WaitForChangeAsync(CancellationToken cancellationToken) => changes.Reader.ReadAsync(cancellationToken);
     public void Publish(WorkerEvent message)
     {
         lock (gate)
@@ -60,6 +68,8 @@ public sealed class WorkerEventBuffer
                 needsSnapshot = true;
                 problemSequence = message.Sequence;
             }
+            // One coalesced wakeup; the protocol reader never calls UI code.
+            changes.Writer.TryWrite(0);
         }
     }
     public bool TryRead(out WorkerEvent? message)

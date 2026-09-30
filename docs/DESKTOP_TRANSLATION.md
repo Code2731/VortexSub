@@ -58,6 +58,12 @@ does not extend it or resurrect an expired card. Pause/Stop clears both lines.
 The diagnostic overlay still displays one latest card; two-card layout, display
 presets, clipping/font/DPI acceptance and localization resources remain pending.
 
+Result events now wake a snapshot refresh after a 0.03-second coalescing delay,
+with one bounded wakeup and the existing single-operation gate. The 0.5-second
+heartbeat remains for state recovery and expiry. This reduces scheduled display
+waiting, not speech segmentation or inference time; actual rendered improvement
+has not been measured. [Latency investigation](evidence/desktop-latency-20261001.md).
+
 ## Validation boundary
 
 Pure presentation fixtures and C# HTTP/IPC validate identity/state/lifetime logic.

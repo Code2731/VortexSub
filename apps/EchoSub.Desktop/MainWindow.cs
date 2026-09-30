@@ -37,6 +37,8 @@ public sealed class MainWindow : Window
     private readonly SemaphoreSlim operationGate = new(1, 1);
     private readonly DispatcherTimer timer = new() { Interval = TimeSpan.FromSeconds(0.5) };
     private CancellationTokenSource? refreshCancellation;
+    private CancellationTokenSource? eventRefreshCancellation;
+    private Task? eventRefreshTask;
     private OverlayWindow? overlay;
     private WorkerClient? client;
     private Action? disconnectedHandler;
@@ -354,6 +356,22 @@ public sealed class MainWindow : Window
         }
     }
 
+    private async Task RefreshOnEventsAsync(WorkerClient connected, CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (!cancellationToken.IsCancellationRequested && ReferenceEquals(client, connected) && !closing)
+            {
+                await connected.Events.WaitForChangeAsync(cancellationToken);
+                // Collapse source/translation/history events into a single snapshot refresh.
+                await Task.Delay(TimeSpan.FromSeconds(0.03), cancellationToken);
+                if (!ReferenceEquals(client, connected) || closing) return;
+                await PollAsync();
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
+    }
+
     private void ReportError(Exception error)
     {
         ClearSource();
@@ -404,7 +422,12 @@ public sealed class MainWindow : Window
             StartupDiagnostics.Write($"Worker connected; live={live}");
             snapshot = null;
             await RefreshCoreAsync();
-            if (live) timer.Start();
+            if (live)
+            {
+                timer.Start();
+                eventRefreshCancellation = new CancellationTokenSource();
+                eventRefreshTask = RefreshOnEventsAsync(connected, eventRefreshCancellation.Token);
+            }
         }
         catch { await DisconnectCoreAsync(); throw; }
     }
@@ -520,6 +543,11 @@ public sealed class MainWindow : Window
     private async Task DisconnectCoreAsync()
     {
         timer.Stop();
+        eventRefreshCancellation?.Cancel();
+        if (eventRefreshTask is not null) await eventRefreshTask;
+        eventRefreshTask = null;
+        eventRefreshCancellation?.Dispose();
+        eventRefreshCancellation = null;
         var oldClient = client;
         client = null;
         ClearSource();
