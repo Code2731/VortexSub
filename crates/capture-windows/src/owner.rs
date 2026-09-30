@@ -283,8 +283,9 @@ impl CaptureOwner {
             })();
             if let Err(code) = result {
                 s.fail(code);
+            } else if s.error.load(Ordering::Acquire) == 0 {
+                s.phase.store(5, Ordering::Release);
             }
-            s.phase.store(5, Ordering::Release);
         });
         let processing_shared = shared.clone();
         let processing = std::thread::spawn(move || {

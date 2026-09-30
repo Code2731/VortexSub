@@ -17,7 +17,8 @@
 | M1 | PARTIAL | 정규화·발화·상태/작업 큐의 결정론적 코어 구현. 유한 event 큐·버전 IPC snapshot/C# 클라이언트도 연결. 실제 Silero state/context의 파일 경로는 T02-01b에서 확인. WASAPI bounded PCM 경로는 T02-02a에서 확인. Windows live VAD/ASR은 T02-02b 진단에서 확인. UI 렌더링·Mac은 미검증. |
 | T02-01 | PARTIAL: T02-01a/b PASS (Windows CPU 파일 진단) | 실제 Whisper owner·파일 loader·ASR-only history·epoch 취소/재시작 연결. 실제 Silero 파일 probability/state reset 연결. partial·GPU worker·UI·Mac 미검증. [VAD](WORKER_VAD.md) [계약](WORKER_ASR.md) · [측정](evidence/T02-01a-windows-worker-asr.md) |
 | T02-02 | PARTIAL: T02-02a/b PASS (Windows CPU 진단) | WASAPI bounded PCM·QPC/sample 시작점·재시작 gap, 연속 Silero→Whisper final/history, Stop/취소·활성 shutdown/EOF 연결. pinned device polling. 제품 Pause·장치 전환/soak·Mac 미검증. [live 계약](WORKER_LIVE_ASR.md) · [측정](evidence/T02-02b-windows-live-asr.md) |
-| M2 | PARTIAL | CPU 실제 VAD 파일 분할·전사·제어/history 연결. WASAPI live final/history 진단 연결. 화면 자막·제품 session·자연 음성 경계 수용 미통과. |
+| T02-02c | PARTIAL: 시작 실패 처리·관측 구현; 무음 시작 gate 미통과 | 10초 Opening timeout/첫 실패 phase 보존·bounded 관측, STA·shared/event-driven 인수 0 보정, whole-fixture 재생 및 실패 checkpoint 추가. 실제 Initialize 대기를 재현했으며 보정 뒤에도 EOF용 무음 새 worker 시작 실패가 남음. [추가 근거](evidence/T02-02c-windows-capture-startup.md) |
+| M2 | PARTIAL | CPU 실제 VAD 파일 분할·전사·제어/history 연결. WASAPI live final/history 진단 연결. 시작 안정성·화면 자막·제품 session·자연 음성 경계 수용 미통과. |
 | M3~M5 | NOT_STARTED | 해당 제품 통합/실기기 수용 결과 없음. |
 
 ## 확인된 Windows 개발 환경
@@ -93,3 +94,5 @@ T02-01b 추가 검증: Rust 79개·기본 C# IPC smoke와 CPU 실제 Silero→Wh
 T02-02a 추가 검증: Rust 84개·fmt/workspace·C# IPC와 실제 loopback Start/Stop 3회, 활성 shutdown/부모 EOF 통과. 최종 608 packets·accepted PCM 6.048초, Stop 응답 최대 0.000219초·join 완료 최대 0.031628초. 장치 mix 48 kHz stereo/mask 0x3. live_asr=false이며 원문 history/UI는 생성하지 않는다. 실제 큐 고갈·장치 전환/분리·장기/게임·Mac은 미검증. [근거](evidence/T02-02a-windows-worker-capture.md)
 
 T02-02b 추가 검증: Windows CPU live loopback→연속 Silero→Whisper final/history 2회 확인, native 실행 중 Stop/재시작 3회·full 예약 유지 중 새 캡처 1회, 해시 실패·활성 shutdown/EOF 통과. Rust 89개·fmt/workspace·C# IPC PASS. 단독 최종 run의 Stop 응답 최대 0.000797초·capture/VAD join 확인 0.043802초·그 이후 full 반환 확인 0.409312초, 재시작 gap 최소 0.364750초. 중간 final 하나가 8초 상한에 도달했고 추가 run에서 client Opening timeout을 관측했다. native API phase와 C# fast-exit handle/예외 처리를 보완한 최종 PCM/live 회귀는 통과했다. 시작 지연의 원인은 미확정이다. 품질/부하·제품 gate는 미통과이며 UI·Pause·장치/soak·CUDA/Mac은 후속이다. [계약](WORKER_LIVE_ASR.md) · [근거](evidence/T02-02b-windows-live-asr.md)
+
+T02-02c 추가 검증: 최종 Rust 91개·fmt/workspace·C# 빌드/IPC smoke PASS. 최종 재생 중 PCM Start/Stop 20회·즉시 Stop·활성 shutdown/EOF PASS(40.320초 PCM, 첫 Opening 3.160569초). 실제 live whole-fixture final 1.792/1.824초·취소/재시작 3회와 종료가 통과한 실행도 있으나, 보정 뒤 다음 무음 새 worker의 Initialize가 10.010085초에 timeout으로 실패했다. 첫 실패 phase/경과 시간·pending join/이전 검증 checkpoint를 보존한다. 무음 cold-start gate는 미통과이며 제품 UI 연결은 이 오류/소유 프로세스 복구 계약을 정리한 뒤 진행한다. [근거](evidence/T02-02c-windows-capture-startup.md)

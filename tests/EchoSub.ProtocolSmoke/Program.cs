@@ -30,6 +30,10 @@ await using (var client = WorkerClient.Start(workerPath))
 
     var state = await client.SendAsync("get_state");
     Require(state.GetProperty("session").GetProperty("state").GetString() == "Idle", "initial state");
+    var capture = state.GetProperty("diagnostic_capture");
+    Require(capture.GetProperty("startup_deadline_s").GetDouble() == 10, "capture startup deadline in seconds");
+    Require(capture.GetProperty("opening_elapsed_s").ValueKind == System.Text.Json.JsonValueKind.Null, "idle capture has no opening duration");
+    Require(capture.GetProperty("failure_native_phase").ValueKind == System.Text.Json.JsonValueKind.Null, "idle capture has no failure phase");
 
     try
     {

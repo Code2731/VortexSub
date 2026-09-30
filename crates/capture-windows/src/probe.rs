@@ -14,7 +14,7 @@ use windows::Win32::Media::Audio::{
 use windows::Win32::System::Com::StructuredStorage::{PropVariantClear, PropVariantToStringAlloc};
 use windows::Win32::System::Com::{
     CoCreateInstance, CoInitializeEx, CoTaskMemFree, CoUninitialize, CLSCTX_ALL,
-    COINIT_MULTITHREADED, STGM_READ,
+    COINIT_APARTMENTTHREADED, STGM_READ,
 };
 use windows::Win32::System::Threading::{CreateEventW, WaitForSingleObject};
 
@@ -69,7 +69,8 @@ impl Options {
 pub(crate) struct ComGuard;
 impl ComGuard {
     pub(crate) fn new() -> ProbeResult<Self> {
-        unsafe { CoInitializeEx(None, COINIT_MULTITHREADED).ok()? };
+        // Keep initial IAudioClient access in STA; native objects stay on this thread.
+        unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED).ok()? };
         Ok(Self)
     }
 }
@@ -242,7 +243,8 @@ impl Capture {
             client.Initialize(
                 AUDCLNT_SHAREMODE_SHARED,
                 AUDCLNT_STREAMFLAGS_LOOPBACK | AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
-                1_000_000,
+                // Shared event-driven streams require both durations to be zero.
+                0,
                 0,
                 mix,
                 None,

@@ -23,6 +23,14 @@ Windows worker의 `--diagnostic-capture`는 파일 추론/mock 모드와 함께 
 
 ## 소유권과 상한
 
+### 시작 대기와 진단 (T02-02c)
+
+Opening이 Ready 없이 10초에 도달하면 worker poll에서 `CAPTURE_START_TIMEOUT`으로 Failed를 기록하고 Stop을 요청한다. `opening_elapsed_s`는 Opening 동안 증가하고 Running/Stop/Failed 전환 시 고정된다. `startup_deadline_s=10`은 진단 정책이며 native API 반환이나 join의 최대 시간을 보장하지 않는다. Failed 뒤에도 `awaiting_capture_join=true`이면 재시작할 수 없다. native 호출이 반환하지 않으면 소유 프로세스 종료가 필요하다.
+
+`failure_native_phase`는 처음 실패를 관측한 API 위치를 보존한다. `phase_observations`는 최대 16개 `{phase, observed_elapsed_s}`를 IPC poll에서 기록한다. 빠른 단계는 생략될 수 있어 개별 API의 정밀 실행 시간이 아니다. 모든 새 시간은 초다. 실제 API 실패 시 owner도 마지막 native phase를 유지한다. 첫 실패는 후속 VAD 오류/중복 Stop으로 덮어쓰지 않는다.
+
+`scripts/probe-worker-capture.ps1 -Offline -Rounds 20`으로 반복 횟수(1~100)를 지정한다. 시작 시간·단계, Start 직후 Stop, 활성 shutdown/부모 EOF를 검사한다. 실패도 ignored report에 남긴다. 캡처 owner와 독립 probe의 COM 초기화는 STA이며 native 객체는 생성한 스레드에서 해제한다. [Windows 관측 및 남은 한계](evidence/T02-02c-windows-capture-startup.md)를 따른다.
+
 COM·WASAPI client/reader/event의 생성·GetBuffer/ReleaseBuffer·Stop·해제는 한 캡처 스레드가 소유한다. [공식 GetBuffer 계약](https://learn.microsoft.com/en-us/windows/win32/api/audioclient/nf-audioclient-iaudiocaptureclient-getbuffer)에 따라 borrowed packet을 전체 복사하고 같은 스레드에서 반환한다. 빈 packet은 읽지 않는다. sample position과 QPC는 첫 frame의 timestamp 관측값이다.
 
 raw pool은 8개×9,600 float32 sample=307,200 bytes다. mono/stereo 16/44.1/48 kHz float32만 허용한다. 슬롯은 stream 시작 전에 할당한다. free 슬롯 예약과 큐 전달은 WASAPI 메모리를 빌린 구간 밖에서 수행한다. borrowed 구간에는 범위/flag 검사·PCM 복사·atomic count만 있다. 정규화의 할당과 FIR 연산은 별도 처리 스레드다.

@@ -1,4 +1,4 @@
-param([switch] $Offline, [switch] $NoBuild)
+param([switch] $Offline, [switch] $NoBuild, [ValidateRange(1,100)][int] $Rounds = 3)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
 if (-not (Get-Command cargo -ErrorAction SilentlyContinue)) { $env:PATH = (Join-Path $env:USERPROFILE '.cargo/bin') + ';' + $env:PATH }
@@ -17,7 +17,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Capture smoke build failed' }
     $output = Join-Path $repo ('benchmarks/results/worker-capture-' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
     New-Item -ItemType Directory -Path $output -Force | Out-Null
-    & dotnet run --project $project --no-build -- (Join-Path $repo 'target/release/echosub-worker.exe') (Join-Path $repo 'benchmarks/fixtures/local-tts/en-01.wav') (Join-Path $output 'report.json')
+    & dotnet run --project $project --no-build -- (Join-Path $repo 'target/release/echosub-worker.exe') (Join-Path $repo 'benchmarks/fixtures/local-tts/en-01.wav') (Join-Path $output 'report.json') $Rounds
     if ($LASTEXITCODE -ne 0) { throw 'Worker capture smoke failed' }
     Write-Host "Report: $output/report.json"
 }

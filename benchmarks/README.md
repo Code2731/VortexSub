@@ -159,8 +159,15 @@ shutdown and parent EOF. It saves counts/timings only and stops its own playback
 This is a PCM diagnostic, with live ASR disabled. See
 [capture scope and bounds](../docs/WORKER_CAPTURE.md).
 
+Add `-Rounds 20` (1–100) for repeated startup measurements. Reports include
+opening durations and bounded phase observations, immediate Stop after Start,
+and failure state when a probe aborts. The worker fails unready Opening at
+10 seconds and keeps ownership until actual join; this does not bound native
+API return. See [startup evidence](../docs/evidence/T02-02c-windows-capture-startup.md).
+
 `scripts/probe-worker-live-asr.ps1 -Offline` uses the same consented assets and
-plays existing English TTS with actual silence appended. It checks real loopback
+plays whole English TTS after capture ready, with 0.5 seconds of leading and
+1 second of trailing silence. Other system audio is not isolated. It checks real loopback
 VAD→Whisper final history, cancellation/restart, monotonic gaps, VAD hash failure,
 post-playback observation, active shutdown and parent EOF. Reports omit transcripts; generated
 WAVs stay under ignored results. No download is performed. Subtitle UI, translation,

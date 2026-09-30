@@ -190,3 +190,5 @@ T02-02a는 Windows의 별도 `--diagnostic-capture`에서 `start_capture`/`stop_
 
 T02-02b는 명시적 `--live-asr`와 ASR/VAD 자산 옵션을 추가해 implementation=`wasapi-live-asr-diagnostic`, live_asr=true/fixture_asr=false로 실행한다. start_capture에 language를 요구하고 source.final/history를 전달한다. QPC로 고정한 첫 sample·재시작 gap과 epoch 취소를 사용하며 제품 session/Pause 계약과 UI는 후속이다. [live 계약](WORKER_LIVE_ASR.md)을 따른다.
 
+T02-02c는 진단 capture에 `startup_deadline_s=10`, `opening_elapsed_s`, `failure_native_phase`, 최대 16개의 `phase_observations`를 추가한다. Ready 없는 Opening의 timeout은 Failed/`CAPTURE_START_TIMEOUT`이며 실제 native owner join 전에는 재시작할 수 없다. 이 deadline은 native 반환 보장이 아니다. [시작 대기·초 단위 관측](WORKER_CAPTURE.md)을 따른다.
+

@@ -104,6 +104,10 @@ checks real WASAPI reception, 16 kHz normalization, repeated Start/Stop, and act
 shutdown. Capture diagnostics report `live_asr=false` and produce no captions or
 history. See [the owner contract and unverified scope](docs/WORKER_CAPTURE.md).
 
+Use `-Rounds 20` for additional startup/stop measurements. Unready startup fails
+at 10 seconds with API phase and elapsed seconds recorded; native termination
+must be checked separately. See [startup observations](docs/evidence/T02-02c-windows-capture-startup.md).
+
 Run `scripts/run.ps1` and select **샘플 오버레이 표시** (show sample overlay) in the main window. It shows sample English/Japanese source text and Korean translations, with move/resize handles and controls for width, opacity, hiding, and resetting placement. It closes with the main window. The Windows adapter applies non-activation and tool-window properties.
 
 `scripts/probe-overlay.ps1` runs the short Windows window probe and writes JSON/rendered PNG evidence under `docs/evidence/`. Exit code 0 covers executable window-property checks. Inspect `focus_result` separately: unavailable foreground HWND is reported as `BLOCKED`. Actual typing/mouse interaction, game composition, and Mac Spaces remain unverified. See the [overlay validation procedure](docs/OVERLAY_PROBE.md).

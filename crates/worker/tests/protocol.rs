@@ -127,6 +127,10 @@ fn handshake_commands_and_unicode_round_trip() {
 
     let response = worker.send(command("state", "get_state", json!({})));
     assert_eq!(response["result"]["session"]["state"], "Idle");
+    let capture = &response["result"]["diagnostic_capture"];
+    assert_eq!(capture["startup_deadline_s"], 10.);
+    assert!(capture["opening_elapsed_s"].is_null());
+    assert!(capture["failure_native_phase"].is_null());
 
     let response = worker.send(command("unavailable", "start_session", json!({})));
     assert_eq!(response["error"]["code"], "UNSUPPORTED_CAPABILITY");

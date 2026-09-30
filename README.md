@@ -100,6 +100,10 @@ worker의 실제 WASAPI 수신·16 kHz 정규화, 반복 Start/Stop·활성 종�
 캡처 진단의 `live_asr=false`이며 자막/history를 생성하지 않습니다.
 [캡처 owner·상한·미검증 범위](docs/WORKER_CAPTURE.md)
 
+`-Rounds 20`으로 시작/정지 반복 측정을 늘릴 수 있습니다. 시작 대기는 10초에
+실패로 기록되며 API 위치·초 단위 경과 시간을 남깁니다. native 종료 시간은
+별도로 확인해야 합니다. [시작 지연 관측](docs/evidence/T02-02c-windows-capture-startup.md)
+
 `scripts/run.ps1` 실행 후 메인 창의 **샘플 오버레이 표시**를 누르세요. 영어/일본어 원문과 한국어 번역의 샘플을 표시하며 이동 핸들·리사이즈 그립, 폭·불투명도 조절, 숨김·위치 초기화를 제공합니다. 메인 창을 닫으면 오버레이도 닫힙니다. Windows 어댑터는 창 비활성화와 tool window 속성을 적용합니다.
 
 `scripts/probe-overlay.ps1`은 짧은 Windows 창 검증을 실행하고 `docs/evidence/`에 JSON·렌더링 PNG를 저장합니다. 종료 코드 0은 실행 가능한 창 속성 검사의 통과를 뜻합니다. foreground HWND를 조회하지 못한 경우 `focus_result`는 `BLOCKED`이므로 별도로 확인하세요. 실제 입력·마우스 조작, 게임 위 표시, Mac Spaces는 미검증입니다. [오버레이 검증 절차](docs/OVERLAY_PROBE.md)
