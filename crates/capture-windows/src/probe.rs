@@ -21,7 +21,7 @@ use windows::Win32::System::Threading::{CreateEventW, WaitForSingleObject};
 type ProbeResult<T> = Result<T, Box<dyn Error>>;
 
 #[derive(Clone)]
-enum Selection {
+pub(crate) enum Selection {
     FollowDefault,
     Fixed(String),
 }
@@ -66,9 +66,9 @@ impl Options {
     }
 }
 
-struct ComGuard;
+pub(crate) struct ComGuard;
 impl ComGuard {
-    fn new() -> ProbeResult<Self> {
+    pub(crate) fn new() -> ProbeResult<Self> {
         unsafe { CoInitializeEx(None, COINIT_MULTITHREADED).ok()? };
         Ok(Self)
     }
@@ -79,7 +79,7 @@ impl Drop for ComGuard {
     }
 }
 
-struct Event(HANDLE);
+pub(crate) struct Event(pub(crate) HANDLE);
 impl Drop for Event {
     fn drop(&mut self) {
         let _ = unsafe { CloseHandle(self.0) };
@@ -87,17 +87,17 @@ impl Drop for Event {
 }
 
 #[derive(Clone, Copy, Debug)]
-struct Format {
-    rate: u32,
-    channels: u16,
-    bits: u16,
-    block_align: u16,
-    channel_mask: u32,
-    kind: SampleKind,
+pub(crate) struct Format {
+    pub(crate) rate: u32,
+    pub(crate) channels: u16,
+    pub(crate) bits: u16,
+    pub(crate) block_align: u16,
+    pub(crate) channel_mask: u32,
+    pub(crate) kind: SampleKind,
 }
 
 #[derive(Clone, Copy, Debug)]
-enum SampleKind {
+pub(crate) enum SampleKind {
     Float,
     Pcm,
     Other,
@@ -214,16 +214,16 @@ impl Metrics {
     }
 }
 
-struct Capture {
-    device_id: String,
-    client: IAudioClient,
-    reader: IAudioCaptureClient,
-    event: Event,
-    format: Format,
+pub(crate) struct Capture {
+    pub(crate) device_id: String,
+    pub(crate) client: IAudioClient,
+    pub(crate) reader: IAudioCaptureClient,
+    pub(crate) event: Event,
+    pub(crate) format: Format,
 }
 
 impl Capture {
-    fn open(device: &IMMDevice) -> ProbeResult<Self> {
+    pub(crate) fn open(device: &IMMDevice) -> ProbeResult<Self> {
         let device_id = device_id(device)?;
         let client: IAudioClient = unsafe { device.Activate(CLSCTX_ALL, None)? };
         let mix = unsafe { client.GetMixFormat()? };
@@ -317,7 +317,7 @@ impl Drop for Capture {
     }
 }
 
-fn device_id(device: &IMMDevice) -> ProbeResult<String> {
+pub(crate) fn device_id(device: &IMMDevice) -> ProbeResult<String> {
     let ptr = unsafe { device.GetId()? };
     let id = unsafe { ptr.to_string() };
     unsafe { CoTaskMemFree(Some(ptr.0 as *const c_void)) };
@@ -337,7 +337,7 @@ fn device_name(device: &IMMDevice) -> ProbeResult<String> {
     name
 }
 
-fn selected_device(
+pub(crate) fn selected_device(
     enumerator: &IMMDeviceEnumerator,
     selection: &Selection,
 ) -> ProbeResult<IMMDevice> {

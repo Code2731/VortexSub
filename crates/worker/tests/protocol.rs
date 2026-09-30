@@ -94,6 +94,7 @@ fn hello(worker: &mut Worker) {
     assert_eq!(response["ok"], true);
     assert_eq!(response["result"]["capabilities"]["system_audio"], false);
     assert_eq!(response["result"]["capabilities"]["vad"], false);
+    assert_eq!(response["result"]["capabilities"]["capture_pcm"], false);
     assert_eq!(response["result"]["implementation"], "mock");
 }
 
@@ -220,7 +221,12 @@ fn history_capability_is_empty_by_default_and_mock_requires_opt_in() {
     assert_eq!(page["result"]["last_seq"], 0);
     let denied = worker.send(command("mock", "mock_segment", json!({"source":"fake"})));
     assert_eq!(denied["error"]["code"], "UNSUPPORTED_CAPABILITY");
-    for method in ["transcribe_fixture", "reset_fixture_epoch"] {
+    for method in [
+        "transcribe_fixture",
+        "reset_fixture_epoch",
+        "start_capture",
+        "stop_capture",
+    ] {
         let denied = worker.send(command("fixture", method, json!({})));
         assert_eq!(denied["error"]["code"], "UNSUPPORTED_CAPABILITY");
     }

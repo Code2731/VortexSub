@@ -11,6 +11,7 @@ use serde_json::{json, Value};
 use std::time::Instant;
 pub type Reply = Result<Value, (&'static str, &'static str)>;
 pub struct Runtime {
+    pub capture: crate::capture_runtime::CaptureRuntime,
     pub core: Pipeline,
     ring: RollingAudio,
     pool: SnapshotPool,
@@ -30,13 +31,14 @@ pub struct Runtime {
     next_fixture: u64,
 }
 impl Runtime {
-    pub fn new(enabled: bool, config: Option<ModelConfig>) -> Self {
+    pub fn new(enabled: bool, config: Option<ModelConfig>, capture: bool) -> Self {
         let vad_enabled = config.as_ref().is_some_and(|c| c.vad.is_some());
         let epoch = AudioIdentity {
             session_id: 1,
             epoch: 1,
         };
         Self {
+            capture: crate::capture_runtime::CaptureRuntime::new(capture),
             core: if config.is_some() {
                 Pipeline::new_asr_only(epoch, 1000).unwrap()
             } else {
@@ -65,6 +67,9 @@ impl Runtime {
         }
     }
     pub fn implementation(&self) -> &str {
+        if self.capture.enabled {
+            return "wasapi-capture-diagnostic";
+        }
         if self.native.is_some() {
             "native-asr-fixture"
         } else {
@@ -78,7 +83,7 @@ impl Runtime {
         self.vad_enabled
     }
     pub fn state(&self, q: &Outbox) -> Value {
-        json!({"session":{"session_id":null,"epoch":0,"state":"Idle","elapsed_ms":0},"translator":{"state":"Unavailable"},"model":{"state":self.model_state},"last_seq":q.last_seq(),"history_version":self.core.version(),"diagnostic_asr":{"enabled":self.has_native(),"epoch":self.epoch.epoch,"pending_inputs":self.pending_inputs.len(),"decoding":self.flight.is_some(),"native_running":self.flight.as_ref().is_some_and(|(_,token)|token.snapshot().running),"completed_jobs":self.completed_jobs,"model_load_s":self.load_s,"vad":self.vad_enabled}})
+        json!({"session":{"session_id":null,"epoch":0,"state":"Idle","elapsed_ms":0},"translator":{"state":"Unavailable"},"model":{"state":self.model_state},"last_seq":q.last_seq(),"history_version":self.core.version(),"diagnostic_capture":self.capture.value(),"diagnostic_asr":{"enabled":self.has_native(),"epoch":self.epoch.epoch,"pending_inputs":self.pending_inputs.len(),"decoding":self.flight.is_some(),"native_running":self.flight.as_ref().is_some_and(|(_,token)|token.snapshot().running),"completed_jobs":self.completed_jobs,"model_load_s":self.load_s,"vad":self.vad_enabled}})
     }
     pub fn fixture(&mut self, method: &str, p: &Value, q: &Outbox) -> Reply {
         if self.native.is_none() {
@@ -172,6 +177,47 @@ impl Runtime {
                 )
             }
             _ => Err(("UNSUPPORTED_CAPABILITY", "Unknown fixture method")),
+        }
+    }
+    pub fn capture_command(&mut self, method: &str, p: &Value, q: &Outbox) -> Reply {
+        if !self.capture.enabled {
+            return Err((
+                "UNSUPPORTED_CAPABILITY",
+                "Capture diagnostics require opt-in",
+            ));
+        }
+        if method == "start_capture" && !self.capture.startable() {
+            return Err(("INVALID_STATE", "Capture is already active or stopping"));
+        }
+        // Validate before changing identity; the adapter also checks this parameter.
+        if method == "start_capture"
+            && p.get("device_id").is_some_and(|v| {
+                !v.is_null()
+                    && !v
+                        .as_str()
+                        .is_some_and(|s| !s.is_empty() && s.len() <= 2048 && !s.contains('\0'))
+            })
+        {
+            return Err(("INVALID_REQUEST", "Invalid render endpoint ID"));
+        }
+        if method == "start_capture" || (method == "stop_capture" && self.capture.needs_stop()) {
+            self.epoch.epoch = self
+                .epoch
+                .epoch
+                .checked_add(1)
+                .ok_or(("INTERNAL_ERROR", "Epoch exhausted"))?;
+            self.core
+                .restart(self.epoch, false, self.now())
+                .map_err(core_error)?;
+            self.ring
+                .reset(self.epoch, self.ring.retained_range().end)
+                .map_err(|_| ("INTERNAL_ERROR", "Ring reset failed"))?;
+        }
+        if method == "start_capture" {
+            self.capture
+                .start(p, self.epoch, self.ring.retained_range().end, q)
+        } else {
+            self.capture.stop(q)
         }
     }
     fn poll_native(&mut self, q: &Outbox) -> std::io::Result<()> {
@@ -355,6 +401,7 @@ impl Runtime {
     }
     pub fn finish(&mut self) {
         self.interrupt();
+        self.capture.finish();
         if let Some(native) = self.native.take() {
             native.finish();
         }
@@ -363,6 +410,7 @@ impl Runtime {
         self.origin.elapsed().as_nanos().min(u64::MAX as u128) as u64
     }
     pub fn poll(&mut self, q: &Outbox) -> std::io::Result<()> {
+        self.capture.poll(q, &mut self.ring)?;
         self.poll_native(q)?;
         let before = self.core.version();
         self.core
@@ -378,6 +426,7 @@ impl Runtime {
         Ok(())
     }
     pub fn interrupt(&mut self) {
+        self.capture.request_stop();
         let _ = self.core.interrupt(self.now());
         if let Some((_, token)) = &self.flight {
             token.request();

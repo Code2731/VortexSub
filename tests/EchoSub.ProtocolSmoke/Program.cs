@@ -17,7 +17,7 @@ await using (var client = WorkerClient.Start(workerPath))
     Require(!hello.GetProperty("capabilities").GetProperty("system_audio").GetBoolean(), "system audio must be unavailable");
     Require(!hello.GetProperty("capabilities").GetProperty("fixture_asr").GetBoolean(), "native fixtures require opt-in");
     Require(!hello.GetProperty("capabilities").GetProperty("vad").GetBoolean(), "VAD fixtures require opt-in");
-    foreach (var method in new[] { "transcribe_fixture", "reset_fixture_epoch" })
+    foreach (var method in new[] { "transcribe_fixture", "reset_fixture_epoch", "start_capture", "stop_capture" })
     {
         try { await client.SendAsync(method); throw new Exception("Native fixture opt-in was bypassed"); }
         catch (WorkerException error) when (error.Code == "UNSUPPORTED_CAPABILITY") { }

@@ -1,6 +1,7 @@
 use std::io::{self, BufRead, BufReader, Write};
 use std::sync::{mpsc, Arc};
 use std::time::Duration;
+mod capture_runtime;
 mod native_owner;
 mod runtime;
 mod transport;
@@ -35,7 +36,16 @@ fn serve() -> io::Result<()> {
     let mut writer = transport::ResponseWriter::new(&outbox);
     let args = std::env::args().collect::<Vec<_>>();
     let config = native_owner::config_from_args(&args).map_err(io::Error::other)?;
-    let mut runtime = runtime::Runtime::new(args.iter().any(|a| a == "--mock-pipeline"), config);
+    let capture = args.iter().any(|a| a == "--diagnostic-capture");
+    if capture
+        && (!cfg!(windows) || config.is_some() || args.iter().any(|a| a == "--mock-pipeline"))
+    {
+        return Err(io::Error::other(
+            "Capture diagnostics require Windows and a separate mode",
+        ));
+    }
+    let mut runtime =
+        runtime::Runtime::new(args.iter().any(|a| a == "--mock-pipeline"), config, capture);
     let mut hello_done = false;
 
     loop {
@@ -150,8 +160,10 @@ fn serve() -> io::Result<()> {
                         "platform": std::env::consts::OS,
                         "implementation": runtime.implementation(),
                         "capabilities": {
-                            "system_audio": false,
-                            "output_device_selection": false,
+                            "system_audio": runtime.capture.enabled,
+                            "output_device_selection": runtime.capture.enabled,
+                            "capture_pcm": runtime.capture.enabled,
+                            "live_asr": false,
                             "asr": runtime.has_native(),
                             "fixture_asr": runtime.has_native(),
                             "vad": runtime.has_vad(),
@@ -172,6 +184,9 @@ fn serve() -> io::Result<()> {
             },
             "get_state" if hello_done => Ok(runtime.state(&outbox)),
             "get_history" if hello_done => runtime.history(params, &outbox),
+            "start_capture" | "stop_capture" if hello_done => {
+                runtime.capture_command(method, params, &outbox)
+            }
             "mock_segment" | "mock_translate" | "mock_burst" if hello_done => {
                 runtime.mock(method, params, &outbox)
             }
@@ -188,6 +203,8 @@ fn serve() -> io::Result<()> {
             | "mock_segment"
             | "mock_translate"
             | "mock_burst"
+            | "start_capture"
+            | "stop_capture"
             | "transcribe_fixture"
             | "reset_fixture_epoch" => Err(("INVALID_STATE", "Call hello first")),
             _ => Err(("UNSUPPORTED_CAPABILITY", "Method is not implemented")),

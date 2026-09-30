@@ -1,9 +1,6 @@
 #[cfg(windows)]
-mod probe;
-
-#[cfg(windows)]
 fn main() {
-    if let Err(error) = probe::run() {
+    if let Err(error) = echosub_capture_windows::run_probe() {
         eprintln!("capture probe: {error}");
         std::process::exit(1);
     }

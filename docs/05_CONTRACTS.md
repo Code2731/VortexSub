@@ -186,3 +186,5 @@ T01-02b/T02-01a의 진단 worker는 숫자 u64 session/epoch/segment ID, `event`
 
 T02-01b의 추가 `--diagnostic-vad` 모드는 별도 fixture_id와 실제 segment_id 목록을 `fixture.segmented`로 전달한다. segment final/history identity는 그대로다. VAD 모델·DLL hash 오류는 fixture.failed로 종료하며 ASR을 요청하지 않는다. [VAD wire/수명 계약](WORKER_VAD.md)을 따른다.
 
+T02-02a는 Windows의 별도 `--diagnostic-capture`에서 `start_capture`/`stop_capture`, `capture.state`/`capture.metrics`와 `diagnostic_capture` 상태를 제공한다. implementation=`wasapi-capture-diagnostic`, system_audio=true/live_asr=false이며 제품 start_session과 다르다. Stop 응답과 owner join 완료를 구분한다. [캡처 계약](WORKER_CAPTURE.md)을 따른다.
+

@@ -152,3 +152,9 @@ consent before `scripts/download-vad-assets.ps1 -Consent`; without that switch,
 the script verifies existing assets only. Reports retain counts/timings, including
 empty-ASR failures; a passing smoke result is not a quality gate. See
 [worker VAD](../docs/WORKER_VAD.md).
+
+`scripts/probe-worker-capture.ps1 -Offline` plays the existing en-01 WAV briefly
+and checks real worker loopback PCM normalization, three Start/Stop cycles,
+shutdown and parent EOF. It saves counts/timings only and stops its own playback.
+This is a PCM diagnostic, with live ASR disabled. See
+[capture scope and bounds](../docs/WORKER_CAPTURE.md).

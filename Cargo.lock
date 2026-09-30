@@ -141,6 +141,7 @@ version = "0.1.0"
 name = "echosub-capture-windows"
 version = "0.1.0"
 dependencies = [
+ "echosub-audio-core",
  "windows",
 ]
 
@@ -178,6 +179,7 @@ version = "0.1.0"
 dependencies = [
  "echosub-asr-whisper",
  "echosub-audio-core",
+ "echosub-capture-windows",
  "echosub-pipeline-core",
  "echosub-vad-silero",
  "hound",

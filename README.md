@@ -4,7 +4,7 @@
 
 EchoSub는 Windows/macOS의 시스템 오디오를 전사하고 한국어로 번역하는 데스크톱 앱을 목표로 합니다.
 
-**현재는 M0 probe·M1 코어와 M2 파일 VAD/전사 경로를 개발하는 단계입니다.** UI↔worker IPC, Windows 캡처 probe, 모델 probe, MOCK 오버레이와 실제 Silero VAD→Whisper 파일 전사를 구현했습니다. 실시간 캡처·번역·자막 UI는 아직 연결하지 않았습니다. macOS는 실기기에서 검증하지 않았습니다.
+**현재는 M0 probe·M1 코어와 M2 캡처/파일 전사 경로를 개발하는 단계입니다.** worker의 실제 Windows loopback PCM 수신·정규화와 Silero VAD→Whisper 파일 전사를 구현했습니다. live 캡처→추론·번역·자막 UI 연결은 후속입니다. macOS는 실기기에서 검증하지 않았습니다.
 
 ## Windows에서 빌드하고 실행하기
 
@@ -87,6 +87,11 @@ ONNX Runtime 1.22.0 CPU로 발화 범위를 나누고 실제 전사합니다. �
 [VAD 실행·계약](docs/WORKER_VAD.md) · [측정](docs/evidence/T02-01b-windows-worker-vad.md)
 
 ## MOCK 자막 오버레이
+
+`scripts/probe-worker-capture.ps1 -Offline`은 기존 TTS WAV를 잠깐 재생해
+worker의 실제 WASAPI 수신·16 kHz 정규화, 반복 Start/Stop·활성 종료를 확인합니다.
+캡처 진단의 `live_asr=false`이며 자막/history를 생성하지 않습니다.
+[캡처 owner·상한·미검증 범위](docs/WORKER_CAPTURE.md)
 
 `scripts/run.ps1` 실행 후 메인 창의 **샘플 오버레이 표시**를 누르세요. 영어/일본어 원문과 한국어 번역의 샘플을 표시하며 이동 핸들·리사이즈 그립, 폭·불투명도 조절, 숨김·위치 초기화를 제공합니다. 메인 창을 닫으면 오버레이도 닫힙니다. Windows 어댑터는 창 비활성화와 tool window 속성을 적용합니다.
 

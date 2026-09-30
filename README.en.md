@@ -4,7 +4,7 @@
 
 EchoSub aims to provide system-audio transcription and Korean translation in a Windows/macOS desktop app.
 
-**M0 probes, the M1 core, and an M2 file VAD/transcription path are in development.** The repository includes UI↔worker IPC, a Windows capture probe, model probes, a MOCK overlay, and real Silero VAD→Whisper file transcription. Live capture, translation, and subtitle UI integration are pending. macOS has not been verified on a real device.
+**M0 probes, the M1 core, and M2 capture/file transcription paths are in development.** The worker receives and normalizes real Windows loopback PCM and separately runs Silero VAD→Whisper on files. Live capture→inference, translation, and subtitle UI integration are pending. macOS has not been verified on a real device.
 
 ## Build and run on Windows
 
@@ -90,6 +90,11 @@ remains Failed; **the quality gate has not passed**. See the
 [VAD contract](docs/WORKER_VAD.md) and [evidence](docs/evidence/T02-01b-windows-worker-vad.md).
 
 ## MOCK caption overlay
+
+`scripts/probe-worker-capture.ps1 -Offline` briefly plays an existing TTS WAV and
+checks real WASAPI reception, 16 kHz normalization, repeated Start/Stop, and active
+shutdown. Capture diagnostics report `live_asr=false` and produce no captions or
+history. See [the owner contract and unverified scope](docs/WORKER_CAPTURE.md).
 
 Run `scripts/run.ps1` and select **샘플 오버레이 표시** (show sample overlay) in the main window. It shows sample English/Japanese source text and Korean translations, with move/resize handles and controls for width, opacity, hiding, and resetting placement. It closes with the main window. The Windows adapter applies non-activation and tool-window properties.
 
