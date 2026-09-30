@@ -37,13 +37,19 @@ WASAPI Running과 live VAD 준비 완료 후 `session.state`가 Running이 된�
 ## 제품 목표와 현재 wire 형식
 
 UUID는 제어와 `get_state.session`/`session.state`에서 사용한다.
-`internal_session_id`는 기존 u64 audio/history ID와의 대응이다. source/history는
-기존 numeric identity·`get_history` 페이지·event/payload·초 단위 오디오 시간축을
-유지한다. UI는 현재 내부 session/epoch/revision과 Running을 확인해 표시한다.
-history 시간은 worker 시작 기준이며 `audio_origin_s`는 세션 시작 위치다.
+`internal_session_id`는 기존 u64 audio/history ID와의 대응이다. T02-03b부터
+source record와 history에 `product_session_id` UUID 및 `session_audio_start_s`/
+`session_audio_end_s`를 추가한다. UI는 UUID와 내부 ID/epoch/revision, Running을
+모두 확인해 표시하고 history에는 세션 시작 기준 초를 표시한다.
+기존 numeric `session_id`, worker 기준 `audio_*_s`, `get_history` 페이지 및
+event/payload 형식은 호환을 위해 유지한다. 진단 모드에는 새 필드를 넣지 않는다.
+UUID 대응 정보는 history에 남은 세션(최대 1,000개)과 현재 세션만 유지한다.
+원문이 없는 세션을 반복 생성해도 보존된 record의 UUID를 잃지 않는다.
+`audio_origin_s`는 세션 시작 위치다. 새 상대 시간은 시작 sample index를 빼서
+구하며 Pause 구간을 포함한다. export 자체는 아직 지원하지 않는다.
 세션 경과 초는 Pause를 포함하고 Idle에서 고정된다.
 
-UUID source/history wire, session 시작 UTC, 세션 기준 내보내기 시간축,
+제품 목표의 `session_id` UUID/type-data 형식으로의 전면 전환, session 시작 UTC,
 apply_config/clear/export, Recovering, partial·번역·macOS는 미구현이다.
 이 어댑터를 제품 명세 전체의 완료로 간주하지 않는다.
 
@@ -59,3 +65,8 @@ Stop Idle, 새 UUID와 history 유지를 확인한다. 이 모드는 실제 audi
 `-NoBuild`는 준비된 native CPU worker를 사용한다. 생성 WAV·원문 포함 보고서는
 Git에서 제외된 results 아래에만 저장한다. 다른 시스템 음원은 격리되지 않는다.
 실측과 미실행 항목은 [Windows 근거](evidence/T02-03a-windows-session-control.md)를 따른다.
+
+T02-03b는 native full 관측 중 Pause를 요청하고 재개 후 해당 record가 Discarded로
+남는지 확인한다. Resume 요청 직전 decode 예약 존재 여부를 별도로 기록한다.
+UUID/상대 시간과 빈 세션 1,001회 뒤 기존 UUID 유지도 IPC 검증에 포함한다.
+[추가 실행의 성공·시작 실패](evidence/T02-03b-windows-session-history.md)를 함께 따른다.

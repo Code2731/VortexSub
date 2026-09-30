@@ -22,6 +22,7 @@
 | T02-02e | PARTIAL: 진단 원문 UI 연결·빌드 통과; 화면 수용 미검증 | 장치/언어·Start/Stop·실패/join·worker 재연결, 버전 history·현재 epoch/revision 원문·5초 오버레이 구현. Rust 91개·C# 빌드/IPC 통과, PS5.1 live 창/연결 로그 확인. 실제 클릭/원문/만료/게임 포커스 미검증. [실행·범위](LIVE_UI.md) |
 | T02-02f | PARTIAL: UI 조작·조회 분리; 조작 지연 실측 미검증 | 자동/수동 조회의 버튼 잠금 제거·사용자 명령 시 조회 취소, snapshot 지연 적용, IPC와 독립된 원문 만료, 반복 창 닫기 중 worker 정리 보호. Windows Rust 91개·포맷/빌드·C# 빌드/IPC smoke PASS. 미실행 수동 항목은 [UI 계약](LIVE_UI.md)을 따른다. 제품 session/Pause는 후속. |
 | T02-03a | PARTIAL: UUID session 제어 어댑터·실제 CPU IPC 확인 | 시작/Pause/Resume/Stop·숫자 ID 대응·history 유지·native 반환 후 Idle·UI 버튼 연결. Rust 92개·확장 C# smoke·native 빌드와 실제 final 3개 PASS. 화면 조작·full 도중 Pause·전체 제품 wire·Mac 후속. [계약](SESSION_CONTROL.md) · [근거](evidence/T02-03a-windows-session-control.md) |
+| T02-03b | PARTIAL: UUID history·세션 상대 시간·native Pause 확인 | source/history UUID 메타데이터·UI UUID 필터·최대 1,001개 session metadata 구현. Rust 92개·C# IPC PASS, 빈 세션 1,001회 뒤 UUID 유지. 실제 첫 시작 timeout 1회; 재실행 native Pause/Resume·final 3개 PASS. 시작/화면/품질 gate는 유지. [근거](evidence/T02-03b-windows-session-history.md) |
 | M2 | PARTIAL | CPU 실제 VAD 파일 분할·전사·제어/history 연결. WASAPI live final/history 진단 연결. 시작 안정성·화면 자막·제품 session·자연 음성 경계 수용 미통과. |
 | M3~M5 | NOT_STARTED | 해당 제품 통합/실기기 수용 결과 없음. |
 
@@ -104,3 +105,5 @@ T02-02c 추가 검증: 최종 Rust 91개·fmt/workspace·C# 빌드/IPC smoke PAS
 T02-02e: 실제 원문 진단 UI를 연결하고 Windows 저장소 검사를 통과했다. 다음은 [수동 UI 확인](LIVE_UI.md)의 Start/Stop·원문·만료·실패/재연결 및 제품 session/Pause 계약이다. native 시작 안정성 gate는 유지한다.
 
 T02-03a: UUID session 제어를 기존 Windows live pipeline에 연결했다. Stop 응답 0.000244초, native 반환/정리 후 Idle 확인 0.514054초(단일 실행). 화면/품질 gate는 유지하며 다음은 UUID source/history wire·세션 시간축과 native full 중 Pause/Resume 보완이다.
+
+T02-03b: UUID source/history 메타데이터와 세션 상대 시간을 연결했다. 첫 시작은 Initialize timeout 10.006663초로 실패했고 재실행은 native Pause 뒤 옛 record Discarded·Resume/new UUID final을 확인했다. 시작 안정성과 전체 제품 wire 전환·UI 수용은 미완료다.

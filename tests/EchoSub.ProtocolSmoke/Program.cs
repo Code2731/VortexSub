@@ -66,6 +66,7 @@ await using (var client = WorkerClient.Start(workerPath, arguments: new[] { "--m
     Require(Guid.TryParseExact(id, "D", out _), "worker UUID session identity");
     await client.SendAsync("mock_segment", new { source = "세션 원문" });
     var before = await client.ReadHistoryAsync();
+    Require(before.Records[0].ProductSessionId == id && before.Records[0].SessionAudioStartSeconds >= 0, "UUID/session time in typed history");
     await client.SendAsync("pause_session", new { session_id = id });
     var paused = await client.SendAsync("get_state");
     Require(paused.GetProperty("session").GetProperty("state").GetString() == "Paused", "paused state");
@@ -77,12 +78,16 @@ await using (var client = WorkerClient.Start(workerPath, arguments: new[] { "--m
     var after = await client.ReadHistoryAsync();
     Require(after.Records.Count == 2 && after.Records[0].Source == "세션 원문", "history retained across pause");
     Require(after.Records[1].SegmentId > before.Records[0].SegmentId && after.Records[1].Epoch > before.Records[0].Epoch, "resume identity monotonic");
+    Require(after.Records.All(r => r.ProductSessionId == id), "UUID survives Resume");
     await client.SendAsync("stop_session", new { session_id = id });
     var stopped = await client.SendAsync("get_state");
     Require(stopped.GetProperty("session").GetProperty("state").GetString() == "Idle", "mock stop reaches idle");
     var next = await client.SendAsync("start_session", config);
     Require(next.GetProperty("session_id").GetString() != id, "new session has fresh UUID");
     Require((await client.ReadHistoryAsync()).Records.Count == 2, "new session retains old history");
+    await client.SendAsync("mock_segment", new { source = "새 UUID 원문" });
+    var mixed = await client.ReadHistoryAsync();
+    Require(mixed.Records[0].ProductSessionId == id && mixed.Records[^1].ProductSessionId == next.GetProperty("session_id").GetString(), "UUID preserved across sessions");
 }
 
 await using (var client = WorkerClient.Start(workerPath))

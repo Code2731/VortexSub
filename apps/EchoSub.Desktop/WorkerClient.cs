@@ -207,6 +207,15 @@ public sealed class WorkerClient : IAsyncDisposable
                         if (records.Length > 4) throw new IOException("Oversized history page");
                         foreach (var record in records)
                         {
+                            if (record.ProductSessionId is not null)
+                            {
+                                if (!Guid.TryParseExact(record.ProductSessionId, "D", out _) ||
+                                    record.SessionAudioStartSeconds is not double start || !double.IsFinite(start) || start < 0 ||
+                                    record.SessionAudioEndSeconds is not double end || !double.IsFinite(end) || end <= start)
+                                    throw new IOException("Invalid product session history metadata");
+                            }
+                            else if (record.SessionAudioStartSeconds is not null || record.SessionAudioEndSeconds is not null)
+                                throw new IOException("Session audio time requires UUID identity");
                             if (record.Source is null || record.Translation is null || Encoding.UTF8.GetByteCount(record.Source) > 4096 || Encoding.UTF8.GetByteCount(record.Translation) > 4096 || record.Source.Contains('\0') || record.Translation.Contains('\0') || record.AudioStartSample >= record.AudioEndSample || record.AudioEndSample - record.AudioStartSample > 128000 || record.SourceRevision == 0 || record.SegmentId == 0 || !double.IsFinite(record.AudioStartSeconds) || !double.IsFinite(record.AudioEndSeconds)) throw new IOException("Invalid history record");
                             if (record.SourceState is not ("Partial" or "FinalPending" or "Final" or "Failed" or "Skipped" or "Discarded") || record.TranslationState is not ("None" or "Pending" or "Done" or "Failed" or "Skipped" or "Bypassed") || record.AppliedSourceRevision > record.SourceRevision) throw new IOException("Invalid history state");
                             if (record.SourceState == "Final" && (record.AppliedSourceRevision != record.SourceRevision || string.IsNullOrWhiteSpace(record.Source))) throw new IOException("Invalid final source");

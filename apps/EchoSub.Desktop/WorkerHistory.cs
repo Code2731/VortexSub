@@ -20,7 +20,10 @@ public sealed record HistoryRecord(
     [property: JsonPropertyName("translation_state")] string TranslationState,
     [property: JsonPropertyName("translation")] string Translation,
     [property: JsonPropertyName("translation_reason")] string? TranslationReason,
-    [property: JsonPropertyName("translation_request_id")] ulong? TranslationRequestId);
+    [property: JsonPropertyName("translation_request_id")] ulong? TranslationRequestId,
+    [property: JsonPropertyName("product_session_id")] string? ProductSessionId = null,
+    [property: JsonPropertyName("session_audio_start_s")] double? SessionAudioStartSeconds = null,
+    [property: JsonPropertyName("session_audio_end_s")] double? SessionAudioEndSeconds = null);
 public sealed record HistorySnapshot(ulong Version, ulong LastSequence, IReadOnlyList<HistoryRecord> Records);
 public sealed record WorkerEvent(ulong Sequence, string Name, JsonElement Payload);
 

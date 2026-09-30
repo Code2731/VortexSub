@@ -196,3 +196,7 @@ T02-02c는 진단 capture에 `startup_deadline_s=10`, `opening_elapsed_s`, `fail
 ### T02-03a UUID 제어 어댑터
 
 명시적 --session-control은 Windows live 경로에 start_session(config, history_policy=retain), pause_session/resume_session/stop_session(session_id UUID)을 연결한다. get_state.session과 session.state는 UUID 및 internal_session_id 대응을 제공한다. source/history는 기존 u64 ID·worker 기준 초·get_history/event/payload를 유지한다. 이 단계는 전체 제품 wire 형식 전환이 아니며 started_at_utc·세션 export 시간축·apply_config·Recovering은 후속이다. [구현·검증 계약](SESSION_CONTROL.md)을 따른다.
+
+### T02-03b UUID history 메타데이터
+
+UUID 제어 모드의 record는 product_session_id와 session_audio_start_s/session_audio_end_s를 추가한다. numeric session_id와 worker 기준 audio 시간은 유지한다. metadata는 retained history session+현재 session에 한정되며 C#은 UUID/상대 시간 tuple을 검증한다. 이는 제품 목표의 session_id UUID/type-data 전체 wire 교체가 아니다. [상대 시간·수명](SESSION_CONTROL.md)과 [native Pause 실측/시작 실패](evidence/T02-03b-windows-session-history.md)를 따른다.

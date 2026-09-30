@@ -189,6 +189,7 @@ fn serve() -> io::Result<()> {
                             "capture_pcm": runtime.capture.enabled,
                             "live_asr": runtime.is_live(),
                             "session_control": runtime.session.enabled,
+                            "session_history_uuid": runtime.session.enabled,
                             "asr": runtime.has_native(),
                             "fixture_asr": runtime.has_native() && !runtime.is_live(),
                             "vad": runtime.has_vad(),

@@ -260,6 +260,9 @@
     },
     "historyRecord": {
       "properties": {
+        "product_session_id": {"type": "string", "format": "uuid"},
+        "session_audio_start_s": {"type": "number", "minimum": 0},
+        "session_audio_end_s": {"type": "number", "minimum": 0},
         "segment_id": {
           "maximum": 18446744073709551615,
           "type": "integer",
@@ -376,7 +379,12 @@
         "applied_source_revision"
       ],
       "type": "object",
-      "additionalProperties": false
+      "additionalProperties": false,
+      "dependentRequired": {
+        "product_session_id": ["session_audio_start_s", "session_audio_end_s"],
+        "session_audio_start_s": ["product_session_id", "session_audio_end_s"],
+        "session_audio_end_s": ["product_session_id", "session_audio_start_s"]
+      }
     },
     "historyPage": {
       "properties": {

@@ -641,7 +641,7 @@ impl Runtime {
             .history_page(version, offset as usize, limit as usize)
             .map_err(core_error)?;
         Ok(
-            json!({"history_version":page.version,"records":page.records.iter().map(record).collect::<Vec<_>>(),"next_offset":page.next_offset,"last_seq":q.last_seq(),"implementation":self.implementation()}),
+            json!({"history_version":page.version,"records":page.records.iter().map(|r|self.wire_record(r)).collect::<Vec<_>>(),"next_offset":page.next_offset,"last_seq":q.last_seq(),"implementation":self.implementation()}),
         )
     }
     pub fn mock(&mut self, method: &str, p: &Value, q: &Outbox) -> Reply {
@@ -759,11 +759,21 @@ impl Runtime {
             .ok_or(("INTERNAL_ERROR", "Record unavailable"))?;
         q.publish(
             name,
-            json!({"history_version":self.core.version(),"record":record(r)}),
+            json!({"history_version":self.core.version(),"record":self.wire_record(r)}),
             None,
         )
         .map_err(|_| ("INTERNAL_ERROR", "Event unavailable"))?;
         Ok(json!({}))
+    }
+    fn wire_record(&self, r: &Record) -> Value {
+        let mut value = record(r);
+        self.session.decorate_record(
+            r.key.audio.session_id,
+            r.range.start,
+            r.range.end,
+            &mut value,
+        );
+        value
     }
 }
 fn core_error(error: CoreError) -> (&'static str, &'static str) {

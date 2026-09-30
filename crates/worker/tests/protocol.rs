@@ -313,6 +313,11 @@ fn uuid_session_controls_preserve_history_and_reject_stale_identity() {
     );
     let first =
         w.send(command("history", "get_history", json!({})))["result"]["records"][0].clone();
+    assert_eq!(first["product_session_id"], id);
+    assert!(first["session_audio_start_s"].as_f64().unwrap() >= 0.);
+    assert!(w.events.iter().any(
+        |e| e["event"] == "source.final" && e["payload"]["record"]["product_session_id"] == id
+    ));
     let pause = w.send(command("pause", "pause_session", json!({"session_id":id})));
     assert_eq!(pause["result"]["state"], "Paused");
     assert!(pause["result"]["epoch"].as_u64().unwrap() > first["epoch"].as_u64().unwrap());
@@ -354,6 +359,7 @@ fn uuid_session_controls_preserve_history_and_reject_stale_identity() {
         .clone();
     assert_eq!(records.len(), 2);
     assert_eq!(records[0]["source"], "before pause");
+    assert_eq!(records[1]["product_session_id"], id);
     assert!(
         records[1]["segment_id"].as_u64().unwrap() > records[0]["segment_id"].as_u64().unwrap()
     );
@@ -379,6 +385,25 @@ fn uuid_session_controls_preserve_history_and_reject_stale_identity() {
             .len(),
         2
     );
+    let mut active = second["result"]["session_id"].clone();
+    for _ in 0..1001 {
+        assert_eq!(
+            w.send(command(
+                "stop",
+                "stop_session",
+                json!({"session_id":active})
+            ))["ok"],
+            true
+        );
+        active = w.send(command(
+            "start",
+            "start_session",
+            json!({"config":{"source_language":"en"},"history_policy":"retain"}),
+        ))["result"]["session_id"]
+            .clone();
+    }
+    let retained = w.send(command("retained", "get_history", json!({})));
+    assert_eq!(retained["result"]["records"][0]["product_session_id"], id);
     w.send(command("exit", "shutdown", json!({})));
     w.finish();
 }

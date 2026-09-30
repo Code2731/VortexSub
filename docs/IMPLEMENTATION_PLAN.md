@@ -119,3 +119,7 @@ Start/Stop 수락과 실제 상태를 분리하며 원문 만료는 UI tick에�
 ## T02-03a UUID session 제어 (2026-10-01)
 
 Windows UUID 제어 어댑터와 UI 시작/Pause/Resume/Stop을 연결했다. history는 retain만 지원하며 새 session은 새 ring을 사용한다. Resume은 capture/VAD join, Stop Idle은 native 반환까지 확인한다. mock IPC와 실제 CPU loopback final 3개 검증을 완료했다. [계약](SESSION_CONTROL.md) · [근거](evidence/T02-03a-windows-session-control.md). 다음은 전체 UUID source/history wire·시작 UTC/세션 export 시간축, native full 중 Pause/Resume·화면 수용이다. partial·경계 정합·번역·Mac도 남아 있으며 제품 gate는 미통과다.
+
+## T02-03b UUID history·native Pause (2026-10-01)
+
+source/history에 UUID와 세션 상대 시간 메타데이터를 추가하고 C# 검증·UI UUID 필터를 연결했다. 보존 history session+현재 session으로 대응 정보의 수명을 제한했다. 빈 세션 1,001회 IPC 및 native full 관측 후 Pause/Resume를 확인했다. 실제 시작 timeout 1회를 그대로 보존한다. [범위·근거](evidence/T02-03b-windows-session-history.md). 다음은 세션 시작 UTC·history 내보내기/시간축, 전체 제품 wire 및 화면 수용이다. 시작 안정성·partial/경계 정합·번역·Mac gate는 유지한다.

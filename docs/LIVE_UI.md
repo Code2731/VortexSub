@@ -1,5 +1,4 @@
 # Windows 실제 원문 진단 UI
-
 ## 실행
 
 저장소 루트에서 `./run.cmd -Live -Offline` 또는
@@ -73,3 +72,7 @@ Rust 91개·포맷·빌드·C# 빌드(경고/오류 0)·IPC smoke가 통과했�
 ## T02-03a 세션 제어 연결
 
 세션 시작 시 UUID를 발급하고 기존 history를 유지한다. 일시정지는 입력/대기 작업을 취소하며 재개는 capture/VAD join 뒤 허용한다. 세션 종료 뒤 Idle은 native full 반환까지 확인한다. 설정 변경은 Idle에서 새 세션을 시작할 때 적용한다. 버튼·원문 화면의 실제 조작은 여전히 미검증이다. [실행·제어 계약](SESSION_CONTROL.md).
+
+## T02-03b UUID history 표시
+
+원문 표시에서 현재 UUID까지 확인한다. history는 UUID와 세션 시작 기준 초를 표시하며 이전 세션 record의 UUID도 보존한다. 원래 worker 시간 필드는 IPC 호환용으로 남긴다. 이전 worker가 UUID history capability를 제공하지 않으면 재빌드를 안내한다. [제어·필드 계약](SESSION_CONTROL.md)과 [성공/시작 실패 근거](evidence/T02-03b-windows-session-history.md)를 따른다. 화면 조작 수용은 미검증이다.

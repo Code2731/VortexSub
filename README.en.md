@@ -4,7 +4,7 @@
 
 EchoSub aims to provide system-audio transcription and Korean translation in a Windows/macOS desktop app.
 
-**M0 probes, the M1 core, and M2 transcription paths are in development.** A diagnostic worker connects real Windows loopback→Silero VAD→Whisper→source history. File transcription is also supported. A diagnostic source history/overlay UI is connected. UUID session start/pause/resume/stop control is connected. Translation and full product wire migration are pending. macOS has not been verified on a real device.
+**M0 probes, the M1 core, and M2 transcription paths are in development.** A diagnostic worker connects real Windows loopback→Silero VAD→Whisper→source history. File transcription is also supported. A diagnostic source history/overlay UI is connected. UUID session start/pause/resume/stop control, history UUIDs, and session-relative audio times are connected. Translation and full product wire migration are pending. macOS has not been verified on a real device.
 
 ## Build and run on Windows
 

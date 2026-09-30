@@ -3,6 +3,7 @@ use super::{Reply, Runtime};
 use crate::transport::Outbox;
 use echosub_audio_core::AudioIdentity;
 use serde_json::{json, Value};
+use std::collections::{BTreeMap, BTreeSet};
 
 pub struct Session {
     pub enabled: bool,
@@ -13,6 +14,7 @@ pub struct Session {
     started_ns: u64,
     ended_ns: Option<u64>,
     config: Value,
+    metadata: BTreeMap<u64, (String, u64)>,
 }
 impl Default for Session {
     fn default() -> Self {
@@ -25,10 +27,18 @@ impl Default for Session {
             started_ns: 0,
             ended_ns: None,
             config: Value::Null,
+            metadata: BTreeMap::new(),
         }
     }
 }
 impl Session {
+    pub fn decorate_record(&self, internal_id: u64, start: u64, end: u64, value: &mut Value) {
+        if let Some((uuid, origin)) = self.metadata.get(&internal_id) {
+            value["product_session_id"] = json!(uuid);
+            value["session_audio_start_s"] = json!(start.saturating_sub(*origin) as f64 / 16000.);
+            value["session_audio_end_s"] = json!(end.saturating_sub(*origin) as f64 / 16000.);
+        }
+    }
     pub fn value(&self, now: u64, identity: AudioIdentity) -> Value {
         let elapsed = if self.id.is_some() {
             self.ended_ns.unwrap_or(now).saturating_sub(self.started_ns)
@@ -130,9 +140,25 @@ impl Runtime {
                 .session_id
                 .checked_add(1)
                 .ok_or(("INTERNAL_ERROR", "Session identity exhausted"))?;
+            // At most 1,000 retained sessions plus the current session. Empty sessions
+            // cannot evict metadata for records still present in bounded history.
+            let retained = self
+                .core
+                .history_identities()
+                .map(|i| i.session_id)
+                .collect::<BTreeSet<_>>();
+            self.session
+                .metadata
+                .retain(|key, _| retained.contains(key));
+            let started_ns = self.now();
+            let audio_origin = echosub_audio_core::session_sample_from_ns(started_ns)
+                .map_err(|_| ("INTERNAL_ERROR", "Session clock exhausted"))?;
+            self.session
+                .metadata
+                .insert(internal_id, (id.clone(), audio_origin));
             self.session.id = Some(id);
             self.session.internal_id = internal_id;
-            self.session.started_ns = self.now();
+            self.session.started_ns = started_ns;
             self.session.ended_ns = None;
             self.session.config = json!({"language":language,"device_id":device});
             self.epoch = AudioIdentity {

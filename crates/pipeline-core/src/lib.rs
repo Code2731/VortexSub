@@ -271,6 +271,10 @@ impl Pipeline {
             next_offset: (end < self.records.len()).then_some(end),
         })
     }
+    /// Retained records define which external session metadata must remain alive.
+    pub fn history_identities(&self) -> impl Iterator<Item = AudioIdentity> + '_ {
+        self.records.iter().map(|r| r.key.audio)
+    }
     fn room(&mut self) -> Result<(), CoreError> {
         if self.records.len() < self.capacity {
             return Ok(());

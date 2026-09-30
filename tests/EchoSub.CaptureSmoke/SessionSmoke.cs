@@ -20,12 +20,15 @@ internal static class SessionSmoke
         double pauseResponse = 0, stopResponse = 0, idleAfterStop = 0;
         var finals = new List<HistoryRecord>();
         string phase = "model_preparation";
+        bool pauseNativeObserved = false, resumeBeforeNativeReturn = false;
+        HistoryRecord? interrupted = null;
         JsonElement last = default;
         void Save(bool passed) => File.WriteAllText(args[4], JsonSerializer.Serialize(new
         {
             passed, phase, input = "real_WASAPI_loopback_synthetic_TTS", ui_verified = false,
             other_system_audio_isolated = false, quality_gate_passed = false,
             pause_response_s = pauseResponse, stop_response_s = stopResponse,
+            pause_native_observed = pauseNativeObserved, resume_before_native_return = resumeBeforeNativeReturn,
             idle_after_stop_s = idleAfterStop, finals, last_state = last
         }, new JsonSerializerOptions { WriteIndented = true }));
         await using var client = WorkerClient.Start(args[0], arguments: options);
@@ -75,18 +78,27 @@ internal static class SessionSmoke
             var internalId = last.GetProperty("session").GetProperty("internal_session_id").GetUInt64();
             Play();
             finals.Add(await Final(internalId, start.GetProperty("epoch").GetUInt64()));
-            phase = "pause_and_resume";
+            Require(finals[0].ProductSessionId == id && finals[0].SessionAudioStartSeconds >= 0, "UUID/session audio metadata");
+            phase = "pause_during_native";
+            await Wait(s => s.GetProperty("diagnostic_asr").GetProperty("native_running").GetBoolean(), 30);
+            interrupted = (await client.ReadHistoryAsync()).Records.LastOrDefault(r => r.SessionId == internalId && r.SourceState == "FinalPending");
+            Require(interrupted is not null, "Native source identified before Pause");
+            pauseNativeObserved = true;
             var clock = Stopwatch.StartNew();
             await client.SendAsync("pause_session", new { session_id = id });
             pauseResponse = clock.Elapsed.TotalSeconds;
             Native.PlaySound(null, IntPtr.Zero, 0);
             await Wait(s => Is(s, "Paused") && !s.GetProperty("diagnostic_capture").GetProperty("awaiting_capture_join").GetBoolean()
                 && !s.GetProperty("diagnostic_live_vad").GetProperty("awaiting_join").GetBoolean(), 10);
+            resumeBeforeNativeReturn = last.GetProperty("diagnostic_asr").GetProperty("decoding").GetBoolean();
             var resumed = await client.SendAsync("resume_session", new { session_id = id });
             await Wait(s => Is(s, "Running"), 12);
             Play();
             finals.Add(await Final(internalId, resumed.GetProperty("epoch").GetUInt64()));
             Require(finals[1].SegmentId > finals[0].SegmentId && finals[1].Epoch > finals[0].Epoch, "Resume identity monotonic");
+            var afterResume = await client.ReadHistoryAsync();
+            Require(afterResume.Records.Any(r => r.SessionId == interrupted!.SessionId && r.Epoch == interrupted.Epoch && r.SegmentId == interrupted.SegmentId && r.SourceState == "Discarded"), "Paused native source discarded after Resume");
+            Require(finals[1].ProductSessionId == id && finals[1].SessionAudioStartSeconds > finals[0].SessionAudioStartSeconds, "Same UUID/session timeline after Resume");
             phase = "stop_during_native";
             await Wait(s => s.GetProperty("diagnostic_asr").GetProperty("native_running").GetBoolean(), 30);
             clock.Restart();
@@ -107,6 +119,8 @@ internal static class SessionSmoke
             Play();
             var nextId = last.GetProperty("session").GetProperty("internal_session_id").GetUInt64();
             finals.Add(await Final(nextId, next.GetProperty("epoch").GetUInt64()));
+            Require(finals[2].ProductSessionId == next.GetProperty("session_id").GetString(), "New final has new UUID");
+            Require((await client.ReadHistoryAsync()).Records.Any(r => r.ProductSessionId == id && r.Source == finals[0].Source), "Old UUID retained after new session");
             Require(nextId > internalId, "Fresh internal identity");
             await client.SendAsync("stop_session", new { session_id = next.GetProperty("session_id").GetString() });
             Native.PlaySound(null, IntPtr.Zero, 0);

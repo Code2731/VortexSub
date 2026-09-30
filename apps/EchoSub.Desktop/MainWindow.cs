@@ -82,7 +82,7 @@ public sealed class MainWindow : Window
                         }
                     },
                     new ScrollViewer { Height = live ? 90 : 80, Content = details },
-                    new TextBlock { IsVisible = live, Text = "최근 100개 구간 · 오디오 시간은 worker 시작 기준 초 · 텍스트 자동 저장 없음" },
+                    new TextBlock { IsVisible = live, Text = "최근 100개 구간 · UUID별 세션 시작 기준 초 · 텍스트 자동 저장 없음" },
                     history,
                     new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { overlayButton, resetOverlay } },
                     new TextBlock { Text = "오버레이 폭 / 배경 불투명도" },
@@ -271,6 +271,8 @@ public sealed class MainWindow : Window
                 throw new IOException("session control worker를 다시 빌드하세요: scripts/run.ps1 -Live");
             if (live && !hello.GetProperty("capabilities").GetProperty("session_control").GetBoolean())
                 throw new IOException("session control 모드로 실행하세요: scripts/run.ps1 -Live");
+            if (live && (!hello.GetProperty("capabilities").TryGetProperty("session_history_uuid", out var historyCapability) || !historyCapability.GetBoolean()))
+                throw new IOException("UUID history worker를 다시 빌드하세요: scripts/run.ps1 -Live");
             StartupDiagnostics.Write($"Worker connected; live={live}");
             snapshot = null;
             await RefreshCoreAsync();
@@ -302,7 +304,7 @@ public sealed class MainWindow : Window
         {
             snapshot = refreshedSnapshot;
             history.ItemsSource = snapshot?.Records.TakeLast(100).Reverse().Select(record =>
-                $"[{record.SessionId}/{record.Epoch}/{record.SegmentId} · {record.AudioStartSeconds:F3}~{record.AudioEndSeconds:F3}초 · {record.SourceState}] {record.SourceReason}\n{record.Source}").ToArray();
+                $"[{record.ProductSessionId ?? record.SessionId.ToString()}/{record.Epoch}/{record.SegmentId} · {record.SessionAudioStartSeconds ?? record.AudioStartSeconds:F3}~{record.SessionAudioEndSeconds ?? record.AudioEndSeconds:F3}초 · {record.SourceState}] {record.SourceReason}\n{record.Source}").ToArray();
         }
         var capture = state.GetProperty("diagnostic_capture");
         var captureState = capture.GetProperty("state").GetString();
@@ -330,7 +332,7 @@ public sealed class MainWindow : Window
         while (client.Events.TryRead(out _)) { }
         var epoch = state.GetProperty("diagnostic_asr").GetProperty("epoch").GetUInt64();
         var final = sessionState == "Running" && captureState == "Running" ? snapshot?.Records.LastOrDefault(record =>
-            record.SessionId == session.GetProperty("internal_session_id").GetUInt64() && record.Epoch == epoch &&
+            record.ProductSessionId == sessionId && record.SessionId == session.GetProperty("internal_session_id").GetUInt64() && record.Epoch == epoch &&
             record.SourceState == "Final" && record.AppliedSourceRevision == record.SourceRevision) : null;
         if (final is not null)
         {
