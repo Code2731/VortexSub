@@ -39,7 +39,7 @@ internal static class HttpTranslationSmoke
                         using var request = JsonDocument.Parse(new string(chars));
                         using var payload = JsonDocument.Parse(request.RootElement.GetProperty("messages")[1].GetProperty("content").GetString()!);
                         if (payload.RootElement.GetProperty("source_text").GetString() == "fail") { status = 401; body = "server-private-detail"; }
-                        else body = "{\"choices\":[{\"finish_reason\":\"stop\",\"message\":{\"content\":\"번역 완료\"}}]}";
+                        else body = "{\"choices\":[{\"finish_reason\":\"stop\",\"message\":{\"content\":\"번역 완료\",\"tool_calls\":null}}]}";
                     }
                     var bytes = Encoding.UTF8.GetBytes(body);
                     await stream.WriteAsync(Encoding.ASCII.GetBytes($"HTTP/1.1 {status} Fixture\r\nContent-Length: {bytes.Length}\r\nConnection: close\r\n\r\n"), stop.Token);

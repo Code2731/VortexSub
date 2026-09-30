@@ -136,6 +136,14 @@ fn catalog_is_bounded_unique_and_preserves_actual_ids() {
 fn response_accepts_only_complete_plain_text_not_reasoning_or_tools() {
     assert_eq!(
         completion(&reply(
+            json!({"content":"정상 번역", "tool_calls":null, "function_call":null, "refusal":null}),
+            "stop"
+        ))
+        .unwrap(),
+        "정상 번역"
+    );
+    assert_eq!(
+        completion(&reply(
             json!({"content":"  안 돼, 42명.  ","reasoning_content":"hidden"}),
             "stop"
         ))

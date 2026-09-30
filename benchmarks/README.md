@@ -211,3 +211,8 @@ Add `-Sessions` to the live ASR probe to exercise UUID start/pause/resume/stop, 
 부분 전사 통합 확인: `scripts/probe-worker-live-asr.ps1 -NoBuild -Offline -Partials` (기존 영어 en-10 TTS 재생). Sessions와 동시에 지정하지 않는다. 동일 구간 부분→확정 revision·Pause/Resume/Stop·export/clear를 검사하며 화면/자연 음성 품질 수용은 별도다. [계약](../docs/WORKER_PARTIAL_ASR.md).
 
 Use `-Boundaries` for digital silence and a long utterance built from four copies of the existing en-10 TTS fixture with edge padding trimmed. This mode observes actual chunking/continuation and reports `overlap_segments_removed`. It preserves silence failures and does not establish natural-speech quality or effective dedup. Choose one of Sessions/Partials/Boundaries. See [reconciliation](../docs/ASR_RECONCILIATION.md).
+
+
+## Translation engine comparison
+
+Use scripts/probe-translation-engines.ps1 -Warmup 1 -Rounds 3 after installing the consented Tabby environment. Both configurations receive paired plain/context cases through the Rust HTTP owner. See [conditions and limits](../docs/TRANSLATION_ENGINES.md).

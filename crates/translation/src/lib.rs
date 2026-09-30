@@ -174,7 +174,9 @@ pub fn completion(bytes: &[u8]) -> Result<String, Error> {
         .get("message")
         .filter(|m| m.is_object())
         .ok_or(Error::InvalidResponse)?;
-    if message.get("tool_calls").is_some() || message.get("function_call").is_some() {
+    if message.get("tool_calls").is_some_and(|v| !v.is_null())
+        || message.get("function_call").is_some_and(|v| !v.is_null())
+    {
         return Err(Error::InvalidResponse);
     }
     if message.get("refusal").is_some_and(|v| !v.is_null()) {

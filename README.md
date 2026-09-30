@@ -33,6 +33,8 @@ macOS에서는 고정 SDK 설치 후 `bash scripts/check.sh`를 실행합니다.
 
 `./run.cmd -Live -Offline`로 실행하고 모델 Ready 뒤 출력 장치·원문 언어를 선택해 **세션 시작**을 누르세요. 원문 history와 오버레이를 연결했습니다. 부분 전사는 기본 꺼짐이며 세션 시작 전 **부분 전사 켜기**로 선택합니다. 로컬 번역 서버를 별도로 실행한 뒤 **서버 연결 / 모델 조회**에서 모델을 준비하면 한국어 번역도 표시합니다. [서버 설정·표시 계약](docs/DESKTOP_TRANSLATION.md). [부분 전사 계약](docs/WORKER_PARTIAL_ASR.md). 일시정지/종료 후 정리가 끝나면 세션별 **TXT 저장 / 원문 SRT 저장**을 사용할 수 있습니다. [저장·UTC·시간축](docs/HISTORY_EXPORT.md). 선택 세션의 메모리 기록 삭제도 제공합니다. 실제 클릭·원문 화면 수용은 미검증입니다. [실행과 확인 범위](docs/LIVE_UI.md)
 
+TabbyAPI/ExLlama 번역 후보는 `run-tabby.bat`으로 별도 실행합니다. 동의받아 설치한 EXL3 모델·런타임이 필요하며, `run-live.bat`과 동시에 실행하지 마세요. [엔진 비교·설치·측정 조건](docs/TRANSLATION_ENGINES.md).
+
 ## Windows 시스템 오디오 캡처 probe
 
 ```powershell

@@ -85,7 +85,7 @@ impl Server {
                     } else if text == "broken" {
                         (200, "not JSON".into())
                     } else {
-                        (200,json!({"choices":[{"finish_reason":"stop","message":{"content":"번역 완료"}}]}).to_string())
+                        (200,json!({"choices":[{"finish_reason":"stop","message":{"content":"번역 완료","tool_calls":null}}]}).to_string())
                     }
                 };
                 let _ = write!(socket,"HTTP/1.1 {status} Fixture\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",body.len());

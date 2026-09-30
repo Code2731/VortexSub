@@ -1,0 +1,249 @@
+{
+  "run": "benchmarks/results/translation-engines-20261001-084720-650ffc",
+  "reviewed_pairs": 40,
+  "remaining_pairs_pending": 80,
+  "scope": "First measured round of current sampling, 40 authored en/ja source/context cases, 80 outputs; semantic judgment by coding agent, not independent bilingual acceptance",
+  "quality_gate_passed": false,
+  "reviews": [
+    {
+      "id": "plain-en-01",
+      "round": 0,
+      "llama": "PASS",
+      "tabby": "PASS"
+    },
+    {
+      "id": "plain-en-02",
+      "round": 0,
+      "llama": "PASS",
+      "tabby": "FAIL: gate output mixes Chinese characters with Korean"
+    },
+    {
+      "id": "plain-en-03",
+      "round": 0,
+      "llama": "FAIL: return condition changed to leaving",
+      "tabby": "FAIL: return condition changed to leaving"
+    },
+    {
+      "id": "plain-en-04",
+      "round": 0,
+      "llama": "PASS",
+      "tabby": "PASS"
+    },
+    {
+      "id": "plain-en-05",
+      "round": 0,
+      "llama": "PASS",
+      "tabby": "FAIL: in ten seconds changed to within ten seconds"
+    },
+    {
+      "id": "plain-en-06",
+      "round": 0,
+      "llama": "PASS",
+      "tabby": "PASS"
+    },
+    {
+      "id": "plain-en-07",
+      "round": 0,
+      "llama": "PASS",
+      "tabby": "PASS"
+    },
+    {
+      "id": "plain-en-08",
+      "round": 0,
+      "llama": "PASS",
+      "tabby": "PASS"
+    },
+    {
+      "id": "plain-en-09",
+      "round": 0,
+      "llama": "PASS",
+      "tabby": "PASS"
+    },
+    {
+      "id": "plain-en-10",
+      "round": 0,
+      "llama": "FAIL: shield scope changed to general defense stat",
+      "tabby": "FAIL: shield scope changed to general defense stat"
+    },
+    {
+      "id": "plain-ja-01",
+      "round": 0,
+      "llama": "PASS",
+      "tabby": "PASS"
+    },
+    {
+      "id": "plain-ja-02",
+      "round": 0,
+      "llama": "PASS",
+      "tabby": "PASS"
+    },
+    {
+      "id": "plain-ja-03",
+      "round": 0,
+      "llama": "FAIL: return condition omitted",
+      "tabby": "FAIL: return condition omitted"
+    },
+    {
+      "id": "plain-ja-04",
+      "round": 0,
+      "llama": "PASS",
+      "tabby": "PASS"
+    },
+    {
+      "id": "plain-ja-05",
+      "round": 0,
+      "llama": "PASS",
+      "tabby": "PASS"
+    },
+    {
+      "id": "plain-ja-06",
+      "round": 0,
+      "llama": "PASS",
+      "tabby": "PASS"
+    },
+    {
+      "id": "plain-ja-07",
+      "round": 0,
+      "llama": "PASS",
+      "tabby": "PASS"
+    },
+    {
+      "id": "plain-ja-08",
+      "round": 0,
+      "llama": "PASS",
+      "tabby": "PASS"
+    },
+    {
+      "id": "plain-ja-09",
+      "round": 0,
+      "llama": "PASS",
+      "tabby": "PASS"
+    },
+    {
+      "id": "plain-ja-10",
+      "round": 0,
+      "llama": "REVIEW: shield subject ambiguous",
+      "tabby": "PASS"
+    },
+    {
+      "id": "context-en-01",
+      "round": 0,
+      "llama": "PASS",
+      "tabby": "PASS"
+    },
+    {
+      "id": "context-en-02",
+      "round": 0,
+      "llama": "FAIL: gate changed to threshold",
+      "tabby": "FAIL: mixed Chinese/Korean output"
+    },
+    {
+      "id": "context-en-03",
+      "round": 0,
+      "llama": "FAIL: return condition changed to leaving",
+      "tabby": "FAIL: return condition changed to leaving"
+    },
+    {
+      "id": "context-en-04",
+      "round": 0,
+      "llama": "PASS",
+      "tabby": "PASS"
+    },
+    {
+      "id": "context-en-05",
+      "round": 0,
+      "llama": "PASS",
+      "tabby": "PASS"
+    },
+    {
+      "id": "context-en-06",
+      "round": 0,
+      "llama": "PASS",
+      "tabby": "PASS"
+    },
+    {
+      "id": "context-en-07",
+      "round": 0,
+      "llama": "PASS",
+      "tabby": "PASS"
+    },
+    {
+      "id": "context-en-08",
+      "round": 0,
+      "llama": "PASS",
+      "tabby": "PASS"
+    },
+    {
+      "id": "context-en-09",
+      "round": 0,
+      "llama": "FAIL: adds car and waiting not in source/context",
+      "tabby": "FAIL: adds car not in source/context"
+    },
+    {
+      "id": "context-en-10",
+      "round": 0,
+      "llama": "PASS",
+      "tabby": "PASS"
+    },
+    {
+      "id": "context-ja-01",
+      "round": 0,
+      "llama": "PASS",
+      "tabby": "PASS"
+    },
+    {
+      "id": "context-ja-02",
+      "round": 0,
+      "llama": "PASS",
+      "tabby": "PASS"
+    },
+    {
+      "id": "context-ja-03",
+      "round": 0,
+      "llama": "FAIL: return condition omitted",
+      "tabby": "FAIL: return condition omitted"
+    },
+    {
+      "id": "context-ja-04",
+      "round": 0,
+      "llama": "PASS",
+      "tabby": "PASS"
+    },
+    {
+      "id": "context-ja-05",
+      "round": 0,
+      "llama": "PASS",
+      "tabby": "PASS"
+    },
+    {
+      "id": "context-ja-06",
+      "round": 0,
+      "llama": "PASS",
+      "tabby": "PASS"
+    },
+    {
+      "id": "context-ja-07",
+      "round": 0,
+      "llama": "PASS",
+      "tabby": "PASS"
+    },
+    {
+      "id": "context-ja-08",
+      "round": 0,
+      "llama": "PASS",
+      "tabby": "PASS"
+    },
+    {
+      "id": "context-ja-09",
+      "round": 0,
+      "llama": "PASS",
+      "tabby": "PASS"
+    },
+    {
+      "id": "context-ja-10",
+      "round": 0,
+      "llama": "FAIL: shield durability changed to general defense stat",
+      "tabby": "FAIL: shield durability changed to general defense stat"
+    }
+  ]
+}

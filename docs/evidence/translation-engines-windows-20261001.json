@@ -1,0 +1,582 @@
+{
+  "os": "Windows x64",
+  "gpu": "NVIDIA GeForce RTX 3080 10240 MiB",
+  "driver": "617.14",
+  "llama_build": "6047 (952a47f4), installed TabbyML.Tabby CUDA124 distribution",
+  "python": "3.12.14",
+  "torch": "2.10.0+cu128",
+  "exllamav3": "1.5.3+cu128.torch2.10.0",
+  "runs": [
+    {
+      "directory": "benchmarks/results/translation-engines-20261001-084012-74388c",
+      "summary": {
+        "fixture_sha256": "71056bf97b3215157db338e9358febd56b103482da1469858cb9a154f0052858",
+        "context_tokens": 4096,
+        "concurrency": 1,
+        "warmup_rounds": 1,
+        "measured_rounds": 3,
+        "server_order": "tabby-first",
+        "quantization_matched": false,
+        "model_family": "Qwen/Qwen3-4B-Instruct-2507",
+        "game_present": null,
+        "quality_gate_passed": false,
+        "end_to_end_ui_measured": false,
+        "paired_requests": 120,
+        "engines": {
+          "tabby": {
+            "all": {
+              "count": 120,
+              "mean_s": 0.15739815416666667,
+              "p95_s": 0.2084958,
+              "max_s": 0.23143
+            },
+            "plain": {
+              "count": 60,
+              "mean_s": 0.15572551833333334,
+              "p95_s": 0.1972255,
+              "max_s": 0.2292652
+            },
+            "context": {
+              "count": 60,
+              "mean_s": 0.15907079,
+              "p95_s": 0.2176096,
+              "max_s": 0.23143
+            }
+          },
+          "llama": {
+            "all": {
+              "count": 120,
+              "mean_s": 0.3673698925,
+              "p95_s": 0.4919932,
+              "max_s": 0.5474687
+            },
+            "plain": {
+              "count": 60,
+              "mean_s": 0.3716432533333333,
+              "p95_s": 0.499369,
+              "max_s": 0.5474687
+            },
+            "context": {
+              "count": 60,
+              "mean_s": 0.36309653166666667,
+              "p95_s": 0.4774029,
+              "max_s": 0.5323352
+            }
+          }
+        },
+        "mean_saved_s": 0.20997173833333335
+      },
+      "engines": {
+        "llama": {
+          "runtime": {
+            "fixture_sha256": "71056bf97b3215157db338e9358febd56b103482da1469858cb9a154f0052858",
+            "context_tokens": 4096,
+            "concurrency": 1,
+            "warmup_rounds": 1,
+            "measured_rounds": 3,
+            "server_order": "tabby-first",
+            "quantization_matched": false,
+            "model_family": "Qwen/Qwen3-4B-Instruct-2507",
+            "game_present": null,
+            "quality_gate_passed": false,
+            "end_to_end_ui_measured": false,
+            "engine": "llama",
+            "ready_s": 2.6560000000026776,
+            "model_id": "qwen3-4b-instruct-2507-q4_k_m",
+            "model_weights_sha256": "3605803b982cb64aead44f6c1b2ae36e3acdb41d8e46c8a94c6533bc4c67e597",
+            "source_revision": null,
+            "server_binary_sha256": "8ef22515398d453b2e1e3557726e32a33c94f9df230272bfc439a74b709997c9",
+            "quantization": "GGUF Q4_K_M",
+            "sampling": {
+              "temperature": 0.2,
+              "max_tokens": 256,
+              "top_k": 0,
+              "top_p": 1,
+              "min_p": 0,
+              "repetition_penalty": 1,
+              "seed": "server random"
+            }
+          },
+          "whole_device_memory_max_mib": 6211
+        },
+        "tabby": {
+          "runtime": {
+            "fixture_sha256": "71056bf97b3215157db338e9358febd56b103482da1469858cb9a154f0052858",
+            "context_tokens": 4096,
+            "concurrency": 1,
+            "warmup_rounds": 1,
+            "measured_rounds": 3,
+            "server_order": "tabby-first",
+            "quantization_matched": false,
+            "model_family": "Qwen/Qwen3-4B-Instruct-2507",
+            "game_present": null,
+            "quality_gate_passed": false,
+            "end_to_end_ui_measured": false,
+            "engine": "tabby",
+            "ready_s": 43.51499999999942,
+            "model_id": "Qwen3-4B-Instruct-2507-EXL3-4.0bpw",
+            "model_weights_sha256": "e41051649774597dca17f9f4253a416b6b96c1f2feaa85d4411699419534e89a",
+            "source_revision": "be74bf0a00bcb3a518e6feb7606f150c189be637",
+            "server_binary_sha256": null,
+            "quantization": "EXL3 4.0bpw_H6",
+            "sampling": {
+              "temperature": 0.2,
+              "max_tokens": 256,
+              "top_k": 0,
+              "top_p": 1,
+              "min_p": 0,
+              "repetition_penalty": 1,
+              "seed": "server random"
+            }
+          },
+          "whole_device_memory_max_mib": 5992
+        }
+      }
+    },
+    {
+      "directory": "benchmarks/results/translation-engines-20261001-084343-43a139",
+      "summary": {
+        "fixture_sha256": "71056bf97b3215157db338e9358febd56b103482da1469858cb9a154f0052858",
+        "context_tokens": 4096,
+        "concurrency": 1,
+        "warmup_rounds": 1,
+        "measured_rounds": 3,
+        "server_order": "llama-first",
+        "quantization_matched": false,
+        "model_family": "Qwen/Qwen3-4B-Instruct-2507",
+        "game_present": null,
+        "quality_gate_passed": false,
+        "end_to_end_ui_measured": false,
+        "paired_requests": 120,
+        "engines": {
+          "llama": {
+            "all": {
+              "count": 120,
+              "mean_s": 0.35688877416666664,
+              "p95_s": 0.4753122,
+              "max_s": 0.5440918
+            },
+            "plain": {
+              "count": 60,
+              "mean_s": 0.3706377533333333,
+              "p95_s": 0.4969451,
+              "max_s": 0.5440918
+            },
+            "context": {
+              "count": 60,
+              "mean_s": 0.343139795,
+              "p95_s": 0.4379569,
+              "max_s": 0.4484493
+            }
+          },
+          "tabby": {
+            "all": {
+              "count": 120,
+              "mean_s": 0.15536814583333333,
+              "p95_s": 0.196013,
+              "max_s": 0.231221
+            },
+            "plain": {
+              "count": 60,
+              "mean_s": 0.152067545,
+              "p95_s": 0.184234,
+              "max_s": 0.2096555
+            },
+            "context": {
+              "count": 60,
+              "mean_s": 0.15866874666666667,
+              "p95_s": 0.2051251,
+              "max_s": 0.231221
+            }
+          }
+        },
+        "mean_saved_s": 0.2015206283333333
+      },
+      "engines": {
+        "llama": {
+          "runtime": {
+            "fixture_sha256": "71056bf97b3215157db338e9358febd56b103482da1469858cb9a154f0052858",
+            "context_tokens": 4096,
+            "concurrency": 1,
+            "warmup_rounds": 1,
+            "measured_rounds": 3,
+            "server_order": "llama-first",
+            "quantization_matched": false,
+            "model_family": "Qwen/Qwen3-4B-Instruct-2507",
+            "game_present": null,
+            "quality_gate_passed": false,
+            "end_to_end_ui_measured": false,
+            "engine": "llama",
+            "ready_s": 1.8589999999967404,
+            "model_id": "qwen3-4b-instruct-2507-q4_k_m",
+            "model_weights_sha256": "3605803b982cb64aead44f6c1b2ae36e3acdb41d8e46c8a94c6533bc4c67e597",
+            "source_revision": null,
+            "server_binary_sha256": "8ef22515398d453b2e1e3557726e32a33c94f9df230272bfc439a74b709997c9",
+            "quantization": "GGUF Q4_K_M",
+            "sampling": {
+              "temperature": 0.2,
+              "max_tokens": 256,
+              "top_k": 0,
+              "top_p": 1,
+              "min_p": 0,
+              "repetition_penalty": 1,
+              "seed": "server random"
+            }
+          },
+          "whole_device_memory_max_mib": 6121,
+          "worker": {
+            "passed": true,
+            "quality_gate_passed": false,
+            "capture": false,
+            "asr_backend": "cpu",
+            "finals": 4,
+            "http_completed": 3,
+            "bypassed": 1,
+            "ping_max_s": 0.0006983
+          }
+        },
+        "tabby": {
+          "runtime": {
+            "fixture_sha256": "71056bf97b3215157db338e9358febd56b103482da1469858cb9a154f0052858",
+            "context_tokens": 4096,
+            "concurrency": 1,
+            "warmup_rounds": 1,
+            "measured_rounds": 3,
+            "server_order": "llama-first",
+            "quantization_matched": false,
+            "model_family": "Qwen/Qwen3-4B-Instruct-2507",
+            "game_present": null,
+            "quality_gate_passed": false,
+            "end_to_end_ui_measured": false,
+            "engine": "tabby",
+            "ready_s": 9.094000000004598,
+            "model_id": "Qwen3-4B-Instruct-2507-EXL3-4.0bpw",
+            "model_weights_sha256": "e41051649774597dca17f9f4253a416b6b96c1f2feaa85d4411699419534e89a",
+            "source_revision": "be74bf0a00bcb3a518e6feb7606f150c189be637",
+            "server_binary_sha256": null,
+            "quantization": "EXL3 4.0bpw_H6",
+            "sampling": {
+              "temperature": 0.2,
+              "max_tokens": 256,
+              "top_k": 0,
+              "top_p": 1,
+              "min_p": 0,
+              "repetition_penalty": 1,
+              "seed": "server random"
+            }
+          },
+          "whole_device_memory_max_mib": 5587,
+          "worker": {
+            "passed": true,
+            "quality_gate_passed": false,
+            "capture": false,
+            "asr_backend": "cpu",
+            "finals": 4,
+            "http_completed": 3,
+            "bypassed": 1,
+            "ping_max_s": 0.0199658
+          }
+        }
+      }
+    },
+    {
+      "directory": "benchmarks/results/translation-engines-20261001-084720-650ffc",
+      "summary": {
+        "fixture_sha256": "71056bf97b3215157db338e9358febd56b103482da1469858cb9a154f0052858",
+        "context_tokens": 4096,
+        "concurrency": 1,
+        "warmup_rounds": 1,
+        "measured_rounds": 3,
+        "server_order": "llama-first",
+        "quantization_matched": false,
+        "model_family": "Qwen/Qwen3-4B-Instruct-2507",
+        "game_present": null,
+        "quality_gate_passed": false,
+        "end_to_end_ui_measured": false,
+        "sampling_profile": "current",
+        "sampling": {
+          "temperature": 0.2,
+          "max_tokens": 256,
+          "top_k": 40,
+          "top_p": 0.9,
+          "min_p": 0.1,
+          "repetition_penalty": 1,
+          "seed": "server random"
+        },
+        "paired_requests": 120,
+        "engines": {
+          "llama": {
+            "all": {
+              "count": 120,
+              "mean_s": 0.13097507333333333,
+              "p95_s": 0.1742537,
+              "max_s": 0.2049701
+            },
+            "plain": {
+              "count": 60,
+              "mean_s": 0.13429229166666667,
+              "p95_s": 0.1808234,
+              "max_s": 0.2049701
+            },
+            "context": {
+              "count": 60,
+              "mean_s": 0.127657855,
+              "p95_s": 0.1588821,
+              "max_s": 0.1670327
+            }
+          },
+          "tabby": {
+            "all": {
+              "count": 120,
+              "mean_s": 0.15777885333333333,
+              "p95_s": 0.1985725,
+              "max_s": 0.2156772
+            },
+            "plain": {
+              "count": 60,
+              "mean_s": 0.15798181333333333,
+              "p95_s": 0.1898732,
+              "max_s": 0.1985725
+            },
+            "context": {
+              "count": 60,
+              "mean_s": 0.15757589333333333,
+              "p95_s": 0.203785,
+              "max_s": 0.2156772
+            }
+          }
+        },
+        "mean_saved_s": -0.02680378
+      },
+      "engines": {
+        "llama": {
+          "runtime": {
+            "fixture_sha256": "71056bf97b3215157db338e9358febd56b103482da1469858cb9a154f0052858",
+            "context_tokens": 4096,
+            "concurrency": 1,
+            "warmup_rounds": 1,
+            "measured_rounds": 3,
+            "server_order": "llama-first",
+            "quantization_matched": false,
+            "model_family": "Qwen/Qwen3-4B-Instruct-2507",
+            "game_present": null,
+            "quality_gate_passed": false,
+            "end_to_end_ui_measured": false,
+            "sampling_profile": "current",
+            "sampling": {
+              "temperature": 0.2,
+              "max_tokens": 256,
+              "top_k": 40,
+              "top_p": 0.9,
+              "min_p": 0.1,
+              "repetition_penalty": 1,
+              "seed": "server random"
+            },
+            "engine": "llama",
+            "ready_s": 1.6559999999954016,
+            "model_id": "qwen3-4b-instruct-2507-q4_k_m",
+            "model_weights_sha256": "3605803b982cb64aead44f6c1b2ae36e3acdb41d8e46c8a94c6533bc4c67e597",
+            "source_revision": null,
+            "server_binary_sha256": "8ef22515398d453b2e1e3557726e32a33c94f9df230272bfc439a74b709997c9",
+            "quantization": "GGUF Q4_K_M"
+          },
+          "whole_device_memory_max_mib": 6510,
+          "worker": {
+            "passed": true,
+            "quality_gate_passed": false,
+            "capture": false,
+            "asr_backend": "cpu",
+            "finals": 4,
+            "http_completed": 3,
+            "bypassed": 1,
+            "ping_max_s": 0.0008775
+          }
+        },
+        "tabby": {
+          "runtime": {
+            "fixture_sha256": "71056bf97b3215157db338e9358febd56b103482da1469858cb9a154f0052858",
+            "context_tokens": 4096,
+            "concurrency": 1,
+            "warmup_rounds": 1,
+            "measured_rounds": 3,
+            "server_order": "llama-first",
+            "quantization_matched": false,
+            "model_family": "Qwen/Qwen3-4B-Instruct-2507",
+            "game_present": null,
+            "quality_gate_passed": false,
+            "end_to_end_ui_measured": false,
+            "sampling_profile": "current",
+            "sampling": {
+              "temperature": 0.2,
+              "max_tokens": 256,
+              "top_k": 40,
+              "top_p": 0.9,
+              "min_p": 0.1,
+              "repetition_penalty": 1,
+              "seed": "server random"
+            },
+            "engine": "tabby",
+            "ready_s": 9.094000000004598,
+            "model_id": "Qwen3-4B-Instruct-2507-EXL3-4.0bpw",
+            "model_weights_sha256": "e41051649774597dca17f9f4253a416b6b96c1f2feaa85d4411699419534e89a",
+            "source_revision": "be74bf0a00bcb3a518e6feb7606f150c189be637",
+            "server_binary_sha256": null,
+            "quantization": "EXL3 4.0bpw_H6"
+          },
+          "whole_device_memory_max_mib": 5692,
+          "worker": {
+            "passed": true,
+            "quality_gate_passed": false,
+            "capture": false,
+            "asr_backend": "cpu",
+            "finals": 4,
+            "http_completed": 3,
+            "bypassed": 1,
+            "ping_max_s": 0.0011007
+          }
+        }
+      }
+    },
+    {
+      "directory": "benchmarks/results/translation-engines-20261001-085107-c05ae8",
+      "summary": {
+        "fixture_sha256": "71056bf97b3215157db338e9358febd56b103482da1469858cb9a154f0052858",
+        "context_tokens": 4096,
+        "concurrency": 1,
+        "warmup_rounds": 1,
+        "measured_rounds": 3,
+        "server_order": "tabby-first",
+        "quantization_matched": false,
+        "model_family": "Qwen/Qwen3-4B-Instruct-2507",
+        "game_present": null,
+        "quality_gate_passed": false,
+        "end_to_end_ui_measured": false,
+        "sampling_profile": "current",
+        "sampling": {
+          "temperature": 0.2,
+          "max_tokens": 256,
+          "top_k": 40,
+          "top_p": 0.9,
+          "min_p": 0.1,
+          "repetition_penalty": 1,
+          "seed": "server random"
+        },
+        "paired_requests": 120,
+        "engines": {
+          "tabby": {
+            "all": {
+              "count": 120,
+              "mean_s": 0.16000158083333332,
+              "p95_s": 0.2065369,
+              "max_s": 0.2171231
+            },
+            "plain": {
+              "count": 60,
+              "mean_s": 0.15996463333333333,
+              "p95_s": 0.1932428,
+              "max_s": 0.2051267
+            },
+            "context": {
+              "count": 60,
+              "mean_s": 0.16003852833333335,
+              "p95_s": 0.2113932,
+              "max_s": 0.2171231
+            }
+          },
+          "llama": {
+            "all": {
+              "count": 120,
+              "mean_s": 0.11872812333333334,
+              "p95_s": 0.1484405,
+              "max_s": 0.154183
+            },
+            "plain": {
+              "count": 60,
+              "mean_s": 0.11859623833333334,
+              "p95_s": 0.1476778,
+              "max_s": 0.1537706
+            },
+            "context": {
+              "count": 60,
+              "mean_s": 0.11886000833333334,
+              "p95_s": 0.1484405,
+              "max_s": 0.154183
+            }
+          }
+        },
+        "mean_saved_s": -0.041273457499999985
+      },
+      "engines": {
+        "llama": {
+          "runtime": {
+            "fixture_sha256": "71056bf97b3215157db338e9358febd56b103482da1469858cb9a154f0052858",
+            "context_tokens": 4096,
+            "concurrency": 1,
+            "warmup_rounds": 1,
+            "measured_rounds": 3,
+            "server_order": "tabby-first",
+            "quantization_matched": false,
+            "model_family": "Qwen/Qwen3-4B-Instruct-2507",
+            "game_present": null,
+            "quality_gate_passed": false,
+            "end_to_end_ui_measured": false,
+            "sampling_profile": "current",
+            "sampling": {
+              "temperature": 0.2,
+              "max_tokens": 256,
+              "top_k": 40,
+              "top_p": 0.9,
+              "min_p": 0.1,
+              "repetition_penalty": 1,
+              "seed": "server random"
+            },
+            "engine": "llama",
+            "ready_s": 1.9059999999954016,
+            "model_id": "qwen3-4b-instruct-2507-q4_k_m",
+            "model_weights_sha256": "3605803b982cb64aead44f6c1b2ae36e3acdb41d8e46c8a94c6533bc4c67e597",
+            "source_revision": null,
+            "server_binary_sha256": "8ef22515398d453b2e1e3557726e32a33c94f9df230272bfc439a74b709997c9",
+            "quantization": "GGUF Q4_K_M"
+          },
+          "whole_device_memory_max_mib": 5495
+        },
+        "tabby": {
+          "runtime": {
+            "fixture_sha256": "71056bf97b3215157db338e9358febd56b103482da1469858cb9a154f0052858",
+            "context_tokens": 4096,
+            "concurrency": 1,
+            "warmup_rounds": 1,
+            "measured_rounds": 3,
+            "server_order": "tabby-first",
+            "quantization_matched": false,
+            "model_family": "Qwen/Qwen3-4B-Instruct-2507",
+            "game_present": null,
+            "quality_gate_passed": false,
+            "end_to_end_ui_measured": false,
+            "sampling_profile": "current",
+            "sampling": {
+              "temperature": 0.2,
+              "max_tokens": 256,
+              "top_k": 40,
+              "top_p": 0.9,
+              "min_p": 0.1,
+              "repetition_penalty": 1,
+              "seed": "server random"
+            },
+            "engine": "tabby",
+            "ready_s": 9.094000000004598,
+            "model_id": "Qwen3-4B-Instruct-2507-EXL3-4.0bpw",
+            "model_weights_sha256": "e41051649774597dca17f9f4253a416b6b96c1f2feaa85d4411699419534e89a",
+            "source_revision": "be74bf0a00bcb3a518e6feb7606f150c189be637",
+            "server_binary_sha256": null,
+            "quantization": "EXL3 4.0bpw_H6"
+          },
+          "whole_device_memory_max_mib": 5476
+        }
+      }
+    }
+  ],
+  "quality_gate_passed": false,
+  "game_coexistence_measured": false,
+  "rendered_ui_measured": false
+}

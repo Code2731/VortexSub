@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "repository": "ArtusDev/Qwen_Qwen3-4B-Instruct-2507-EXL3",
+  "revision": "df40af842cd3cc88d9368c6b54a7b246c37b5723",
+  "branch": "4.0bpw_H6",
+  "license": "Apache-2.0",
+  "base_model": "Qwen/Qwen3-4B-Instruct-2507",
+  "path": "../models/tabby/models/Qwen3-4B-Instruct-2507-EXL3-4.0bpw",
+  "total_bytes": 2907412624,
+  "weights_sha256": "e41051649774597dca17f9f4253a416b6b96c1f2feaa85d4411699419534e89a",
+  "tabby_repository": "theroyallab/tabbyAPI",
+  "tabby_revision": "be74bf0a00bcb3a518e6feb7606f150c189be637",
+  "tabby_license": "AGPL-3.0",
+  "exllama_license": "MIT",
+  "torch_wheel": "https://download.pytorch.org/whl/cu128/torch-2.10.0%2Bcu128-cp312-cp312-win_amd64.whl",
+  "torch_wheel_sha256": "fbde8f6a9ec8c76979a0d14df21c10b9e5cab6f0d106a73ca73e2179bc597cae",
+  "exllama_wheel": "https://github.com/turboderp-org/exllamav3/releases/download/v1.5.3/exllamav3-1.5.3%2Bcu128.torch2.10.0-cp312-cp312-win_amd64.whl",
+  "exllama_wheel_sha256": "c2b7b1b62581b41369ef996811eb52fe8b0933d833cd2df34224668a20dd1584",
+  "download_consent": "2026-10-01: user approved model, runtime and additional dependencies",
+  "comparison_note": "EXL3 4.0bpw and GGUF Q4_K_M are different quantizations; compare deployment configurations, not isolated engine speed."
+}

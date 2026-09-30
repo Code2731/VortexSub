@@ -1,5 +1,16 @@
 # 구현 상태
 
+## 번역 엔진 비교 갱신 (2026-10-01)
+
+동의받은 TabbyAPI/ExLlamaV3 모델·격리 런타임 설치, production HTTP 비교 도구와
+선택형 `run-tabby.bat`을 추가했다. 현재 설정에서 두 실행 순서의 평균은
+llama.cpp 0.118728~0.130975초, Tabby 0.157779~0.160002초다. 기본 런처는 llama를
+유지한다. 후보 제한 해제 조건의 Tabby 우위를 현재 앱으로 확대하지 않는다.
+두 서버의 CPU 파일 전사→번역→history, Rust 138개/C# HTTP·IPC·표시 14개 PASS.
+조건 오역·누락으로 품질 gate는 false다. 게임/화면/live E2E·Mac 수용은 미검증.
+[측정과 한계](evidence/translation-engines-windows-20261001.md) ·
+[실행·재현](TRANSLATION_ENGINES.md). 다음은 live 단계별 지연 및 ASR 가속 후보다.
+
 최종 갱신: 2026-10-01. 결과 범위: Windows T00-01, 독립형 T00-02 WASAPI probe, T00-04.1 모델 harness, T00-04.2 실제 취소·수명 probe, T00-04.4 동시 부하, T00-04.3 MOCK 오버레이, T01-01a/b 독립 오디오·발화 코어, T01-02a 독립 상태·작업 큐, T01-02b mock worker 전달·버전 history. T02-01a에서 실제 Whisper를 worker 파일 진단과 history에 연결했다. T02-01b에서 실제 Silero VAD도 파일 경로에 연결했다. T02-02a에서 실제 WASAPI PCM 정규화·worker 제어를 연결했다. T02-02b에서 Windows live 캡처→연속 VAD→Whisper→history도 진단으로 연결했다. T02-02e에서 진단 원문 history·오버레이 UI를 연결했다. T02-03a에서 UUID session 제어 어댑터를 연결했다. T02-03c/d에서 UTC·원문 저장·기록 삭제를, T02-04a에서 기본 꺼짐인 부분 전사를 연결했다. 전체 제품 wire·번역과 macOS 번들은 미구현이며 실제 원문 UI 렌더링 수용은 미검증이다.
 
 | 작업 | 상태 | 근거 및 다음 단계 |

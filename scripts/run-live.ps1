@@ -54,7 +54,8 @@ try {
         if ($server.HasExited) { throw "Local server exited with $($server.ExitCode). See $stderr" }
         try {
             $response = Invoke-RestMethod -Uri 'http://127.0.0.1:1234/v1/models' -Headers @{ Authorization = "Bearer $env:ECHOSUB_TRANSLATION_TOKEN" } -TimeoutSec 1
-            if (@($response.data | Where-Object id -eq $model.id).Count -gt 0) { $ready = $true; break }
+            $health = Invoke-RestMethod -Uri 'http://127.0.0.1:1234/health' -Headers @{ Authorization = "Bearer $env:ECHOSUB_TRANSLATION_TOKEN" } -TimeoutSec 1
+            if ($health.status -eq 'ok' -and @($response.data | Where-Object id -eq $model.id).Count -gt 0) { $ready = $true; break }
         } catch { }
         if ($clock.Elapsed.TotalSeconds -ge $nextNotice) {
             Write-Host ('Waiting for model: {0:F1} seconds' -f $clock.Elapsed.TotalSeconds)
