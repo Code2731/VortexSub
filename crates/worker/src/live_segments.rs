@@ -77,9 +77,18 @@ impl Runtime {
         if admitted.queued {
             self.languages
                 .push((admitted.key, self.live_language.clone()));
+            if let Some((_, previous)) = self
+                .last_live_final
+                .filter(|(vad, _)| Some(*vad) == segment.continued_from)
+            {
+                self.continuations.push((admitted.key, previous));
+            }
         } else if kind == AsrKind::Final {
             self.changed_record(id.segment_id, "segment.skipped", q)
                 .map_err(|_| io::Error::other("Live skip event unavailable"))?;
+        }
+        if kind == AsrKind::Final {
+            self.last_live_final = Some((segment.id, id));
         }
         let event = if kind == AsrKind::Final {
             "capture.segmented"
@@ -105,6 +114,8 @@ impl Runtime {
         }
     }
     fn prune_languages(&mut self) {
+        self.continuations
+            .retain(|(key, _)| self.core.pending_asr_keys().any(|queued| queued == *key));
         self.languages
             .retain(|(key, _)| self.core.pending_asr_keys().any(|queued| queued == *key));
     }
@@ -128,6 +139,43 @@ mod tests {
             new_voiced_samples: end,
             continued_from: None,
         }
+    }
+    #[test]
+    fn continuation_context_is_product_identity_and_pending_metadata_stays_bounded() {
+        let mut r = Runtime::new(false, None, false);
+        r.ring.append(r.epoch, 0, &vec![0.2; 246400]).unwrap();
+        let q = Outbox::default();
+        r.live_event(
+            SpeechEvent::Final {
+                segment: segment(&r, 1, 128000),
+                reason: FinalReason::ChunkLimit,
+            },
+            &q,
+        )
+        .unwrap();
+        r.partial_enabled = true;
+        for end in [134400, 150400, 166400] {
+            let mut next = segment(&r, 2, end);
+            next.pcm_range.start = 118400;
+            next.continued_from = Some(segment(&r, 1, 128000).id);
+            r.live_event(SpeechEvent::Partial(next), &q).unwrap();
+            assert_eq!(r.continuations.len(), 1);
+            assert_eq!(r.continuations[0].1.segment_id, 1);
+            assert!(r.languages.len() <= 3);
+        }
+        let mut final_segment = segment(&r, 2, 246400);
+        final_segment.pcm_range.start = 118400;
+        final_segment.continued_from = Some(segment(&r, 1, 128000).id);
+        r.live_event(
+            SpeechEvent::Final {
+                segment: final_segment,
+                reason: FinalReason::Silence,
+            },
+            &q,
+        )
+        .unwrap();
+        assert_eq!(r.continuations.len(), 1);
+        assert_eq!(r.last_live_final.unwrap().1.segment_id, 2);
     }
     #[test]
     fn final_cancels_partial_but_retains_native_reservation_and_prunes_replacements() {

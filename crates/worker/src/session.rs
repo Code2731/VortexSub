@@ -234,6 +234,8 @@ impl Runtime {
     fn session_start(&mut self, q: &Outbox) -> Reply {
         if self.session.mock {
             self.live_segment = None;
+            self.last_live_final = None;
+            self.continuations.clear();
             self.epoch.epoch = self
                 .epoch
                 .epoch
@@ -264,6 +266,8 @@ impl Runtime {
     fn session_stop_input(&mut self, q: &Outbox) -> Reply {
         if self.session.mock {
             self.live_segment = None;
+            self.last_live_final = None;
+            self.continuations.clear();
             self.epoch.epoch = self
                 .epoch
                 .epoch

@@ -1,4 +1,4 @@
-use crate::{cancellation::Control, Cancellation};
+use crate::{cancellation::Control, Cancellation, Segment};
 use std::error::Error;
 use std::ffi::c_void;
 use std::sync::atomic::Ordering;
@@ -45,12 +45,6 @@ impl Drop for Running<'_> {
     fn drop(&mut self) {
         self.0.running.store(false, Ordering::Release);
     }
-}
-
-pub struct Segment {
-    pub start_ms: i64,
-    pub end_ms: i64,
-    pub text: String,
 }
 
 pub struct AsrEngine {

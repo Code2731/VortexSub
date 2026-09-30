@@ -132,3 +132,5 @@ Run `scripts/run.ps1` and select **샘플 오버레이 표시** (show sample ove
 The worker supports `hello`, `ping`, `get_state`, `get_history`, and `shutdown`. Mock and native file diagnostics require their explicit modes; normal MOCK mode has no session control. The live launcher enables UUID `start_session`/`pause_session`/`resume_session`/`stop_session`. See [control contract and verification](docs/SESSION_CONTROL.md). The [configuration example](examples/config.example.toml) illustrates future settings; the current worker does not load it.
 
 
+
+Timestamp/span boundary reconciliation and empty-result skips are connected. Use `scripts/probe-worker-live-asr.ps1 -Offline -Boundaries` to observe real eight-second chunking and overlap. Actual dedup effectiveness and isolated silence acceptance remain unverified. See [contracts and limits](docs/ASR_RECONCILIATION.md).

@@ -33,6 +33,8 @@ pub enum Reason {
     EpochChanged,
     Deadline,
     Superseded,
+    NoSpeech,
+    OverlapOnly,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SourceState {
@@ -111,6 +113,8 @@ pub enum Apply {
 }
 pub enum Outcome {
     Text(String),
+    NoSpeech,
+    OverlapOnly,
     Failed,
     Cancelled,
 }
@@ -500,13 +504,18 @@ impl Pipeline {
             }
             other => {
                 let reason = match other {
+                    Outcome::NoSpeech => Reason::NoSpeech,
+                    Outcome::OverlapOnly => Reason::OverlapOnly,
                     Outcome::Cancelled => Reason::Cancelled,
                     Outcome::Text(_) => Reason::InvalidText,
                     _ => Reason::DecodeFailed,
                 };
                 self.records[i].source_reason = Some(reason);
                 if flight.kind == AsrKind::Final {
-                    self.records[i].source_state = if reason == Reason::Cancelled {
+                    self.records[i].source_state = if matches!(
+                        reason,
+                        Reason::Cancelled | Reason::NoSpeech | Reason::OverlapOnly
+                    ) {
                         SourceState::Skipped
                     } else {
                         SourceState::Failed

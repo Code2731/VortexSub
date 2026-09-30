@@ -33,3 +33,7 @@ Stop은 즉시 epoch를 증가시키고 미확정 VAD 상태·대기 final을 �
 T02-02c는 [시작 10초 실패 정책·STA·관측 메타데이터](WORKER_CAPTURE.md)를 추가했다. client의 Running 대기는 worker 정책보다 긴 12초다. 무음 시작의 native Initialize 대기 재현 및 whole-fixture 회귀는 [추가 근거](evidence/T02-02c-windows-capture-startup.md)를 따른다. 시간 초과의 제어 처리와 발화 경계/제품 품질 수용은 별개다.
 
 [Windows 근거](evidence/T02-02b-windows-live-asr.md): 영어 합성 음원의 실제 loopback final/history, 추론 중 Stop/재시작, VAD 해시 실패, 자체 재생 중단 후 관측, 활성 shutdown/EOF를 확인했다. 중간 final 하나가 8초 chunk 상한에 도달했고 추가 run은 client Opening timeout으로 끝나 경계/부하 수용은 보류한다. native_phase로 API 대기 위치를 구분하고, 보완 후 최종 PCM/live 회귀는 통과했다. 자연/일본어/한국어 live 경계·음악/게임·UI·Pause·실제 장치 전환/분리·큐 고갈/출력 stall stress·10분 soak·CUDA worker·Mac은 미검증이다. 품질 및 M2 제품 gate는 false다. 다음은 제품 session 계약과 UI 원문 history/오버레이 연결이다.
+
+## T02-04b 경계·빈 결과 처리
+
+Live continuation을 제품 ID로 전달하고 native timestamp/완전한 span 문자열로 보수적으로 정합한다. 빈 결과/겹침만 남은 결과는 NoSpeech/OverlapOnly 사유로 skip한다. 실제 dedup 효과와 격리된 무음은 아직 수용하지 않았다. [계약](ASR_RECONCILIATION.md) · [실측](evidence/T02-04b-windows-asr-reconciliation.md).

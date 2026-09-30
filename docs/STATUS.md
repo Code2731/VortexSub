@@ -26,6 +26,7 @@
 | T02-03c | PARTIAL: UTC·원문 TXT/SRT export·시작 진단 보완 | Rust 94개·C# IPC/native CPU 빌드 PASS, 실제 두 세션 TXT/SRT 파일 저장 PASS. 모델 없는 시작 16/16 정상; 다음 실패용 endpoint/thread ID·덤프 수집 추가. 근본 원인·UI 저장 창·제품 수용 미확정. [export 근거](evidence/T02-03c-windows-history-export.md) · [시작 진단](evidence/T02-03c-windows-startup-diagnostics.md) |
 | T02-03d | PARTIAL: 세션 기록 삭제·재개 ID 보존 | Rust 95개·C# IPC/native CPU 빌드 및 실제 이전 세션 삭제/새 세션·저장 파일 보존 PASS. UI 확인 창 조작·Mac 미검증. 사용자 요청으로 시작 timeout 원인 분석은 후속으로 보류. [근거](evidence/T02-03d-windows-history-clear.md) |
 | T02-04a | PARTIAL: opt-in 부분 전사·동일 구간 revision·확정 우선 연결 | Rust 98개·C# IPC/native CPU PASS. 실제 부분 6개 revision→확정 3개 및 Pause/Resume/export/clear PASS. 첫 시작 timeout 1회 보존; UI/품질/Mac 미검증. [계약](WORKER_PARTIAL_ASR.md) · [근거](evidence/T02-04a-windows-partial-asr.md) |
+| T02-04b | PARTIAL: 시간/span 기반 경계 정합·빈 결과 skip | Rust 105개·C# IPC/native CPU PASS. 실제 8초 분할/0.608초 겹침/continuation/Final 확인; 제거 span 0으로 실제 dedup 효과 미검증. 무음 단계 입력 격리 실패로 전체 probe exit 1. [계약](ASR_RECONCILIATION.md) · [근거](evidence/T02-04b-windows-asr-reconciliation.md) |
 | M2 | PARTIAL | CPU 실제 VAD·전사·제어/history 및 Windows opt-in 부분 전사 연결. 시작 안정성·화면 자막·자연 음성 경계 수용 미통과. |
 | M3~M5 | NOT_STARTED | 해당 제품 통합/실기기 수용 결과 없음. |
 
@@ -69,6 +70,12 @@ T00-04.2 추가 검증: 최종 두 시점 실행에서 취소/재시작 총 80�
 Windows probe는 render endpoint의 loopback만 열며 microphone endpoint를 열지 않았다. 실제 음원 fixture를 시간에 맞춰 재생한 통제 검증과 전환·분리 시험이 없으므로 HW-W01/W02 gate는 PASS로 올리지 않았다. `--seconds 600`은 실행 벽시계 시간이며, 초기 장치 open과 마지막 재생 중단 때문에 누적 PCM 프레임은 600초에 못 미쳤다. 마지막 silent 패킷 뒤에는 packet이 멈춰 timeout으로 기록됐다.
 
 ## 미해결 항목
+
+2026-10-01 사용자 관찰: 백신 프로그램이 권한 승인을 요청했고, 사용자가 약 10초
+뒤 승인 버튼을 눌렀다고 보고했다. 이 실행에서는 외부 승인 대기가 10초 캡처 시작
+deadline을 넘긴 것으로 해석할 수 있다. 백신 로그/차단 대상과 이전 각 실패의
+승인 창 발생 여부는 미확인이므로 모든 Initialize timeout의 원인 확정으로 확대하지
+않는다. 승인 뒤 재실행 결과를 확인할 대상으로 기록하며 deadline은 그대로 유지한다.
 
 2026-09-30 Cargo 경로 수정: 사용자 런처의 `cargo` 인식 실패를 확인했다. 설치는 `%USERPROFILE%/.cargo/bin/cargo.exe`에 존재하지만 탐색기에서 시작한 프로세스의 PATH에서 누락될 수 있다. 런처가 PATH 및 표준 설치 폴더를 검색하고 절대 실행 경로를 사용하도록 수정했다. .NET도 같은 방식으로 찾는다. PATH를 System32만 남긴 Windows PowerShell 5.1 실행에서 두 SDK 검색→경고/오류 없는 빌드→메인 창·worker 연결→정상 종료를 확인했다. 시스템/사용자 전역 PATH는 변경하지 않았다.
 

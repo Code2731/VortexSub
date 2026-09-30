@@ -39,5 +39,5 @@ TXT는 상태가 포함된 기록을, SRT는 유효한 확정 원문만 저장�
 `scripts/probe-worker-live-asr.ps1 -NoBuild -Offline -Partials`는 기존 영어
 TTS `en-10.wav`를 loopback으로 재생해 실제 부분→확정 및 세션 제어를 검사한다.
 전체 원문/보고서/WAV는 Git에 넣지 않는다. 실제 화면 조작, 자연 음성/게임 품질,
-overlap 텍스트 정합, macOS는 별도 수용 대상이다. 간헐적 시작 timeout의
+실제 overlap 중복/누락 품질, macOS는 별도 수용 대상이다. 시간/span 기반 정합은 [T02-04b 계약](ASR_RECONCILIATION.md)을 따른다. 간헐적 시작 timeout의
 근본 원인 분석은 사용자 요청에 따라 보류했다.

@@ -50,6 +50,7 @@ pub struct Decode {
     pub job: AsrJob,
     pub language: String,
     pub cancellation: Cancellation,
+    pub continued_from: Option<SegmentIdentity>,
 }
 pub enum Completion {
     Ready {
@@ -61,6 +62,7 @@ pub enum Completion {
         outcome: Outcome,
         decode_s: f64,
         abort_observed: bool,
+        overlap_segments_removed: usize,
     },
 }
 pub struct NativeOwner {
@@ -296,30 +298,43 @@ impl NativeOwner {
             {
                 return;
             }
+            let mut reconcile = crate::asr_reconcile::Reconciler::default();
             while let Ok(task) = job_rx.recv() {
                 if native_stop.load(Ordering::Acquire) {
                     break;
                 }
                 let key = task.job.key();
                 let start = Instant::now();
-                let outcome = match engine.transcribe_cancellable(
-                    task.job.pcm.samples(),
-                    &task.language,
-                    &task.cancellation,
-                ) {
-                    Ok(echosub_asr_whisper::DecodeOutcome::Completed(segments)) => {
-                        let mut text = String::new();
-                        for segment in segments {
-                            if text.len() + segment.text.len() > 4096 {
-                                text.clear();
-                                break;
-                            }
-                            text.push_str(&segment.text);
+                let mut overlap_segments_removed = 0;
+                let outcome = if task.cancellation.snapshot().requested {
+                    Outcome::Cancelled
+                } else if task.job.pcm.samples().iter().all(|s| *s == 0.0) {
+                    Outcome::NoSpeech
+                } else {
+                    match engine.transcribe_cancellable(
+                        task.job.pcm.samples(),
+                        &task.language,
+                        &task.cancellation,
+                    ) {
+                        Ok(echosub_asr_whisper::DecodeOutcome::Completed(segments)) => {
+                            let (outcome, removed) = reconcile.finish(
+                                SegmentIdentity {
+                                    audio: key.audio,
+                                    segment_id: key.segment_id,
+                                },
+                                task.job.pcm.range(),
+                                task.job.kind,
+                                task.continued_from,
+                                segments,
+                            );
+                            overlap_segments_removed = removed;
+                            outcome
                         }
-                        Outcome::Text(text.trim().to_owned())
+                        Ok(echosub_asr_whisper::DecodeOutcome::Cancelled { .. }) => {
+                            Outcome::Cancelled
+                        }
+                        Err(_) => Outcome::Failed,
                     }
-                    Ok(echosub_asr_whisper::DecodeOutcome::Cancelled { .. }) => Outcome::Cancelled,
-                    Err(_) => Outcome::Failed,
                 };
                 let abort_observed = task.cancellation.snapshot().abort_observed;
                 let decode_s = start.elapsed().as_secs_f64();
@@ -330,6 +345,7 @@ impl NativeOwner {
                         outcome,
                         decode_s,
                         abort_observed,
+                        overlap_segments_removed,
                     })
                     .is_err()
                 {

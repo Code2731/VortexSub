@@ -1,6 +1,8 @@
 use std::io::{self, BufRead, BufReader, Write};
 use std::sync::{mpsc, Arc};
 use std::time::Duration;
+#[cfg(any(feature = "native-asr", test))]
+mod asr_reconcile;
 mod capture_runtime;
 mod live_owner;
 mod native_owner;

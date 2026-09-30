@@ -126,3 +126,5 @@ worker의 실제 WASAPI 수신·16 kHz 정규화, 반복 Start/Stop·활성 종�
 
 현재 worker는 `hello`, `ping`, `get_state`, `get_history`, `shutdown`에 응답합니다. `-Live` 실행은 UUID `start_session`/`pause_session`/`resume_session`/`stop_session` 제어도 제공합니다. [세션 계약·검증](docs/SESSION_CONTROL.md). mock 또는 native 파일 진단 명령은 해당 모드를 켰을 때만 허용합니다. 일반 MOCK 실행에는 세션 제어가 없습니다. [설정 예시](examples/config.example.toml)는 향후 설정을 설명하며 현재 worker가 읽는 파일은 아닙니다.
 
+
+긴 발화의 시간/span 기반 경계 정합과 빈 결과 skip도 연결했습니다. `scripts/probe-worker-live-asr.ps1 -Offline -Boundaries`로 실제 8초 분할·겹침을 관측합니다. 현재 실제 dedup 효과와 격리된 무음 수용은 미검증입니다. [정합 계약·한계](docs/ASR_RECONCILIATION.md).

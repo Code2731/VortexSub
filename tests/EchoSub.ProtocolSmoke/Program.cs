@@ -9,6 +9,19 @@ if (args.Length != 1 || !File.Exists(args[0]))
 
 var workerPath = Path.GetFullPath(args[0]);
 
+await using (var client = WorkerClient.Start(workerPath, arguments: new[] { "--mock-pipeline" }))
+{
+    await client.SendAsync("hello", new { client = "SuppressionSmoke", protocol_major = 1 });
+    foreach (var outcome in new[] { "no_speech", "overlap_only" })
+        await client.SendAsync("mock_segment", new { source = "fixture placeholder", outcome });
+    for (var i = 0; i < 2; i++) await client.SendAsync("mock_segment", new { source = "안 돼, 안 돼" });
+    var history = await client.ReadHistoryAsync();
+    Require(history.Records[0].SourceState == "Skipped" && history.Records[0].SourceReason == "NoSpeech", "typed no-speech skip");
+    Require(history.Records[1].SourceState == "Skipped" && history.Records[1].SourceReason == "OverlapOnly", "typed overlap-only skip");
+    Require(history.Records.Take(2).All(r => r.Source.Length == 0 && r.TranslationState != "Pending"), "suppression does not invent source or translation");
+    Require(history.Records.Skip(2).All(r => r.Source == "안 돼, 안 돼" && r.SourceState == "Final"), "real repetition is preserved");
+}
+
 await using (var client = WorkerClient.Start(workerPath, arguments: new[] { "--mock-pipeline", "--mock-session-control" }))
 {
     var hello = await client.SendAsync("hello", new { client = "PartialSmoke", protocol_major = 1 });

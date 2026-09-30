@@ -203,7 +203,7 @@ internal static class LiveAsrSmoke
         throw new TimeoutException(label);
     }
     static void Require(bool valid, string label) { if (!valid) throw new Exception("Live smoke failed: " + label); }
-    internal static void WriteLoop(string source, string target)
+    internal static void WriteLoop(string source, string target, int repetitions = 1)
     {
         using var reader = new BinaryReader(File.OpenRead(source));
         Require(reader.ReadUInt32() == 0x46464952, "RIFF"); reader.ReadUInt32(); Require(reader.ReadUInt32() == 0x45564157, "WAVE");
@@ -215,7 +215,19 @@ internal static class LiveAsrSmoke
         }
         Require(format is not null && pcm is not null, "fixture format/data");
         Require(BitConverter.ToUInt16(format!, 0) == 1 && BitConverter.ToUInt16(format!, 2) == 1 && BitConverter.ToUInt32(format!, 4) == 16000 && BitConverter.ToUInt16(format!, 14) == 16, "PCM16 mono16k fixture");
-        using var w = new BinaryWriter(File.Create(target)); var length = pcm!.Length + 48000;
-        w.Write(0x46464952u); w.Write(36 + length); w.Write(0x45564157u); w.Write(0x20746d66u); w.Write(16); w.Write(format![..16]); w.Write(0x61746164u); w.Write(length); w.Write(new byte[16000]); w.Write(pcm); w.Write(new byte[32000]);
+        Require(repetitions is >= 1 and <= 6, "repeat bound");
+        if (repetitions > 1)
+        {
+            // Trim only fixture edge padding to join repeated sentences into a long utterance.
+            int first = 0, last = pcm!.Length - 2;
+            while (first <= last && Math.Abs((int)BitConverter.ToInt16(pcm, first)) <= 128) first += 2;
+            while (last >= first && Math.Abs((int)BitConverter.ToInt16(pcm, last)) <= 128) last -= 2;
+            Require(first <= last, "voiced repeat fixture");
+            pcm = pcm[first..(last + 2)];
+        }
+        using var w = new BinaryWriter(File.Create(target)); var length = pcm!.Length * repetitions + 48000;
+        w.Write(0x46464952u); w.Write(36 + length); w.Write(0x45564157u); w.Write(0x20746d66u); w.Write(16); w.Write(format![..16]); w.Write(0x61746164u); w.Write(length); w.Write(new byte[16000]);
+        for (var i = 0; i < repetitions; i++) w.Write(pcm);
+        w.Write(new byte[32000]);
     }
 }

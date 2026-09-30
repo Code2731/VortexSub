@@ -43,6 +43,8 @@ pub struct Runtime {
     live_stats: Value,
     partial_enabled: bool,
     live_segment: Option<(SegmentIdentity, SegmentIdentity)>,
+    last_live_final: Option<(SegmentIdentity, SegmentIdentity)>,
+    continuations: Vec<(JobIdentity, SegmentIdentity)>,
 }
 impl Runtime {
     pub fn new(enabled: bool, mut config: Option<ModelConfig>, capture: bool) -> Self {
@@ -93,6 +95,8 @@ impl Runtime {
             live_stats: json!({}),
             partial_enabled: false,
             live_segment: None,
+            last_live_final: None,
+            continuations: Vec::new(),
         }
     }
     pub fn implementation(&self) -> &str {
@@ -279,6 +283,8 @@ impl Runtime {
             }
             self.languages.clear();
             self.live_segment = None;
+            self.last_live_final = None;
+            self.continuations.clear();
             self.live_accepting = false;
             if let Some(owner) = &self.live_owner {
                 owner.stop();
@@ -347,6 +353,8 @@ impl Runtime {
             }
             self.languages.clear();
             self.live_segment = None;
+            self.last_live_final = None;
+            self.continuations.clear();
             self.epoch.epoch = self
                 .epoch
                 .epoch
@@ -418,6 +426,7 @@ impl Runtime {
                     outcome,
                     decode_s,
                     abort_observed,
+                    overlap_segments_removed,
                 } => {
                     self.flight = None;
                     let applied = self
@@ -425,7 +434,7 @@ impl Runtime {
                         .complete_asr(key, outcome, self.now())
                         .map_err(|_| std::io::Error::other("ASR completion rejected"))?;
                     self.completed_jobs += 1;
-                    q.publish("asr.completed",json!({"session_id":key.audio.session_id,"epoch":key.audio.epoch,"segment_id":key.segment_id,"source_revision":key.source_revision,"decode_s":decode_s,"applied":applied==echosub_pipeline_core::Apply::Applied,"abort_observed":abort_observed}),None)?;
+                    q.publish("asr.completed",json!({"session_id":key.audio.session_id,"epoch":key.audio.epoch,"segment_id":key.segment_id,"source_revision":key.source_revision,"decode_s":decode_s,"applied":applied==echosub_pipeline_core::Apply::Applied,"abort_observed":abort_observed,"overlap_segments_removed":overlap_segments_removed}),None)?;
                     if applied == echosub_pipeline_core::Apply::Applied {
                         let record = self
                             .core
@@ -551,6 +560,11 @@ impl Runtime {
                     .position(|(k, _)| *k == key)
                     .ok_or_else(|| std::io::Error::other("Missing ASR language"))?;
                 let language = self.languages.remove(i).1;
+                let continued_from = self
+                    .continuations
+                    .iter()
+                    .position(|(k, _)| *k == key)
+                    .map(|i| self.continuations.remove(i).1);
                 let token = Cancellation::default();
                 self.native
                     .as_ref()
@@ -559,6 +573,7 @@ impl Runtime {
                     .try_send(Decode {
                         job,
                         language,
+                        continued_from,
                         cancellation: token.clone(),
                     })
                     .map_err(|_| std::io::Error::other("Native owner is unavailable"))?;
@@ -645,6 +660,15 @@ impl Runtime {
         }
         match method {
             "mock_segment" | "mock_burst" => {
+                let outcome = p.get("outcome").and_then(Value::as_str).unwrap_or("text");
+                if p.get("outcome").is_some_and(|v| !v.is_string())
+                    || p.get("kind").is_some_and(|v| !v.is_string())
+                {
+                    return Err(("INVALID_REQUEST", "Mock kind/outcome must be strings"));
+                }
+                if !matches!(outcome, "text" | "no_speech" | "overlap_only") {
+                    return Err(("INVALID_REQUEST", "Unknown mock outcome"));
+                }
                 let kind = match p.get("kind").and_then(Value::as_str) {
                     None | Some("final") => AsrKind::Final,
                     Some("partial")
@@ -676,7 +700,7 @@ impl Runtime {
                     1
                 };
                 for _ in 0..count {
-                    self.segment(source, kind, q)?;
+                    self.segment(source, kind, outcome, q)?;
                 }
                 Ok(
                     json!({"accepted":true,"history_version":self.core.version(),"last_seq":q.last_seq(),"implementation":self.implementation()}),
@@ -718,7 +742,7 @@ impl Runtime {
             _ => Err(("UNSUPPORTED_CAPABILITY", "Unknown mock method")),
         }
     }
-    fn segment(&mut self, source: &str, kind: AsrKind, q: &Outbox) -> Reply {
+    fn segment(&mut self, source: &str, kind: AsrKind, outcome: &str, q: &Outbox) -> Reply {
         let start = self.ring.retained_range().end;
         self.ring
             .append(self.epoch, start, &[0.25; 512])
@@ -753,12 +777,24 @@ impl Runtime {
             .next_asr()
             .ok_or(("INTERNAL_ERROR", "Mock ASR unavailable"))?;
         self.core
-            .complete_asr(job.key(), Outcome::Text(source.to_owned()), now)
+            .complete_asr(
+                job.key(),
+                match outcome {
+                    "no_speech" => Outcome::NoSpeech,
+                    "overlap_only" => Outcome::OverlapOnly,
+                    _ => Outcome::Text(source.to_owned()),
+                },
+                now,
+            )
             .map_err(core_error)?;
         self.live_segment = (kind == AsrKind::Partial).then_some((id, id));
         self.changed_record(
             id.segment_id,
-            if kind == AsrKind::Partial {
+            if outcome != "text" && kind == AsrKind::Final {
+                "segment.skipped"
+            } else if outcome != "text" {
+                "segment.failed"
+            } else if kind == AsrKind::Partial {
                 "source.partial"
             } else {
                 "source.final"

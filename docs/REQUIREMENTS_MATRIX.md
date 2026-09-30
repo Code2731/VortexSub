@@ -12,8 +12,8 @@
 | AUD-006 (P1) | 후속 별도 작업 | 후속 수용 시험 필요 | DEFERRED |
 | ASR-001 | T00-04.1, T02-01/02/03 | P0-MODEL, HW-E2E | PARTIAL: Windows 합성 en/ko 실제 ASR probe; 시스템 전사·ja·Mac 미검증 |
 | ASR-002 | T01-02, T02-01 | UT-004, IT-006 | PARTIAL: 최신 partial·final 우선/동결·취소 반환 대기 fixture 및 worker IPC 통과. Windows opt-in 연결; 실제 결과/한계는 T02-04a 근거 참조 |
-| ASR-003 | T01-01, T02-01 | UT-003/005, IT-005/006 | PARTIAL: 512-frame/short tail·exact zero PCM fixture 통과; 확률 기반 VAD segmentation·mock 무음 600초 요청 0 fixture 통과; 실제 Silero·반복/모델 억제 통합 미검증 |
-| ASR-004 | T01-02, T02-01 | UT-005, 긴 발화 fixture | PARTIAL: 8초 PCM 상한·overlap·새 음성 보존 fixture 통과; 실제 긴 발화 전사/텍스트 dedup 미검증 |
+| ASR-003 | T01-01, T02-01 | UT-003/005, IT-005/006 | PARTIAL: exact-zero PCM/VAD fixture·빈 결과 NoSpeech skip·실제 반복 보존 통과. 실제 loopback 무음 격리 미통과; 효과음/음악 모델 억제는 후속. T02-04b 근거 참조 |
+| ASR-004 | T01-02, T02-01 | UT-005, 긴 발화 fixture | PARTIAL: 8초 PCM/overlap·새 음성·시간/span 정합 fixture 통과. 실제 8초 분할/0.608초 continuation/Final 확인; 제거 span 0으로 실제 dedup/무누락 미검증 |
 | ASR-005 (P1) | 후속 별도 작업 | 후속 수용 시험 필요 | DEFERRED |
 | TR-001 | T00-04.1, T03-01 | P0-MODEL, IT-003 | PARTIAL: en/ja→ko 로컬 모델 각 10건 실행; 제품 통합 미구현 |
 | TR-002 | T03-01/03 | UT-007, IT-003, HW-E2E, 품질 평가 | OPEN: 귀환 조건 오역·용어/시간 표현 문제 발견; T00-04.1 검토와 M3 재검증 연결 |

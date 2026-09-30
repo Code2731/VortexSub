@@ -5,6 +5,38 @@ const ID: AudioIdentity = AudioIdentity {
     epoch: 1,
 };
 #[test]
+fn no_speech_and_overlap_only_skip_final_without_translation_and_preserve_partial_text() {
+    for (outcome, reason) in [
+        (Outcome::NoSpeech, Reason::NoSpeech),
+        (Outcome::OverlapOnly, Reason::OverlapOnly),
+    ] {
+        let mut f = Fixture::new(1000, "ko");
+        f.submit(1, AsrKind::Final, 512, 0);
+        let job = f.core.next_asr().unwrap();
+        f.core.complete_asr(job.key(), outcome, 0).unwrap();
+        let record = &f.records()[0];
+        assert_eq!(record.source_state, SourceState::Skipped);
+        assert_eq!(record.source_reason, Some(reason));
+        assert!(record.source.is_empty());
+        assert!(f.core.next_translation(0).unwrap().is_none());
+    }
+    let mut f = Fixture::new(1000, "ko");
+    f.submit(1, AsrKind::Partial, 512, 0);
+    let job = f.core.next_asr().unwrap();
+    f.core
+        .complete_asr(job.key(), Outcome::Text("실제 원문".into()), 0)
+        .unwrap();
+    drop(job);
+    f.submit(1, AsrKind::Partial, 1024, 1);
+    let job = f.core.next_asr().unwrap();
+    f.core
+        .complete_asr(job.key(), Outcome::NoSpeech, 1)
+        .unwrap();
+    assert_eq!(f.records()[0].source, "실제 원문");
+    assert_eq!(f.records()[0].applied_source_revision, Some(1));
+    assert_eq!(f.records()[0].source_reason, Some(Reason::NoSpeech));
+}
+#[test]
 fn asr_only_final_does_not_schedule_or_fake_translation() {
     let mut f = Fixture::new(1000, "ko");
     f.core = Pipeline::new_asr_only(ID, 1000).unwrap();

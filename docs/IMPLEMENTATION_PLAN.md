@@ -156,3 +156,14 @@ Pause/Resume/Stop/export/clear가 통과했다. 첫 시작 timeout은 보존했�
 [계약](WORKER_PARTIAL_ASR.md) · [근거](evidence/T02-04a-windows-partial-asr.md).
 다음은 기존 M2 계획의 overlap/무음 결과 정합이다. 화면 수용·자연 음성 품질,
 번역·macOS·시작 안정성은 후속이며 timeout 원인 분석 보류를 유지한다.
+
+## T02-04b 경계·빈 결과 정합 (2026-10-01)
+
+명시된 continuation/오디오 겹침/native span timestamp와 정확한 prefix-suffix로
+중복을 보수적으로 제거하고, NoSpeech/OverlapOnly를 사유 있는 skip으로 연결했다.
+Rust 105개·C# IPC/native CPU 빌드가 통과했다. 실제 8초 분할/0.608초 겹침과
+확정 결과를 확인했지만 제거 span은 0개였다. 무음 단계에 입력이 있어 해당 gate는
+미통과다. [계약](ASR_RECONCILIATION.md) · [근거](evidence/T02-04b-windows-asr-reconciliation.md).
+다음은 M2 경계 수용 보완: token timestamp로 거친 span의 경계를 판정할 수 있는지
+확인하고, 실제 반복 보존과 격리된 무음/긴 발화 fixture를 검증한다. 이후 M3 외부
+로컬 번역 서버 연결로 진행한다. UI/자연 음성/두 OS 수용 gate는 그대로 유지한다.

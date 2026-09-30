@@ -674,6 +674,38 @@ fn opt_in_partial_revisions_freeze_at_final_and_pause_discards_active_source() {
 }
 
 #[test]
+fn suppressed_mock_results_are_explicit_skips_and_real_repetition_is_retained() {
+    let mut w = Worker::start_with(true);
+    hello(&mut w);
+    for outcome in ["no_speech", "overlap_only"] {
+        assert_eq!(
+            w.send(command(
+                "source",
+                "mock_segment",
+                json!({"source":"fixture placeholder","outcome":outcome})
+            ))["ok"],
+            true
+        );
+    }
+    for _ in 0..2 {
+        w.send(command(
+            "source",
+            "mock_segment",
+            json!({"source":"안 돼, 안 돼"}),
+        ));
+    }
+    let records = w.send(command("history", "get_history", json!({})))["result"]["records"].clone();
+    assert_eq!(records[0]["source_state"], "Skipped");
+    assert_eq!(records[0]["source_reason"], "NoSpeech");
+    assert_eq!(records[1]["source_reason"], "OverlapOnly");
+    assert_ne!(records[0]["translation_state"], "Pending");
+    assert_eq!(records[2]["source"], "안 돼, 안 돼");
+    assert_eq!(records[3]["source"], "안 돼, 안 돼");
+    w.send(command("stop", "shutdown", json!({})));
+    w.finish();
+}
+
+#[test]
 fn worst_case_escaped_text_history_stays_below_message_limit() {
     let mut worker = Worker::start_with(true);
     hello(&mut worker);

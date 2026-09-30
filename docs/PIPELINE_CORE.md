@@ -27,11 +27,12 @@ final 범위는 VAD의 실제 post-roll 때문에 이전 partial보다 짧아질
 | FinalPending | final PCM 예약 완료; partial 결과는 적용하지 않음 |
 | Final | 확정 원문; 번역과 무관하게 보존 |
 | Failed | final decode 실패·잘못된 텍스트 |
-| Skipped | final 큐/PCM 확보 실패·decode 취소 |
+| Skipped | final 큐/PCM 확보 실패·decode 취소·NoSpeech·OverlapOnly |
 | Discarded | VAD 폐기·Pause/Stop/epoch 변경 |
 
-native adapter가 빈 결과/no-speech/반복/낮은 신뢰도를 판정하는 정책,
-overlap 텍스트 정합과 prefix 안정화는 후속 ASR 통합 책임이다.
+native adapter의 빈 결과/완전한 overlap span 판정을 T02-04b에 연결했다.
+모델 score 기반 no-speech/반복/낮은 신뢰도와 prefix 안정화는 후속 ASR 통합 책임이다.
+[현재 정합 계약](ASR_RECONCILIATION.md).
 코어는 공백뿐인 결과·NUL·4,096 UTF-8 bytes 초과 결과를 거부한다.
 실제 반복 문자열은 그대로 보존한다. 입력 String의 과도한 capacity는
 수용 시 축소하며 원문/번역을 로그나 디스크에 저장하지 않는다.
