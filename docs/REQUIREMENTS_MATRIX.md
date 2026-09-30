@@ -12,8 +12,8 @@
 | AUD-006 (P1) | 후속 별도 작업 | 후속 수용 시험 필요 | DEFERRED |
 | ASR-001 | T00-04.1, T02-01/02/03 | P0-MODEL, HW-E2E | PARTIAL: Windows 합성 en/ko 실제 ASR probe; 시스템 전사·ja·Mac 미검증 |
 | ASR-002 | T01-02, T02-01 | UT-004, IT-006 | PLANNED |
-| ASR-003 | T01-01, T02-01 | UT-003/005, IT-005/006 | PARTIAL: 512-frame/short tail·exact zero PCM fixture 통과; VAD·실제 반복/모델 호출 억제 미구현 |
-| ASR-004 | T01-02, T02-01 | UT-005, 긴 발화 fixture | PLANNED |
+| ASR-003 | T01-01, T02-01 | UT-003/005, IT-005/006 | PARTIAL: 512-frame/short tail·exact zero PCM fixture 통과; 확률 기반 VAD segmentation·mock 무음 600초 요청 0 fixture 통과; 실제 Silero·반복/모델 억제 통합 미검증 |
+| ASR-004 | T01-02, T02-01 | UT-005, 긴 발화 fixture | PARTIAL: 8초 PCM 상한·overlap·새 음성 보존 fixture 통과; 실제 긴 발화 전사/텍스트 dedup 미검증 |
 | ASR-005 (P1) | 후속 별도 작업 | 후속 수용 시험 필요 | DEFERRED |
 | TR-001 | T00-04.1, T03-01 | P0-MODEL, IT-003 | PARTIAL: en/ja→ko 로컬 모델 각 10건 실행; 제품 통합 미구현 |
 | TR-002 | T03-01/03 | UT-007, IT-003, HW-E2E, 품질 평가 | OPEN: 귀환 조건 오역·용어/시간 표현 문제 발견; T00-04.1 검토와 M3 재검증 연결 |

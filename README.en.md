@@ -57,8 +57,8 @@ New ASR, translation, cancellation, and contention timing outputs use **seconds*
 `crates/audio-core/` converts 44.1/48 kHz mono/stereo to 16 kHz mono and
 provides 512-sample frames, a session sample timeline, a 12-second rolling
 buffer, and bounded immutable PCM snapshots. Run fixtures without OS/model
-dependencies using `cargo test -p echosub-audio-core`. Real VAD and worker/UI
-integration are not implemented yet. See the [audio core contract and validation](docs/AUDIO_CORE.md).
+dependencies using `cargo test -p echosub-audio-core`. Probability-driven segmentation, eight-second chunking, and a packet-stop watchdog are implemented. Actual Silero inference and worker/UI
+integration are not implemented yet. See the [audio core](docs/AUDIO_CORE.md) and [VAD contract and validation](docs/VAD_CORE.md).
 
 ## MOCK caption overlay
 

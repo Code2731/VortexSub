@@ -94,5 +94,5 @@ macOS 10 GiB·Windows dedicated VRAM 5 GiB는 원본의 **관리형 실행 목�
 
 ## M1 실행 단위 보완 (2026-09-30)
 
-T01-01은 a(정규화·sample 시간축·유한 PCM 소유권)와 b(VAD·발화 구간·watchdog)로 나눈다. a의 코드/fixture 범위와 남은 어댑터 책임은 [오디오 코어 계약](AUDIO_CORE.md)을 따른다. immutable snapshot을 PCM 복사 pool 최대 4슬롯으로 구현했으며, epoch 변경에도 같은 pool을 재사용한다. snapshot/history 일관성과 번역 pending의 terminal 상태 계약은 T01-02에 남는다. M0 Mac gate 미통과와 독립 pure-core 진행을 구분한다.
+T01-01은 a(정규화·sample 시간축·유한 PCM 소유권)와 b(VAD·발화 구간·watchdog)로 나눈다. a와 b의 결정론적 코어를 구현했다. 코드/fixture 범위와 남은 어댑터 책임은 [오디오 코어 계약](AUDIO_CORE.md)과 [VAD 계약](VAD_CORE.md)을 따른다. 실제 Silero 모델/state/context는 미연결이다. 다음 독립 구현은 T01-02 상태기계·유한 큐다. immutable snapshot을 PCM 복사 pool 최대 4슬롯으로 구현했으며, epoch 변경에도 같은 pool을 재사용한다. snapshot/history 일관성과 번역 pending의 terminal 상태 계약은 T01-02에 남는다. M0 Mac gate 미통과와 독립 pure-core 진행을 구분한다.
 

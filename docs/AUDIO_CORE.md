@@ -3,7 +3,7 @@
 ## 구현 범위
 
 `crates/audio-core/`는 OS·native 모델·네트워크 의존성 없는 Rust 코어다.
-T01-01을 정규화/버퍼(a)와 VAD/발화 구간(b)으로 나눴다. 현재는 a만
+T01-01을 정규화/버퍼(a)와 VAD/발화 구간(b)으로 나눴다. a와 b의 결정론적 코어를
 구현했다. 캡처/worker/UI에 연결되지 않았으며 M0·M1 전체 gate는 미통과다.
 
 입력은 이미 float32로 디코딩된 interleaved PCM이다. 지원 rate는
@@ -99,10 +99,10 @@ Silero 모델 입력/확률을 대체하지 않는다.
 |---|---|
 | UT-001 subset | PASS: 두 rate의 sample 수/길이/연속 range; packet 1/7/113/511/4096 frame과 큰 packet의 결과 동일; 1 kHz gain 오차 0.5% 미만; 8.1/8.5/10/12/15 kHz alias RMS 비율 <0.001(60 dB 억제); DC downmix; impulse center timestamp |
 | UT-002 subset | PASS: simulated 장치 변경/epoch에서 session 위치 유지, filter reset, backward 시간/재사용 epoch 거부 |
-| UT-003 framing subset | PASS: 512 경계, real short tail, 디지털 무음은 exact zero. 실제 VAD state/context는 미검증 |
+| UT-003 framing subset | PASS: 512 경계, real short tail, 디지털 무음은 exact zero. 실제 모델 state/context는 미검증; 발화 상태는 후속 [b fixture](VAD_CORE.md) 참조 |
 | UT-008 PCM subset | PASS: ring wrap, immutable PCM/키, clone이 남은 슬롯 재사용 거부, pool drop 뒤 다른 thread에서 접근, 상한/고갈/stale/덮어쓴 구간 거부 |
 | workspace/IPC | PASS: Rust fmt, 기존 9개 + audio core 15개 시험, workspace/C# 빌드, Unicode/64요청/worker 수명 smoke |
-| macOS/실제 캡처/모델/VAD | NOT_RUN: 이 fixture 코어 시험의 범위 밖 |
+| macOS/실제 캡처/모델/VAD | NOT_RUN: 실제 Silero 추론·native 캡처·Mac은 이 fixture 범위 밖 |
 
 주파수 시험은 위 고정 사인파와 1초 입력의 중앙 구간 RMS 비교다. 전체
 spectrum/제품 전사 품질/필터 성능 수용을 통과했다고 일반화하지 않는다.
@@ -110,7 +110,7 @@ spectrum/제품 전사 품질/필터 성능 수용을 통과했다고 일반화�
 ## 다음 단위
 
 T01-01b에서 확률 입력을 받는 VAD 상태와 pre/post-roll·최소 발화·8초 분할·
-overlap·packet-stop watchdog을 먼저 결정론적으로 구현한다. 실제 Silero
+overlap·packet-stop watchdog을 결정론적으로 구현했다. [T01-01b 계약과 검증](VAD_CORE.md)을 따른다. 실제 Silero
 모델/runtime/hash/license는 별도로 고정하고 연결 전에는 mock을 명시한다.
 T01-02는 segment/revision/epoch 적용과 작업 큐, 취소·final 실패 상태를 담당한다.
 M2에서 실제 native 형식/clock·캡처 수명과 이 코어를 연결한다.

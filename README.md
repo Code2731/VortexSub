@@ -57,8 +57,8 @@ probe는 WASAPI loopback에서 실제 오디오 형식, 패킷·프레임 수, �
 `crates/audio-core/`는 44.1/48 kHz mono·stereo를 16 kHz mono로 변환하고,
 512-sample frame, 세션 sample 시간축, 12초 rolling buffer와 유한 immutable
 PCM snapshot을 제공합니다. OS·모델 없이 `cargo test -p echosub-audio-core`
-로 fixture를 실행할 수 있습니다. 실제 VAD와 worker/UI 연결은 아직
-구현하지 않았습니다. [오디오 코어 계약과 검증](docs/AUDIO_CORE.md)
+로 fixture를 실행할 수 있습니다. 확률 기반 발화 구간·8초 분할·packet-stop watchdog도 구현했습니다. 실제 Silero 모델과 worker/UI 연결은 아직
+구현하지 않았습니다. [오디오 코어](docs/AUDIO_CORE.md) · [VAD 구간 계약과 검증](docs/VAD_CORE.md)
 
 ## MOCK 자막 오버레이
 

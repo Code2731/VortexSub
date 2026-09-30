@@ -1,8 +1,13 @@
 //! Platform-independent processing-thread audio primitives. No capture or inference.
 mod normalize;
 mod rolling;
+mod vad;
 pub use normalize::{AudioBatch, AudioFormat, AudioFrame, AudioTail, StreamNormalizer};
 pub use rolling::{PcmSnapshot, RollingAudio, SnapshotPool};
+pub use vad::{
+    CaptureHealth, DiscardReason, EffectiveVadSettings, FinalReason, SegmentIdentity, SegmentInfo,
+    SpeechEvent, VadResetReason, VadSegmenter, VadSettings,
+};
 
 pub const SAMPLE_RATE: u32 = 16_000;
 pub const FRAME_SAMPLES: usize = 512;
@@ -72,6 +77,9 @@ pub enum AudioError {
     RangeUnavailable,
     ResourceExhausted,
     InvalidCapacity,
+    InvalidVadConfig,
+    InvalidProbability,
+    ClockRegression,
 }
 impl std::fmt::Display for AudioError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
