@@ -30,7 +30,8 @@
         "config": {
           "type": "object", "required": ["source_language"],
           "properties": {
-            "source_language": {"enum": ["en", "ja", "ko"]},
+        "source_language": {"enum": ["en", "ja", "ko"]},
+        "partial_enabled": {"type": "boolean", "default": false},
             "device_id": {"type": ["string", "null"], "minLength": 1, "maxLength": 2048}
           }, "additionalProperties": false
         }

@@ -30,6 +30,7 @@ public sealed class MainWindow : Window
     private readonly ComboBox exportSession = new() { Width = 420 };
     private readonly TextBlock exportResult = new() { TextWrapping = TextWrapping.Wrap };
     private readonly ComboBox language = new() { ItemsSource = new[] { "en", "ja", "ko" }, SelectedIndex = 0, Width = 80 };
+    private readonly CheckBox partialEnabled = new() { Content = "부분 전사 켜기 · 실험 기능 / 기본 끔", IsChecked = false };
     private readonly ComboBox endpoint = new() { Width = 450 };
     private readonly ListBox history = new() { Height = 190 };
     private readonly SemaphoreSlim operationGate = new(1, 1);
@@ -49,6 +50,7 @@ public sealed class MainWindow : Window
     private bool resumeReady;
     private bool exportReady, exportSupported, selectingExport;
     private bool clearSupported, historyReady;
+    private bool partialSupported;
 
     public MainWindow()
     {
@@ -74,7 +76,7 @@ public sealed class MainWindow : Window
                     new TextBlock { Text = "EchoSub", FontSize = 22 },
                     new TextBlock
                     {
-                        Text = live ? "실제 원문 진단 · 번역/partial 없음 · 게임/자연 음성 품질 미검증" : "MOCK · 실제 캡처와 전사는 실행하지 않습니다.",
+                        Text = live ? "실제 원문 진단 · 번역 없음 · 부분 전사 선택 가능 · 게임/자연 음성 품질 미검증" : "MOCK · 실제 캡처와 전사는 실행하지 않습니다.",
                         TextWrapping = TextWrapping.Wrap
                     },
                     status,
@@ -86,6 +88,7 @@ public sealed class MainWindow : Window
                         {
                             new TextBlock { Text = "출력 장치 / 원문 언어 · 변경하려면 세션을 종료하세요. 이전 history는 유지됩니다." },
                             new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { endpoint, language } },
+                            partialEnabled,
                             new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { startCaptureButton, pauseButton, resumeButton, stopCaptureButton } }
                         }
                     },
@@ -129,10 +132,12 @@ public sealed class MainWindow : Window
         {
             if (client is null || !captureStartable || !modelReady) return;
             ClearSource();
+            var config = new Dictionary<string, object?> { ["source_language"] = language.SelectedItem as string, ["device_id"] = (endpoint.SelectedItem as EndpointChoice)?.Id };
+            if (partialSupported) config["partial_enabled"] = partialEnabled.IsChecked == true;
             var accepted = await client.SendAsync("start_session", new
             {
                 history_policy = "retain",
-                config = new { source_language = language.SelectedItem as string, device_id = (endpoint.SelectedItem as EndpointChoice)?.Id }
+                config
             });
             sessionId = accepted.GetProperty("session_id").GetString();
             sessionState = "Preparing";
@@ -365,6 +370,7 @@ public sealed class MainWindow : Window
                 throw new IOException("UUID history worker를 다시 빌드하세요: scripts/run.ps1 -Live");
             exportSupported = hello.GetProperty("capabilities").TryGetProperty("history_export", out var exportCapability) && exportCapability.GetBoolean();
             clearSupported = hello.GetProperty("capabilities").TryGetProperty("history_clear", out var clearCapability) && clearCapability.GetBoolean();
+            partialSupported = hello.GetProperty("capabilities").TryGetProperty("source_partial", out var partialCapability) && partialCapability.GetBoolean();
             StartupDiagnostics.Write($"Worker connected; live={live}");
             snapshot = null;
             await RefreshCoreAsync();
@@ -431,15 +437,19 @@ public sealed class MainWindow : Window
             details.Text += "\n모델 읽기 실패: 모델/DLL 경로·해시와 native CPU 빌드를 확인하세요.";
         while (client.Events.TryRead(out _)) { }
         var epoch = state.GetProperty("diagnostic_asr").GetProperty("epoch").GetUInt64();
-        var final = sessionState == "Running" && captureState == "Running" ? snapshot?.Records.LastOrDefault(record =>
+        var source = sessionState == "Running" && captureState == "Running" ? snapshot?.Records.LastOrDefault(record =>
             record.ProductSessionId == sessionId && record.SessionId == session.GetProperty("internal_session_id").GetUInt64() && record.Epoch == epoch &&
-            record.SourceState == "Final" && record.AppliedSourceRevision == record.SourceRevision) : null;
-        if (final is not null)
+            record.SourceState is "Partial" or "FinalPending" or "Final" &&
+            record.AppliedSourceRevision is > 0 && record.AppliedSourceRevision <= record.SourceRevision && !string.IsNullOrWhiteSpace(record.Source)) : null;
+        if (source is not null)
         {
-            var key = (final.SessionId, final.Epoch, final.SegmentId, final.SourceRevision);
+            // Pending re-recognition does not renew the last applied text's lifetime.
+            var key = (source.SessionId, source.Epoch, source.SegmentId, source.AppliedSourceRevision!.Value);
             if (displayedKey != key) { displayedKey = key; sourceSince = Stopwatch.GetTimestamp(); }
         }
-        latestSource = final is not null && Stopwatch.GetElapsedTime(sourceSince).TotalSeconds < 5 ? final.Source : null;
+        latestSource = source is not null && Stopwatch.GetElapsedTime(sourceSince).TotalSeconds < 5
+            ? (source.SourceState == "Partial" ? "[인식 중] " : source.SourceState == "FinalPending" ? "[확정 처리 중] " : "") + source.Source
+            : null;
         overlay?.SetSource(latestSource);
     }
 
@@ -464,7 +474,7 @@ public sealed class MainWindow : Window
         sessionId = sessionState = null;
         resumeReady = false;
         exportReady = exportSupported = false;
-        clearSupported = historyReady = false;
+        clearSupported = historyReady = partialSupported = false;
         exportSession.ItemsSource = null;
         exportResult.Text = "";
         if (oldClient is not null)
@@ -492,6 +502,7 @@ public sealed class MainWindow : Window
         exportTxtButton.IsEnabled = exportSrtButton.IsEnabled = available && connected && exportReady && !selectingExport && exportSession.SelectedItem is ExportChoice;
         clearHistoryButton.IsEnabled = available && connected && clearSupported && historyReady && !selectingExport && exportSession.SelectedItem is ExportChoice;
         language.IsEnabled = endpoint.IsEnabled = available && captureStartable;
+        partialEnabled.IsEnabled = available && captureStartable && partialSupported;
     }
 
     public sealed record EndpointChoice(string? Id, string Name)

@@ -129,7 +129,7 @@ impl Runtime {
                 .ok_or(("INVALID_REQUEST", "Session config required"))?;
             if config
                 .keys()
-                .any(|k| k != "source_language" && k != "device_id")
+                .any(|k| k != "source_language" && k != "device_id" && k != "partial_enabled")
             {
                 return Err(("INVALID_REQUEST", "Unsupported session config field"));
             }
@@ -139,6 +139,12 @@ impl Runtime {
                 .filter(|s| matches!(*s, "en" | "ja" | "ko"))
                 .ok_or(("INVALID_REQUEST", "Source language must be en, ja or ko"))?;
             let device = config.get("device_id").cloned().unwrap_or(Value::Null);
+            let partial_enabled = match config.get("partial_enabled") {
+                None => false,
+                Some(v) => v
+                    .as_bool()
+                    .ok_or(("INVALID_REQUEST", "partial_enabled must be boolean"))?,
+            };
             if !device.is_null()
                 && !device
                     .as_str()
@@ -173,7 +179,9 @@ impl Runtime {
             self.session.internal_id = internal_id;
             self.session.started_ns = started_ns;
             self.session.ended_ns = None;
-            self.session.config = json!({"language":language,"device_id":device});
+            self.partial_enabled = partial_enabled;
+            self.session.config =
+                json!({"language":language,"device_id":device,"partial_enabled":partial_enabled});
             self.epoch = AudioIdentity {
                 session_id: internal_id,
                 epoch: 0,
@@ -225,6 +233,7 @@ impl Runtime {
     }
     fn session_start(&mut self, q: &Outbox) -> Reply {
         if self.session.mock {
+            self.live_segment = None;
             self.epoch.epoch = self
                 .epoch
                 .epoch
@@ -254,6 +263,7 @@ impl Runtime {
     }
     fn session_stop_input(&mut self, q: &Outbox) -> Reply {
         if self.session.mock {
+            self.live_segment = None;
             self.epoch.epoch = self
                 .epoch
                 .epoch

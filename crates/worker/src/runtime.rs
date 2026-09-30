@@ -11,6 +11,8 @@ use serde_json::{json, Value};
 use std::time::Instant;
 #[path = "export.rs"]
 mod export;
+#[path = "live_segments.rs"]
+mod live_segments;
 #[path = "session.rs"]
 mod session;
 pub type Reply = Result<Value, (&'static str, &'static str)>;
@@ -39,6 +41,8 @@ pub struct Runtime {
     live_accepting: bool,
     live_language: String,
     live_stats: Value,
+    partial_enabled: bool,
+    live_segment: Option<(SegmentIdentity, SegmentIdentity)>,
 }
 impl Runtime {
     pub fn new(enabled: bool, mut config: Option<ModelConfig>, capture: bool) -> Self {
@@ -87,6 +91,8 @@ impl Runtime {
             live_accepting: false,
             live_language: "en".into(),
             live_stats: json!({}),
+            partial_enabled: false,
+            live_segment: None,
         }
     }
     pub fn implementation(&self) -> &str {
@@ -113,7 +119,7 @@ impl Runtime {
         self.vad_enabled
     }
     pub fn state(&self, q: &Outbox) -> Value {
-        json!({"session":self.session.value(self.now(),self.epoch),"translator":{"state":"Unavailable"},"model":{"state":self.model_state},"last_seq":q.last_seq(),"history_version":self.core.version(),"diagnostic_capture":self.capture.value(),"diagnostic_live_vad":self.live_owner.as_ref().map(|o|o.state()).unwrap_or_else(||self.live_stats.clone()),"diagnostic_asr":{"enabled":self.has_native(),"epoch":self.epoch.epoch,"pending_inputs":self.pending_inputs.len(),"decoding":self.flight.is_some(),"native_running":self.flight.as_ref().is_some_and(|(_,token)|token.snapshot().running),"completed_jobs":self.completed_jobs,"model_load_s":self.load_s,"vad":self.vad_enabled}})
+        json!({"session":self.session.value(self.now(),self.epoch),"translator":{"state":"Unavailable"},"model":{"state":self.model_state},"last_seq":q.last_seq(),"history_version":self.core.version(),"diagnostic_capture":self.capture.value(),"diagnostic_live_vad":self.live_owner.as_ref().map(|o|o.state()).unwrap_or_else(||self.live_stats.clone()),"diagnostic_asr":{"enabled":self.has_native(),"epoch":self.epoch.epoch,"pending_inputs":self.pending_inputs.len(),"decoding":self.flight.is_some(),"native_running":self.flight.as_ref().is_some_and(|(_,token)|token.snapshot().running),"completed_jobs":self.completed_jobs,"partial_enabled":self.partial_enabled,"pending_language_count":self.languages.len(),"model_load_s":self.load_s,"vad":self.vad_enabled}})
     }
     pub fn fixture(&mut self, method: &str, p: &Value, q: &Outbox) -> Reply {
         if self.native.is_none() || self.is_live() {
@@ -226,6 +232,12 @@ impl Runtime {
                     "Model must be ready and previous VAD owner joined",
                 ));
             }
+            let partial_enabled = match p.get("partial_enabled") {
+                None => false,
+                Some(v) => v
+                    .as_bool()
+                    .ok_or(("INVALID_REQUEST", "partial_enabled must be boolean"))?,
+            };
             self.live_language = match p.get("language").and_then(Value::as_str) {
                 Some(s) if matches!(s, "en" | "ja" | "ko") => s.into(),
                 _ => {
@@ -235,6 +247,7 @@ impl Runtime {
                     ))
                 }
             };
+            self.partial_enabled = partial_enabled;
         }
         // Validate before changing identity; the adapter also checks this parameter.
         if method == "start_capture"
@@ -265,6 +278,7 @@ impl Runtime {
                 token.request();
             }
             self.languages.clear();
+            self.live_segment = None;
             self.live_accepting = false;
             if let Some(owner) = &self.live_owner {
                 owner.stop();
@@ -287,6 +301,7 @@ impl Runtime {
                 self.live_owner = Some(crate::live_owner::LiveOwner::start(
                     config.clone(),
                     self.epoch,
+                    self.partial_enabled,
                 ));
                 self.live_accepting = true;
                 self.live_stats = json!({});
@@ -331,6 +346,7 @@ impl Runtime {
                 token.request();
             }
             self.languages.clear();
+            self.live_segment = None;
             self.epoch.epoch = self
                 .epoch
                 .epoch
@@ -358,41 +374,7 @@ impl Runtime {
                     continue;
                 }
                 for event in batch.events {
-                    match event {
-                        echosub_audio_core::SpeechEvent::Final { segment, reason } => {
-                            let id = SegmentIdentity {
-                                audio: self.epoch,
-                                segment_id: self.next_segment,
-                            };
-                            self.next_segment += 1;
-                            let now = self.now();
-                            let admitted = self
-                                .core
-                                .submit_asr(
-                                    id,
-                                    segment.pcm_range,
-                                    AsrKind::Final,
-                                    &self.ring,
-                                    &mut self.pool,
-                                    now,
-                                )
-                                .map_err(|_| std::io::Error::other("Live final range rejected"))?;
-                            if admitted.queued {
-                                self.languages
-                                    .push((admitted.key, self.live_language.clone()));
-                            } else {
-                                self.changed_record(id.segment_id, "segment.skipped", q)
-                                    .map_err(|_| {
-                                        std::io::Error::other("Live skip event unavailable")
-                                    })?;
-                            }
-                            q.publish("capture.segmented",json!({"epoch":id.audio.epoch,"segment_id":id.segment_id,"vad_segment_id":segment.id.segment_id,"continued_from":segment.continued_from.map(|s|s.segment_id),"queued":admitted.queued,"reason":format!("{reason:?}"),"audio_start_s":segment.pcm_range.start_s(),"audio_end_s":segment.pcm_range.end_s()}),None)?;
-                        }
-                        echosub_audio_core::SpeechEvent::Discarded { segment, reason } => {
-                            q.publish("capture.segment_discarded",json!({"epoch":self.epoch.epoch,"vad_segment_id":segment.id.segment_id,"reason":format!("{reason:?}")}),None)?;
-                        }
-                        _ => {}
-                    }
+                    self.live_event(event, q)?;
                 }
             }
         }
@@ -445,16 +427,21 @@ impl Runtime {
                     self.completed_jobs += 1;
                     q.publish("asr.completed",json!({"session_id":key.audio.session_id,"epoch":key.audio.epoch,"segment_id":key.segment_id,"source_revision":key.source_revision,"decode_s":decode_s,"applied":applied==echosub_pipeline_core::Apply::Applied,"abort_observed":abort_observed}),None)?;
                     if applied == echosub_pipeline_core::Apply::Applied {
-                        let state = self
+                        let record = self
                             .core
                             .record(SegmentIdentity {
                                 audio: key.audio,
                                 segment_id: key.segment_id,
                             })
-                            .unwrap()
-                            .source_state;
-                        let event = match state {
+                            .unwrap();
+                        let event = match record.source_state {
                             echosub_pipeline_core::SourceState::Final => "source.final",
+                            echosub_pipeline_core::SourceState::Partial
+                                if record.applied_source_revision == Some(key.source_revision)
+                                    && record.source_reason.is_none() =>
+                            {
+                                "source.partial"
+                            }
                             echosub_pipeline_core::SourceState::Skipped => "segment.skipped",
                             _ => "segment.failed",
                         };
@@ -658,6 +645,23 @@ impl Runtime {
         }
         match method {
             "mock_segment" | "mock_burst" => {
+                let kind = match p.get("kind").and_then(Value::as_str) {
+                    None | Some("final") => AsrKind::Final,
+                    Some("partial")
+                        if method == "mock_segment"
+                            && self.session.mock
+                            && self.partial_enabled =>
+                    {
+                        AsrKind::Partial
+                    }
+                    Some("partial") => {
+                        return Err((
+                            "UNSUPPORTED_CAPABILITY",
+                            "Partial requires opt-in mock session",
+                        ))
+                    }
+                    _ => return Err(("INVALID_REQUEST", "Mock kind must be partial or final")),
+                };
                 let source = p
                     .get("source")
                     .and_then(Value::as_str)
@@ -672,7 +676,7 @@ impl Runtime {
                     1
                 };
                 for _ in 0..count {
-                    self.segment(source, q)?;
+                    self.segment(source, kind, q)?;
                 }
                 Ok(
                     json!({"accepted":true,"history_version":self.core.version(),"last_seq":q.last_seq(),"implementation":self.implementation()}),
@@ -714,25 +718,31 @@ impl Runtime {
             _ => Err(("UNSUPPORTED_CAPABILITY", "Unknown mock method")),
         }
     }
-    fn segment(&mut self, source: &str, q: &Outbox) -> Reply {
+    fn segment(&mut self, source: &str, kind: AsrKind, q: &Outbox) -> Reply {
         let start = self.ring.retained_range().end;
         self.ring
             .append(self.epoch, start, &[0.25; 512])
             .map_err(|_| ("INTERNAL_ERROR", "Mock PCM unavailable"))?;
-        let id = SegmentIdentity {
-            audio: self.epoch,
-            segment_id: self.next_segment,
-        };
-        self.next_segment += 1;
+        let id = self
+            .live_segment
+            .map(|(_, id)| id)
+            .unwrap_or(SegmentIdentity {
+                audio: self.epoch,
+                segment_id: self.next_segment,
+            });
+        if self.live_segment.is_none() {
+            self.next_segment += 1;
+        }
+        let range_start = self.core.record(id).map_or(start, |r| r.range.start);
         let now = self.now();
         self.core
             .submit_asr(
                 id,
                 SampleRange {
-                    start,
+                    start: range_start,
                     end: start + 512,
                 },
-                AsrKind::Final,
+                kind,
                 &self.ring,
                 &mut self.pool,
                 now,
@@ -745,7 +755,16 @@ impl Runtime {
         self.core
             .complete_asr(job.key(), Outcome::Text(source.to_owned()), now)
             .map_err(core_error)?;
-        self.changed_record(id.segment_id, "source.final", q)?;
+        self.live_segment = (kind == AsrKind::Partial).then_some((id, id));
+        self.changed_record(
+            id.segment_id,
+            if kind == AsrKind::Partial {
+                "source.partial"
+            } else {
+                "source.final"
+            },
+            q,
+        )?;
         if self.translation.is_none() {
             self.translation = self.core.next_translation(self.now()).map_err(core_error)?;
         }
@@ -762,7 +781,12 @@ impl Runtime {
         q.publish(
             name,
             json!({"history_version":self.core.version(),"record":self.wire_record(r)}),
-            None,
+            (name == "source.partial").then(|| {
+                format!(
+                    "source-partial/{}/{}/{}",
+                    self.epoch.session_id, self.epoch.epoch, id
+                )
+            }),
         )
         .map_err(|_| ("INTERNAL_ERROR", "Event unavailable"))?;
         Ok(json!({}))

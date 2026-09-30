@@ -17,12 +17,14 @@ pub const CAPACITY: usize = 32;
 struct Stream<B: Backend> {
     detector: Detector<B>,
     segmenter: VadSegmenter,
+    partial_enabled: bool,
 }
 impl<B: Backend> Stream<B> {
     fn new(backend: B, identity: AudioIdentity, start: u64) -> Self {
         Self {
             detector: Detector::new(backend, identity, start),
             segmenter: VadSegmenter::new(identity, start, VadSettings::default()).unwrap(),
+            partial_enabled: false,
         }
     }
     fn collect(&mut self, events: Vec<SpeechEvent>) -> Vec<SpeechEvent> {
@@ -33,6 +35,7 @@ impl<B: Backend> Stream<B> {
                     self.detector.reset_recurrent();
                 }
                 matches!(e, SpeechEvent::Final { .. } | SpeechEvent::Discarded { .. })
+                    || (self.partial_enabled && matches!(e, SpeechEvent::Partial(_)))
             })
             .collect()
     }
@@ -77,7 +80,7 @@ pub struct LiveOwner {
 }
 impl LiveOwner {
     #[cfg(feature = "native-vad")]
-    pub fn start(config: VadConfig, identity: AudioIdentity) -> Self {
+    pub fn start(config: VadConfig, identity: AudioIdentity, partial_enabled: bool) -> Self {
         let shared = Arc::new(Shared::default());
         let (input, rx) = mpsc::sync_channel::<AudioFrame>(CAPACITY);
         let (tx, output) = mpsc::sync_channel(CAPACITY);
@@ -111,7 +114,10 @@ impl LiveOwner {
                             return Err("LIVE_VAD_STALE_INPUT");
                         }
                         let stream = stream.get_or_insert_with(|| {
-                            Stream::new(backend.take().unwrap(), identity, frame.range.start)
+                            let mut stream =
+                                Stream::new(backend.take().unwrap(), identity, frame.range.start);
+                            stream.partial_enabled = partial_enabled;
+                            stream
                         });
                         let events = stream.push(&frame, now)?;
                         s.frames.fetch_add(1, Ordering::Relaxed);
@@ -150,7 +156,7 @@ impl LiveOwner {
         }
     }
     #[cfg(not(feature = "native-vad"))]
-    pub fn start(_: VadConfig, _: AudioIdentity) -> Self {
+    pub fn start(_: VadConfig, _: AudioIdentity, _: bool) -> Self {
         unreachable!("CLI requires native-vad")
     }
     pub fn stop(&self) {
@@ -226,6 +232,43 @@ mod tests {
         };
         assert!(segment.pcm_range.start >= 16000 && segment.pcm_range.end <= 16000 + 26 * 512);
         assert_eq!(s.detector.calls(), 10);
+    }
+    #[test]
+    fn partials_are_opt_in_and_share_the_final_vad_identity() {
+        for enabled in [false, true] {
+            let mut s = Stream::new(Voiced { calls: 0 }, ID, 16000);
+            s.partial_enabled = enabled;
+            let mut events = Vec::new();
+            for i in 0..80 {
+                events.extend(s.push(&frame(i, 0.2), i * 32_000_000).unwrap());
+            }
+            for i in 80..96 {
+                events.extend(s.push(&frame(i, 0.), i * 32_000_000).unwrap());
+            }
+            let partials: Vec<_> = events
+                .iter()
+                .filter_map(|e| match e {
+                    SpeechEvent::Partial(s) => Some(s),
+                    _ => None,
+                })
+                .collect();
+            let final_id = events
+                .iter()
+                .find_map(|e| match e {
+                    SpeechEvent::Final { segment, .. } => Some(segment.id),
+                    _ => None,
+                })
+                .unwrap();
+            if enabled {
+                assert!(partials.len() >= 2);
+                assert!(partials.iter().all(|s| s.id == final_id));
+                assert!(partials
+                    .windows(2)
+                    .all(|w| w[0].pcm_range.end < w[1].pcm_range.end));
+            } else {
+                assert!(partials.is_empty());
+            }
+        }
     }
     #[test]
     fn stop_discards_active_speech_and_stale_frames_are_rejected() {

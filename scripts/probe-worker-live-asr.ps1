@@ -1,5 +1,6 @@
-param([switch] $Offline, [switch] $NoBuild, [switch] $Sessions)
+param([switch] $Offline, [switch] $NoBuild, [switch] $Sessions, [switch] $Partials)
 $ErrorActionPreference = 'Stop'
+if ($Sessions -and $Partials) { throw 'Choose Sessions or Partials' }
 $repo = Split-Path $PSScriptRoot -Parent
 $oldTarget = $env:CARGO_TARGET_DIR
 $env:CARGO_TARGET_DIR = Join-Path $repo 'target/model-probe-cpu'
@@ -17,6 +18,7 @@ try {
     New-Item -ItemType Directory -Path $output -Force | Out-Null
     $probeArgs = @((Join-Path $env:CARGO_TARGET_DIR 'release/echosub-worker.exe'), ([IO.Path]::GetFullPath((Join-Path (Join-Path $repo 'benchmarks') $model.path))), $model.sha256, (Join-Path $repo 'benchmarks/fixtures/local-tts/en-01.wav'), (Join-Path $output 'report.json'), (Join-Path $repo 'benchmarks/vad-assets.json'))
     if ($Sessions) { $probeArgs = @('--sessions') + $probeArgs }
+    if ($Partials) { $probeArgs[3] = Join-Path $repo 'benchmarks/fixtures/local-tts/en-10.wav'; $probeArgs = @('--partials') + $probeArgs }
     & dotnet run --project $project --no-build -- @probeArgs
     if ($LASTEXITCODE -ne 0) { throw 'Live worker ASR smoke failed' }
     Write-Host "Report: $output/report.json"

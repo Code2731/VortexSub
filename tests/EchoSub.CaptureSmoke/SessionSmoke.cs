@@ -4,7 +4,7 @@ using EchoSub.Desktop;
 
 internal static class SessionSmoke
 {
-    public static async Task Run(string[] args)
+    public static async Task Run(string[] args, bool partialEnabled = false)
     {
         if (args.Length != 6 || !OperatingSystem.IsWindows()) throw new ArgumentException("Windows live session assets required");
         using var assets = JsonDocument.Parse(File.ReadAllText(args[5]));
@@ -19,6 +19,7 @@ internal static class SessionSmoke
         LiveAsrSmoke.WriteLoop(args[3], wave);
         double pauseResponse = 0, stopResponse = 0, idleAfterStop = 0;
         var finals = new List<HistoryRecord>();
+        var partials = new List<HistoryRecord>();
         string phase = "model_preparation";
         bool pauseNativeObserved = false, resumeBeforeNativeReturn = false;
         HistoryRecord? interrupted = null;
@@ -29,7 +30,7 @@ internal static class SessionSmoke
             other_system_audio_isolated = false, quality_gate_passed = false,
             pause_response_s = pauseResponse, stop_response_s = stopResponse,
             pause_native_observed = pauseNativeObserved, resume_before_native_return = resumeBeforeNativeReturn,
-            idle_after_stop_s = idleAfterStop, finals, last_state = last
+            idle_after_stop_s = idleAfterStop, partial_enabled = partialEnabled, partials, finals, last_state = last
         }, new JsonSerializerOptions { WriteIndented = true }));
         await using var client = WorkerClient.Start(args[0], arguments: options);
         async Task<JsonElement> State() { last = await client.SendAsync("get_state"); return last; }
@@ -56,6 +57,9 @@ internal static class SessionSmoke
                 await State(); Save(false);
                 if (Is(last, "Error")) throw new Exception("Session failed: " + last.GetRawText());
                 var history = await client.ReadHistoryAsync();
+                Require(last.GetProperty("diagnostic_asr").GetProperty("pending_language_count").GetInt32() <= 3, "Bounded pending language metadata");
+                foreach (var partial in history.Records.Where(r => r.SessionId == session && r.Epoch == epoch && r.SourceState == "Partial" && r.AppliedSourceRevision > 0))
+                    if (!partials.Any(p => p.SessionId == partial.SessionId && p.Epoch == partial.Epoch && p.SegmentId == partial.SegmentId && p.AppliedSourceRevision == partial.AppliedSourceRevision)) partials.Add(partial);
                 var record = history.Records.LastOrDefault(r => r.SessionId == session && r.Epoch == epoch && r.SourceState == "Final");
                 if (record is not null) return record;
                 await Task.Delay(20);
@@ -69,7 +73,7 @@ internal static class SessionSmoke
             var hello = await client.SendAsync("hello", new { client = "SessionSmoke", protocol_major = 1 });
             Require(hello.GetProperty("capabilities").GetProperty("session_control").GetBoolean(), "Session capability");
             await Wait(s => s.GetProperty("model").GetProperty("state").GetString() == "Ready", 30);
-            var config = new { history_policy = "retain", config = new { source_language = "en" } };
+            var config = new { history_policy = "retain", config = new { source_language = "en", partial_enabled = partialEnabled } };
             phase = "first_session";
             var start = await client.SendAsync("start_session", config);
             var id = start.GetProperty("session_id").GetString()!;
@@ -78,10 +82,11 @@ internal static class SessionSmoke
             var internalId = last.GetProperty("session").GetProperty("internal_session_id").GetUInt64();
             Play();
             finals.Add(await Final(internalId, start.GetProperty("epoch").GetUInt64()));
+            if (partialEnabled) Require(partials.Any(p => p.SessionId == finals[0].SessionId && p.Epoch == finals[0].Epoch && p.SegmentId == finals[0].SegmentId && p.AppliedSourceRevision < finals[0].AppliedSourceRevision), "Applied live partial becomes final with same identity");
             Require(finals[0].ProductSessionId == id && finals[0].SessionAudioStartSeconds >= 0, "UUID/session audio metadata");
             phase = "pause_during_native";
             await Wait(s => s.GetProperty("diagnostic_asr").GetProperty("native_running").GetBoolean(), 30);
-            interrupted = (await client.ReadHistoryAsync()).Records.LastOrDefault(r => r.SessionId == internalId && r.SourceState == "FinalPending");
+            interrupted = (await client.ReadHistoryAsync()).Records.LastOrDefault(r => r.SessionId == internalId && r.SourceState is "FinalPending" or "Partial");
             Require(interrupted is not null, "Native source identified before Pause");
             pauseNativeObserved = true;
             var clock = Stopwatch.StartNew();

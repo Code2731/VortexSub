@@ -52,7 +52,7 @@ UUID 대응 정보는 history에 남은 세션(최대 1,000개)과 현재 세션
 세션 경과 초는 Pause를 포함하고 Idle에서 고정된다.
 
 제품 목표의 `session_id` UUID/type-data 형식으로의 전면 전환,
-apply_config, 시작 시 history 정책 선택, Recovering, partial·번역·macOS는 미구현이다.
+apply_config, 시작 시 history 정책 선택, Recovering, 번역·macOS는 미구현이다. 부분 전사는 `config.partial_enabled`로 선택하며 기본값은 false다. [계약](WORKER_PARTIAL_ASR.md).
 이 어댑터를 제품 명세 전체의 완료로 간주하지 않는다.
 
 ## 확인 범위

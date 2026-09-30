@@ -146,3 +146,13 @@ Rust 95개·C# IPC 및 실제 Windows 원문 기록 삭제를 확인했다.
 다음 구현은 M2의 opt-in 부분 전사다. 기존 최신 partial 1개/확정 우선/단일 native
 예약과 동일 segment revision을 live VAD에 연결하고, Pause/Stop의 늦은 결과 거부와
 UI의 인식 중 표시를 먼저 구현한다. 기본 final-only 후보와 전체 품질 gate는 유지한다.
+
+## T02-04a 선택형 부분 전사 (2026-10-01)
+
+기본 false 설정과 live VAD 부분 요청, 동일 제품 구간의 revision 갱신,
+확정 우선 취소·native 반환 전 예약, 유한 언어 metadata와 UI 인식 중 표시를
+연결했다. Rust 98개·C# IPC 및 실제 CPU loopback 부분 6개 revision→확정 3개,
+Pause/Resume/Stop/export/clear가 통과했다. 첫 시작 timeout은 보존했다.
+[계약](WORKER_PARTIAL_ASR.md) · [근거](evidence/T02-04a-windows-partial-asr.md).
+다음은 기존 M2 계획의 overlap/무음 결과 정합이다. 화면 수용·자연 음성 품질,
+번역·macOS·시작 안정성은 후속이며 timeout 원인 분석 보류를 유지한다.

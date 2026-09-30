@@ -587,6 +587,93 @@ fn mock_source_translation_and_versioned_pages_round_trip() {
 }
 
 #[test]
+fn opt_in_partial_revisions_freeze_at_final_and_pause_discards_active_source() {
+    let mut w = Worker::start_args(vec!["--mock-pipeline", "--mock-session-control"]);
+    hello(&mut w);
+    let invalid = w.send(command(
+        "invalid",
+        "start_session",
+        json!({"history_policy":"retain","config":{"source_language":"en","partial_enabled":"yes"}}),
+    ));
+    assert_eq!(invalid["error"]["code"], "INVALID_REQUEST");
+    let start = w.send(command(
+        "start",
+        "start_session",
+        json!({"history_policy":"retain","config":{"source_language":"en","partial_enabled":true}}),
+    ));
+    assert_eq!(start["ok"], true);
+    let uuid = start["result"]["session_id"].clone();
+    for text in ["first", "updated"] {
+        assert_eq!(
+            w.send(command(
+                "partial",
+                "mock_segment",
+                json!({"kind":"partial","source":text})
+            ))["ok"],
+            true
+        );
+    }
+    let partial =
+        w.send(command("history", "get_history", json!({})))["result"]["records"][0].clone();
+    assert_eq!(partial["source_state"], "Partial");
+    assert_eq!(partial["source_revision"], 2);
+    assert_eq!(partial["source"], "updated");
+    assert_ne!(partial["translation_state"], "Pending");
+    w.send(command(
+        "final",
+        "mock_segment",
+        json!({"source":"confirmed"}),
+    ));
+    let final_record =
+        w.send(command("history", "get_history", json!({})))["result"]["records"][0].clone();
+    assert_eq!(final_record["segment_id"], partial["segment_id"]);
+    assert_eq!(final_record["source_revision"], 3);
+    assert_eq!(final_record["source_state"], "Final");
+    w.send(command(
+        "partial",
+        "mock_segment",
+        json!({"kind":"partial","source":"interrupted"}),
+    ));
+    w.send(command(
+        "pause",
+        "pause_session",
+        json!({"session_id":uuid}),
+    ));
+    let records = w.send(command("history", "get_history", json!({})))["result"]["records"].clone();
+    assert_eq!(records[1]["source_state"], "Discarded");
+    w.send(command(
+        "resume",
+        "resume_session",
+        json!({"session_id":uuid}),
+    ));
+    w.send(command(
+        "final",
+        "mock_segment",
+        json!({"source":"resumed"}),
+    ));
+    let records = w.send(command("history", "get_history", json!({})))["result"]["records"].clone();
+    assert_eq!(records.as_array().unwrap().len(), 3);
+    assert!(records[2]["segment_id"].as_u64() > records[1]["segment_id"].as_u64());
+    assert!(records[2]["epoch"].as_u64() > records[1]["epoch"].as_u64());
+    w.send(command("stop", "stop_session", json!({"session_id":uuid})));
+    w.send(command(
+        "new",
+        "start_session",
+        json!({"history_policy":"retain","config":{"source_language":"en"}}),
+    ));
+    assert_eq!(
+        w.send(command(
+            "partial",
+            "mock_segment",
+            json!({"kind":"partial","source":"disabled"})
+        ))["error"]["code"],
+        "UNSUPPORTED_CAPABILITY"
+    );
+    w.send(command("shutdown", "shutdown", json!({})));
+    w.finish();
+}
+
+#[test]
 fn worst_case_escaped_text_history_stays_below_message_limit() {
     let mut worker = Worker::start_with(true);
     hello(&mut worker);

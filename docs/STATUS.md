@@ -1,6 +1,6 @@
 # 구현 상태
 
-최종 갱신: 2026-10-01. 결과 범위: Windows T00-01, 독립형 T00-02 WASAPI probe, T00-04.1 모델 harness, T00-04.2 실제 취소·수명 probe, T00-04.4 동시 부하, T00-04.3 MOCK 오버레이, T01-01a/b 독립 오디오·발화 코어, T01-02a 독립 상태·작업 큐, T01-02b mock worker 전달·버전 history. T02-01a에서 실제 Whisper를 worker 파일 진단과 history에 연결했다. T02-01b에서 실제 Silero VAD도 파일 경로에 연결했다. T02-02a에서 실제 WASAPI PCM 정규화·worker 제어를 연결했다. T02-02b에서 Windows live 캡처→연속 VAD→Whisper→history도 진단으로 연결했다. T02-02e에서 진단 원문 history·오버레이 UI를 연결했다. T02-03a에서 UUID session 제어 어댑터를 연결했다. 전체 제품 wire·번역과 macOS 번들은 미구현이며 실제 원문 UI 렌더링 수용은 미검증이다.
+최종 갱신: 2026-10-01. 결과 범위: Windows T00-01, 독립형 T00-02 WASAPI probe, T00-04.1 모델 harness, T00-04.2 실제 취소·수명 probe, T00-04.4 동시 부하, T00-04.3 MOCK 오버레이, T01-01a/b 독립 오디오·발화 코어, T01-02a 독립 상태·작업 큐, T01-02b mock worker 전달·버전 history. T02-01a에서 실제 Whisper를 worker 파일 진단과 history에 연결했다. T02-01b에서 실제 Silero VAD도 파일 경로에 연결했다. T02-02a에서 실제 WASAPI PCM 정규화·worker 제어를 연결했다. T02-02b에서 Windows live 캡처→연속 VAD→Whisper→history도 진단으로 연결했다. T02-02e에서 진단 원문 history·오버레이 UI를 연결했다. T02-03a에서 UUID session 제어 어댑터를 연결했다. T02-03c/d에서 UTC·원문 저장·기록 삭제를, T02-04a에서 기본 꺼짐인 부분 전사를 연결했다. 전체 제품 wire·번역과 macOS 번들은 미구현이며 실제 원문 UI 렌더링 수용은 미검증이다.
 
 | 작업 | 상태 | 근거 및 다음 단계 |
 |---|---|---|
@@ -25,7 +25,8 @@
 | T02-03b | PARTIAL: UUID history·세션 상대 시간·native Pause 확인 | source/history UUID 메타데이터·UI UUID 필터·최대 1,001개 session metadata 구현. Rust 92개·C# IPC PASS, 빈 세션 1,001회 뒤 UUID 유지. 실제 첫 시작 timeout 1회; 재실행 native Pause/Resume·final 3개 PASS. 시작/화면/품질 gate는 유지. [근거](evidence/T02-03b-windows-session-history.md) |
 | T02-03c | PARTIAL: UTC·원문 TXT/SRT export·시작 진단 보완 | Rust 94개·C# IPC/native CPU 빌드 PASS, 실제 두 세션 TXT/SRT 파일 저장 PASS. 모델 없는 시작 16/16 정상; 다음 실패용 endpoint/thread ID·덤프 수집 추가. 근본 원인·UI 저장 창·제품 수용 미확정. [export 근거](evidence/T02-03c-windows-history-export.md) · [시작 진단](evidence/T02-03c-windows-startup-diagnostics.md) |
 | T02-03d | PARTIAL: 세션 기록 삭제·재개 ID 보존 | Rust 95개·C# IPC/native CPU 빌드 및 실제 이전 세션 삭제/새 세션·저장 파일 보존 PASS. UI 확인 창 조작·Mac 미검증. 사용자 요청으로 시작 timeout 원인 분석은 후속으로 보류. [근거](evidence/T02-03d-windows-history-clear.md) |
-| M2 | PARTIAL | CPU 실제 VAD 파일 분할·전사·제어/history 연결. WASAPI live final/history 진단 연결. 시작 안정성·화면 자막·제품 session·자연 음성 경계 수용 미통과. |
+| T02-04a | PARTIAL: opt-in 부분 전사·동일 구간 revision·확정 우선 연결 | Rust 98개·C# IPC/native CPU PASS. 실제 부분 6개 revision→확정 3개 및 Pause/Resume/export/clear PASS. 첫 시작 timeout 1회 보존; UI/품질/Mac 미검증. [계약](WORKER_PARTIAL_ASR.md) · [근거](evidence/T02-04a-windows-partial-asr.md) |
+| M2 | PARTIAL | CPU 실제 VAD·전사·제어/history 및 Windows opt-in 부분 전사 연결. 시작 안정성·화면 자막·자연 음성 경계 수용 미통과. |
 | M3~M5 | NOT_STARTED | 해당 제품 통합/실기기 수용 결과 없음. |
 
 ## 확인된 Windows 개발 환경

@@ -240,6 +240,13 @@ impl Pipeline {
             self.translation_queue.len(),
         )
     }
+    /// At most two finals and one latest partial. Adapters can prune job metadata.
+    pub fn pending_asr_keys(&self) -> impl Iterator<Item = JobIdentity> + '_ {
+        self.final_queue
+            .iter()
+            .chain(self.partial.iter())
+            .map(AsrJob::key)
+    }
     pub fn cancellation(&self) -> Cancellation {
         Cancellation {
             asr: self.asr.filter(|f| f.cancelled).map(|f| f.key),

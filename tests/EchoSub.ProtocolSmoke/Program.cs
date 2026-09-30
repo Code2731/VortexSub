@@ -9,6 +9,31 @@ if (args.Length != 1 || !File.Exists(args[0]))
 
 var workerPath = Path.GetFullPath(args[0]);
 
+await using (var client = WorkerClient.Start(workerPath, arguments: new[] { "--mock-pipeline", "--mock-session-control" }))
+{
+    var hello = await client.SendAsync("hello", new { client = "PartialSmoke", protocol_major = 1 });
+    Require(hello.GetProperty("capabilities").GetProperty("source_partial").GetBoolean(), "explicit mock partial capability");
+    var started = await client.SendAsync("start_session", new { history_policy = "retain", config = new { source_language = "en", partial_enabled = true } });
+    var id = started.GetProperty("session_id").GetString()!;
+    await client.SendAsync("mock_segment", new { kind = "partial", source = "인식 중" });
+    var first = (await client.ReadHistoryAsync()).Records.Single();
+    Require(first.SourceState == "Partial" && first.AppliedSourceRevision == first.SourceRevision, "typed partial source");
+    await client.SendAsync("mock_segment", new { kind = "partial", source = "갱신 원문" });
+    var updated = (await client.ReadHistoryAsync()).Records.Single();
+    Require(updated.SegmentId == first.SegmentId && updated.SourceRevision > first.SourceRevision, "partial revision replaces same record");
+    await client.SendAsync("mock_segment", new { source = "확정 원문" });
+    var final = (await client.ReadHistoryAsync()).Records.Single();
+    Require(final.SourceState == "Final" && final.SegmentId == first.SegmentId && final.SourceRevision > updated.SourceRevision, "final freezes same segment");
+    await client.SendAsync("mock_segment", new { kind = "partial", source = "중단 원문" });
+    await client.SendAsync("pause_session", new { session_id = id });
+    var paused = await client.ReadHistoryAsync();
+    Require(paused.Records[^1].SourceState == "Discarded", "pause discards active partial");
+    await client.SendAsync("resume_session", new { session_id = id });
+    await client.SendAsync("mock_segment", new { source = "재개 확정" });
+    var resumed = await client.ReadHistoryAsync();
+    Require(resumed.Records[^1].SegmentId > paused.Records[^1].SegmentId && resumed.Records[^1].Epoch > first.Epoch, "resume allocates fresh partial identity");
+}
+
 await using (var client = WorkerClient.Start(workerPath))
 {
     var processId = client.ProcessId;

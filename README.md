@@ -29,7 +29,7 @@ macOS에서는 고정 SDK 설치 후 `bash scripts/check.sh`를 실행합니다.
 
 ## 실제 원문 진단 UI
 
-`./run.cmd -Live -Offline`로 실행하고 모델 Ready 뒤 출력 장치·원문 언어를 선택해 **세션 시작**을 누르세요. 확정 원문 history와 오버레이를 연결했으며 번역·partial은 후속입니다. 일시정지/종료 후 정리가 끝나면 세션별 **TXT 저장 / 원문 SRT 저장**을 사용할 수 있습니다. [저장·UTC·시간축](docs/HISTORY_EXPORT.md). 선택 세션의 메모리 기록 삭제도 제공합니다. 실제 클릭·원문 화면 수용은 미검증입니다. [실행과 확인 범위](docs/LIVE_UI.md)
+`./run.cmd -Live -Offline`로 실행하고 모델 Ready 뒤 출력 장치·원문 언어를 선택해 **세션 시작**을 누르세요. 원문 history와 오버레이를 연결했습니다. 부분 전사는 기본 꺼짐이며 세션 시작 전 **부분 전사 켜기**로 선택합니다. 번역은 후속입니다. [부분 전사 계약](docs/WORKER_PARTIAL_ASR.md). 일시정지/종료 후 정리가 끝나면 세션별 **TXT 저장 / 원문 SRT 저장**을 사용할 수 있습니다. [저장·UTC·시간축](docs/HISTORY_EXPORT.md). 선택 세션의 메모리 기록 삭제도 제공합니다. 실제 클릭·원문 화면 수용은 미검증입니다. [실행과 확인 범위](docs/LIVE_UI.md)
 
 ## Windows 시스템 오디오 캡처 probe
 
@@ -94,7 +94,7 @@ ONNX Runtime 1.22.0 CPU로 발화 범위를 나누고 실제 전사합니다. �
 
 `scripts/probe-worker-live-asr.ps1 -Offline`은 기존 영어 TTS를 잠깐 재생해
 실제 loopback→연속 Silero→Whisper→history를 확인합니다. 추론 중 Stop·재시작,
-시간축 gap, 해시 오류와 활성 종료도 검사합니다. 화면 자막·번역·partial은 없으며
+시간축 gap, 해시 오류와 활성 종료도 검사합니다. 부분 전사 검사는 `-Partials`로 실행합니다. 화면 수용·번역은 후속이며
 게임/자연 음성 품질 gate는 미통과입니다. [live 실행·계약](docs/WORKER_LIVE_ASR.md)
 
 ## MOCK 자막 오버레이

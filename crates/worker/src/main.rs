@@ -188,6 +188,7 @@ fn serve() -> io::Result<()> {
                             "output_device_selection": runtime.capture.enabled,
                             "capture_pcm": runtime.capture.enabled,
                             "live_asr": runtime.is_live(),
+                            "source_partial": runtime.is_live() || runtime.session.mock,
                             "session_control": runtime.session.enabled,
                             "session_history_uuid": runtime.session.enabled,
                             "history_export": runtime.session.enabled,

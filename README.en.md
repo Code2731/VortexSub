@@ -29,7 +29,7 @@ On macOS, install the pinned SDKs and run `bash scripts/check.sh`. Platform supp
 
 ## Live source diagnostic UI
 
-Run `./run.cmd -Live -Offline`, wait for model Ready, select an output device and source language, then click **세션 시작** (Start session). Final source history and an overlay are connected; translation and partial output are pending. After Pause/Stop and owner cleanup, select a retained session and use **TXT 저장 / 원문 SRT 저장** (Save TXT / source SRT). See [export, UTC, and timing](docs/HISTORY_EXPORT.md). You can also clear in-memory history for the selected session after confirmation. Saved files remain intact. Actual clicks and source rendering remain unverified. See [execution and verification scope](docs/LIVE_UI.md).
+Run `./run.cmd -Live -Offline`, wait for model Ready, select an output device and source language, then click **세션 시작** (Start session). Source history and an overlay are connected. Partial output is off by default; select **부분 전사 켜기** before starting a session to enable it. Translation remains pending. See [partial ASR contracts](docs/WORKER_PARTIAL_ASR.md). After Pause/Stop and owner cleanup, select a retained session and use **TXT 저장 / 원문 SRT 저장** (Save TXT / source SRT). See [export, UTC, and timing](docs/HISTORY_EXPORT.md). You can also clear in-memory history for the selected session after confirmation. Saved files remain intact. Actual clicks and source rendering remain unverified. See [execution and verification scope](docs/LIVE_UI.md).
 
 ## Windows system-audio capture probe
 
@@ -97,8 +97,8 @@ remains Failed; **the quality gate has not passed**. See the
 
 `scripts/probe-worker-live-asr.ps1 -Offline` briefly plays existing English TTS
 and checks real loopback→continuous Silero→Whisper→history. It checks Stop/restart
-during inference, timeline gaps, hash failures, and active termination. Subtitle UI,
-translation, and partial inference are pending; game/natural-speech quality gates
+during inference, timeline gaps, hash failures, and active termination. Use `-Partials` for opt-in partial output. UI acceptance and
+translation remain pending; game/natural-speech quality gates
 remain unpassed. See [live execution and contracts](docs/WORKER_LIVE_ASR.md).
 
 ## MOCK caption overlay

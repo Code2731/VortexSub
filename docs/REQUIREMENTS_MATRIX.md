@@ -11,7 +11,7 @@
 | AUD-005 | T01-01, T02-02/03 | UT-002, HW-W02, HW-M01 | PARTIAL: T01-01a sample 시간축·epoch reanchor/gap fixture 통과; 실제 native clock·장치/worker 미연결 |
 | AUD-006 (P1) | 후속 별도 작업 | 후속 수용 시험 필요 | DEFERRED |
 | ASR-001 | T00-04.1, T02-01/02/03 | P0-MODEL, HW-E2E | PARTIAL: Windows 합성 en/ko 실제 ASR probe; 시스템 전사·ja·Mac 미검증 |
-| ASR-002 | T01-02, T02-01 | UT-004, IT-006 | PARTIAL: 최신 partial·final 우선/동결·취소 반환 대기 mock fixture 통과; 실제 native/worker 미연결 |
+| ASR-002 | T01-02, T02-01 | UT-004, IT-006 | PARTIAL: 최신 partial·final 우선/동결·취소 반환 대기 fixture 및 worker IPC 통과. Windows opt-in 연결; 실제 결과/한계는 T02-04a 근거 참조 |
 | ASR-003 | T01-01, T02-01 | UT-003/005, IT-005/006 | PARTIAL: 512-frame/short tail·exact zero PCM fixture 통과; 확률 기반 VAD segmentation·mock 무음 600초 요청 0 fixture 통과; 실제 Silero·반복/모델 억제 통합 미검증 |
 | ASR-004 | T01-02, T02-01 | UT-005, 긴 발화 fixture | PARTIAL: 8초 PCM 상한·overlap·새 음성 보존 fixture 통과; 실제 긴 발화 전사/텍스트 dedup 미검증 |
 | ASR-005 (P1) | 후속 별도 작업 | 후속 수용 시험 필요 | DEFERRED |
