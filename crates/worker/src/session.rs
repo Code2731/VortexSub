@@ -14,7 +14,7 @@ pub struct Session {
     started_ns: u64,
     ended_ns: Option<u64>,
     config: Value,
-    metadata: BTreeMap<u64, (String, u64)>,
+    metadata: BTreeMap<u64, (String, u64, String)>,
 }
 impl Default for Session {
     fn default() -> Self {
@@ -32,9 +32,15 @@ impl Default for Session {
     }
 }
 impl Session {
+    pub fn export_info(&self, uuid: &str) -> Option<(u64, u64, &str)> {
+        self.metadata.iter().find_map(|(key, (id, origin, utc))| {
+            (id == uuid).then_some((*key, *origin, utc.as_str()))
+        })
+    }
     pub fn decorate_record(&self, internal_id: u64, start: u64, end: u64, value: &mut Value) {
-        if let Some((uuid, origin)) = self.metadata.get(&internal_id) {
+        if let Some((uuid, origin, utc)) = self.metadata.get(&internal_id) {
             value["product_session_id"] = json!(uuid);
+            value["session_started_at_utc"] = json!(utc);
             value["session_audio_start_s"] = json!(start.saturating_sub(*origin) as f64 / 16000.);
             value["session_audio_end_s"] = json!(end.saturating_sub(*origin) as f64 / 16000.);
         }
@@ -45,7 +51,7 @@ impl Session {
         } else {
             0
         };
-        json!({"session_id":self.id,"internal_session_id":if self.id.is_some(){Some(self.internal_id)}else{None},
+        json!({"session_id":self.id,"started_at_utc":self.metadata.get(&self.internal_id).map(|(_,_,utc)|utc),"internal_session_id":if self.id.is_some(){Some(self.internal_id)}else{None},
             "epoch":if self.id.is_some(){identity.epoch}else{0},"state":self.state,
             "elapsed_ms":elapsed/1_000_000,"elapsed_s":elapsed as f64/1e9,
             "audio_origin_s":self.started_ns as f64/1e9,"history_policy":"retain",
@@ -53,7 +59,7 @@ impl Session {
     }
 }
 
-fn new_uuid() -> Result<String, (&'static str, &'static str)> {
+pub(super) fn new_uuid() -> Result<String, (&'static str, &'static str)> {
     #[cfg(windows)]
     {
         // CoCreateGuid does not require COM initialization or a capture owner.
@@ -135,6 +141,7 @@ impl Runtime {
                 return Err(("INVALID_REQUEST", "Invalid render endpoint ID"));
             }
             let id = new_uuid()?;
+            let utc = super::export::utc_now()?;
             let internal_id = self
                 .epoch
                 .session_id
@@ -155,7 +162,7 @@ impl Runtime {
                 .map_err(|_| ("INTERNAL_ERROR", "Session clock exhausted"))?;
             self.session
                 .metadata
-                .insert(internal_id, (id.clone(), audio_origin));
+                .insert(internal_id, (id.clone(), audio_origin, utc));
             self.session.id = Some(id);
             self.session.internal_id = internal_id;
             self.session.started_ns = started_ns;

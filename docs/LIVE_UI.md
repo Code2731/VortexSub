@@ -14,6 +14,8 @@ Whisper base, Silero v6.0, ONNX Runtime CPU 파일은 기존 manifest 경로에
 3. 최근 100개 구간과 **원문 오버레이 표시**로 확정 원문을 확인한다.
 4. 장치/언어 변경 전 **세션 종료**를 누른다. 실패 시 native phase와
    시작 대기 시간을 확인하고 필요하면 **Worker 종료 → 다시 연결**한다.
+5. 일시정지/종료 후 정리가 끝나면 history 아래에서 세션을 선택해
+   **TXT 저장** 또는 **원문 SRT 저장**한다. [저장 형식·제약](HISTORY_EXPORT.md).
 
 ## 표시·수명 계약
 

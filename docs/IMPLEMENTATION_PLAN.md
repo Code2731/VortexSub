@@ -123,3 +123,15 @@ Windows UUID 제어 어댑터와 UI 시작/Pause/Resume/Stop을 연결했다. hi
 ## T02-03b UUID history·native Pause (2026-10-01)
 
 source/history에 UUID와 세션 상대 시간 메타데이터를 추가하고 C# 검증·UI UUID 필터를 연결했다. 보존 history session+현재 session으로 대응 정보의 수명을 제한했다. 빈 세션 1,001회 IPC 및 native full 관측 후 Pause/Resume를 확인했다. 실제 시작 timeout 1회를 그대로 보존한다. [범위·근거](evidence/T02-03b-windows-session-history.md). 다음은 세션 시작 UTC·history 내보내기/시간축, 전체 제품 wire 및 화면 수용이다. 시작 안정성·partial/경계 정합·번역·Mac gate는 유지한다.
+
+## T02-03c UTC·원문 export·시작 실패 관측 (2026-10-01)
+
+세션 시작 UTC와 TXT/확정 원문 SRT 저장을 연결했다. Paused/Idle에서 owner/native
+정리가 끝난 뒤 UUID별 남은 snapshot을 명시적으로 저장한다. Rust 94개·C# IPC,
+native CPU 및 실제 두 세션 파일 저장을 확인했다. [계약](HISTORY_EXPORT.md) ·
+[근거](evidence/T02-03c-windows-history-export.md). 시작 timeout은 근본 원인 미확정이다.
+Initialize 전에 endpoint/mix/thread ID를 기록하고 모델 없는 실패 probe에 별도 helper
+덤프 수집을 추가했다. 이번 장치별 16회는 성공해 실패 스택을 얻지 못했다.
+[다음 증거 수집·분석](evidence/T02-03c-windows-startup-diagnostics.md).
+다음은 실패 스택으로 대기 지점 확인 및 UI 실제 저장/조작 수용이다. 전체 제품 wire,
+partial/overlap 정합·번역·장치 전환·macOS gate는 유지한다.

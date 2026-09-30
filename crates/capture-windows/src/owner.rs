@@ -75,6 +75,7 @@ impl PacketClock {
 }
 #[derive(Clone)]
 pub struct Info {
+    pub native_thread_id: u32,
     pub device_id: String,
     pub rate: u32,
     pub channels: u16,
@@ -160,9 +161,22 @@ impl CaptureOwner {
                     return Err(2);
                 }
                 s.phase.store(3, Ordering::Release);
-                let active =
-                    Capture::open_observed(&endpoint, |p| s.phase.store(p, Ordering::Release))
-                        .map_err(|_| 3)?;
+                let native_thread_id =
+                    unsafe { windows::Win32::System::Threading::GetCurrentThreadId() };
+                let active = Capture::open_observed_info(
+                    &endpoint,
+                    |p| s.phase.store(p, Ordering::Release),
+                    |id, f| {
+                        *s.info.lock().unwrap() = Some(Info {
+                            native_thread_id,
+                            device_id: id.to_owned(),
+                            rate: f.rate,
+                            channels: f.channels,
+                            mask: f.channel_mask,
+                        });
+                    },
+                )
+                .map_err(|_| 3)?;
                 let f = active.format;
                 if !matches!(f.kind, SampleKind::Float)
                     || f.bits != 32
@@ -180,12 +194,6 @@ impl CaptureOwner {
                     },
                 )
                 .map_err(|_| 4)?;
-                *s.info.lock().unwrap() = Some(Info {
-                    device_id: active.device_id.clone(),
-                    rate: f.rate,
-                    channels: f.channels,
-                    mask: f.channel_mask,
-                });
                 format_tx.send(format).map_err(|_| 5)?;
                 s.ready.store(true, Ordering::Release);
                 s.phase.store(4, Ordering::Release);

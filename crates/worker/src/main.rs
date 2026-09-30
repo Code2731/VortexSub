@@ -190,6 +190,7 @@ fn serve() -> io::Result<()> {
                             "live_asr": runtime.is_live(),
                             "session_control": runtime.session.enabled,
                             "session_history_uuid": runtime.session.enabled,
+                            "history_export": runtime.session.enabled,
                             "asr": runtime.has_native(),
                             "fixture_asr": runtime.has_native() && !runtime.is_live(),
                             "vad": runtime.has_vad(),
@@ -210,6 +211,7 @@ fn serve() -> io::Result<()> {
             },
             "get_state" if hello_done => Ok(runtime.state(&outbox)),
             "get_history" if hello_done => runtime.history(params, &outbox),
+            "export_history" if hello_done => runtime.export_history(params),
             "start_session" | "pause_session" | "resume_session" | "stop_session" if hello_done => {
                 runtime.session_command(method, params, &outbox)
             }
@@ -236,6 +238,7 @@ fn serve() -> io::Result<()> {
             "ping"
             | "get_state"
             | "get_history"
+            | "export_history"
             | "start_session"
             | "pause_session"
             | "resume_session"

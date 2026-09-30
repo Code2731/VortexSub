@@ -32,7 +32,7 @@ WASAPI Running과 live VAD 준비 완료 후 `session.state`가 Running이 된�
   보장이 아니며 간헐적 Initialize 문제는 남아 있다.
 - 새 세션은 새 UUID·증가하는 내부 숫자 ID·새 ring을 사용한다. segment ID는
   세션 내 Pause/Resume 때 초기화하지 않는다. history는 최대 1,000개 유지하며
-  현재는 명시적 `retain`만 지원한다. export/clear는 후속이다.
+  현재는 명시적 `retain`만 지원한다. 원문 export는 T02-03c에서 제공하며 clear는 후속이다.
 
 ## 제품 목표와 현재 wire 형식
 
@@ -46,11 +46,12 @@ event/payload 형식은 호환을 위해 유지한다. 진단 모드에는 새 �
 UUID 대응 정보는 history에 남은 세션(최대 1,000개)과 현재 세션만 유지한다.
 원문이 없는 세션을 반복 생성해도 보존된 record의 UUID를 잃지 않는다.
 `audio_origin_s`는 세션 시작 위치다. 새 상대 시간은 시작 sample index를 빼서
-구하며 Pause 구간을 포함한다. export 자체는 아직 지원하지 않는다.
+구하며 Pause 구간을 포함한다. T02-03c는 시작 UTC와 남은 history의 TXT/확정 원문 SRT
+내보내기를 제공한다. [저장·시간 계약](HISTORY_EXPORT.md).
 세션 경과 초는 Pause를 포함하고 Idle에서 고정된다.
 
-제품 목표의 `session_id` UUID/type-data 형식으로의 전면 전환, session 시작 UTC,
-apply_config/clear/export, Recovering, partial·번역·macOS는 미구현이다.
+제품 목표의 `session_id` UUID/type-data 형식으로의 전면 전환,
+apply_config/clear, Recovering, partial·번역·macOS는 미구현이다.
 이 어댑터를 제품 명세 전체의 완료로 간주하지 않는다.
 
 ## 확인 범위

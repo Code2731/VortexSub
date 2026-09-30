@@ -209,6 +209,10 @@ public sealed class WorkerClient : IAsyncDisposable
                         {
                             if (record.ProductSessionId is not null)
                             {
+                                if (record.SessionStartedAtUtc is { } utc && !DateTimeOffset.TryParseExact(utc,
+                                    "yyyy-MM-dd'T'HH:mm:ss.fff'Z'", System.Globalization.CultureInfo.InvariantCulture,
+                                    System.Globalization.DateTimeStyles.AssumeUniversal, out _))
+                                    throw new IOException("Invalid session UTC timestamp");
                                 if (!Guid.TryParseExact(record.ProductSessionId, "D", out _) ||
                                     record.SessionAudioStartSeconds is not double start || !double.IsFinite(start) || start < 0 ||
                                     record.SessionAudioEndSeconds is not double end || !double.IsFinite(end) || end <= start)

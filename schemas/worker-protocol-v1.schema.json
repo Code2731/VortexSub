@@ -14,6 +14,15 @@
     }
   ],
   "$defs": {
+    "exportParams": {
+      "type": "object", "required": ["session_id", "format", "path", "overwrite"],
+      "properties": {
+        "session_id": {"type": "string", "format": "uuid"},
+        "format": {"enum": ["txt", "srt"]},
+        "path": {"type": "string", "minLength": 1, "maxLength": 4096},
+        "overwrite": {"type": "boolean"}
+      }, "additionalProperties": false
+    },
     "sessionStartParams": {
       "type": "object", "required": ["config", "history_policy"],
       "properties": {
@@ -36,6 +45,7 @@
       "required": ["session_id", "internal_session_id", "epoch", "state", "elapsed_s", "audio_origin_s", "history_policy", "implementation"],
       "properties": {
         "session_id": {"type": ["string", "null"], "format": "uuid"},
+        "started_at_utc": {"type": ["string", "null"], "format": "date-time"},
         "internal_session_id": {"type": ["integer", "null"], "minimum": 1},
         "epoch": {"type": "integer", "minimum": 0},
         "state": {"enum": ["Idle", "Preparing", "Running", "Paused", "Stopping", "Error"]},
@@ -126,6 +136,10 @@
         {
           "if": {"properties": {"method": {"enum": ["pause_session", "resume_session", "stop_session"]}}},
           "then": {"properties": {"params": {"$ref": "#/$defs/sessionIdentityParams"}}}
+        },
+        {
+          "if": {"properties": {"method": {"const": "export_history"}}},
+          "then": {"properties": {"params": {"$ref": "#/$defs/exportParams"}}}
         }
       ]
     },
@@ -261,6 +275,7 @@
     "historyRecord": {
       "properties": {
         "product_session_id": {"type": "string", "format": "uuid"},
+        "session_started_at_utc": {"type": "string", "format": "date-time"},
         "session_audio_start_s": {"type": "number", "minimum": 0},
         "session_audio_end_s": {"type": "number", "minimum": 0},
         "segment_id": {

@@ -227,9 +227,13 @@ impl Capture {
     pub(crate) fn open(device: &IMMDevice) -> ProbeResult<Self> {
         Self::open_observed(device, |_| {})
     }
-    pub(crate) fn open_observed(
+    pub(crate) fn open_observed(device: &IMMDevice, phase: impl FnMut(u8)) -> ProbeResult<Self> {
+        Self::open_observed_info(device, phase, |_, _| {})
+    }
+    pub(crate) fn open_observed_info(
         device: &IMMDevice,
         mut phase: impl FnMut(u8),
+        mut opening_info: impl FnMut(&str, Format),
     ) -> ProbeResult<Self> {
         phase(6);
         let device_id = device_id(device)?;
@@ -238,6 +242,7 @@ impl Capture {
         phase(8);
         let mix = unsafe { client.GetMixFormat()? };
         let format = unsafe { Format::from_ptr(mix) };
+        opening_info(&device_id, format);
         phase(9);
         let initialized = unsafe {
             client.Initialize(

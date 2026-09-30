@@ -6,6 +6,7 @@ using Avalonia.Controls.Templates;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
+using Avalonia.Platform.Storage;
 
 namespace EchoSub.Desktop;
 
@@ -23,6 +24,10 @@ public sealed class MainWindow : Window
     private readonly Button pauseButton = new() { Content = "일시정지" };
     private readonly Button resumeButton = new() { Content = "재개" };
     private readonly Button overlayButton = new();
+    private readonly Button exportTxtButton = new() { Content = "TXT 저장" };
+    private readonly Button exportSrtButton = new() { Content = "원문 SRT 저장" };
+    private readonly ComboBox exportSession = new() { Width = 420 };
+    private readonly TextBlock exportResult = new() { TextWrapping = TextWrapping.Wrap };
     private readonly ComboBox language = new() { ItemsSource = new[] { "en", "ja", "ko" }, SelectedIndex = 0, Width = 80 };
     private readonly ComboBox endpoint = new() { Width = 450 };
     private readonly ListBox history = new() { Height = 190 };
@@ -41,6 +46,7 @@ public sealed class MainWindow : Window
     private string? sessionId;
     private string? sessionState;
     private bool resumeReady;
+    private bool exportReady, exportSupported, selectingExport;
 
     public MainWindow()
     {
@@ -84,6 +90,13 @@ public sealed class MainWindow : Window
                     new ScrollViewer { Height = live ? 90 : 80, Content = details },
                     new TextBlock { IsVisible = live, Text = "최근 100개 구간 · UUID별 세션 시작 기준 초 · 텍스트 자동 저장 없음" },
                     history,
+                    new StackPanel { IsVisible = live, Spacing = 8, Children =
+                    {
+                        new TextBlock { Text = "기록 저장 · 일시정지/종료 및 추론 정리 후 · 최대 1,000개, 오래된 대사는 제외될 수 있습니다.", TextWrapping = TextWrapping.Wrap },
+                        exportSession,
+                        new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { exportTxtButton, exportSrtButton } },
+                        exportResult
+                    } },
                     new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { overlayButton, resetOverlay } },
                     new TextBlock { Text = "오버레이 폭 / 배경 불투명도" },
                     overlayWidth, cardOpacity
@@ -95,6 +108,9 @@ public sealed class MainWindow : Window
         {
             Text = item?.ToString(), TextWrapping = TextWrapping.Wrap
         });
+        exportTxtButton.Click += async (_, _) => await ExportAsync("txt");
+        exportSrtButton.Click += async (_, _) => await ExportAsync("srt");
+        exportSession.SelectionChanged += (_, _) => UpdateButtons();
         connectButton.Click += async (_, _) => await ExecuteAsync(ConnectCoreAsync);
         pingButton.Click += async (_, _) => await ExecuteAsync(async () =>
         {
@@ -200,6 +216,36 @@ public sealed class MainWindow : Window
 
     private string OverlayLabel(bool shown) => (live ? "원문 오버레이 " : "샘플 오버레이 ") + (shown ? "숨기기" : "표시");
 
+    private async Task ExportAsync(string format)
+    {
+        if (!exportReady || selectingExport || client is null || exportSession.SelectedItem is not ExportChoice choice) return;
+        selectingExport = true;
+        UpdateButtons();
+        try
+        {
+            using var selected = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title = "세션 기록 저장", SuggestedFileName = $"EchoSub-{choice.Id}.{format}",
+                DefaultExtension = format, ShowOverwritePrompt = true,
+                FileTypeChoices = new[] { new FilePickerFileType(format.ToUpperInvariant()) { Patterns = new[] { $"*.{format}" } } }
+            });
+            if (selected is null) return;
+            var path = selected.TryGetLocalPath() ?? throw new IOException("로컬 파일 경로를 선택하세요.");
+            await ExecuteAsync(async () =>
+            {
+                if (client is null) throw new IOException("Worker 연결이 끊겼습니다.");
+                try
+                {
+                    var result = await client.SendAsync("export_history", new { session_id = choice.Id, format, path, overwrite = true });
+                    exportResult.Text = $"저장 완료 · {result.GetProperty("cue_count").GetInt32()}개 원문 · {path}";
+                }
+                catch (Exception error) { exportResult.Text = $"저장 실패: {error.Message}"; throw; }
+            });
+        }
+        catch (Exception error) { exportResult.Text = $"저장 실패: {error.Message}"; ReportError(error); }
+        finally { selectingExport = false; UpdateButtons(); }
+    }
+
     private async Task ExecuteAsync(Func<Task> action)
     {
         // User commands cancel background reads before waiting for their ownership gate.
@@ -273,6 +319,7 @@ public sealed class MainWindow : Window
                 throw new IOException("session control 모드로 실행하세요: scripts/run.ps1 -Live");
             if (live && (!hello.GetProperty("capabilities").TryGetProperty("session_history_uuid", out var historyCapability) || !historyCapability.GetBoolean()))
                 throw new IOException("UUID history worker를 다시 빌드하세요: scripts/run.ps1 -Live");
+            exportSupported = hello.GetProperty("capabilities").TryGetProperty("history_export", out var exportCapability) && exportCapability.GetBoolean();
             StartupDiagnostics.Write($"Worker connected; live={live}");
             snapshot = null;
             await RefreshCoreAsync();
@@ -305,6 +352,11 @@ public sealed class MainWindow : Window
             snapshot = refreshedSnapshot;
             history.ItemsSource = snapshot?.Records.TakeLast(100).Reverse().Select(record =>
                 $"[{record.ProductSessionId ?? record.SessionId.ToString()}/{record.Epoch}/{record.SegmentId} · {record.SessionAudioStartSeconds ?? record.AudioStartSeconds:F3}~{record.SessionAudioEndSeconds ?? record.AudioEndSeconds:F3}초 · {record.SourceState}] {record.SourceReason}\n{record.Source}").ToArray();
+            var selectedId = (exportSession.SelectedItem as ExportChoice)?.Id ?? sessionId;
+            var choices = snapshot?.Records.Where(r => r.ProductSessionId is not null)
+                .GroupBy(r => r.ProductSessionId!).Select(group => new ExportChoice(group.Key, group.First().SessionStartedAtUtc)).ToArray() ?? [];
+            exportSession.ItemsSource = choices;
+            exportSession.SelectedItem = choices.FirstOrDefault(c => c.Id == selectedId) ?? choices.LastOrDefault();
         }
         var capture = state.GetProperty("diagnostic_capture");
         var captureState = capture.GetProperty("state").GetString();
@@ -318,6 +370,7 @@ public sealed class MainWindow : Window
         captureStartable = sessionState == "Idle" && joined && vadJoined;
         captureNeedsStop = sessionId is not null && sessionState is "Preparing" or "Running" or "Paused" or "Error";
         resumeReady = sessionState == "Paused" && joined && vadJoined && modelReady;
+        exportReady = exportSupported && sessionState is "Idle" or "Paused" && joined && vadJoined && !state.GetProperty("diagnostic_asr").GetProperty("decoding").GetBoolean();
         status.Text = $"세션 {sessionState} · 모델 {state.GetProperty("model").GetProperty("state").GetString()} · 캡처 {captureState}";
         var phase = capture.GetProperty("failure_native_phase").GetString() ??
             (capture.GetProperty("stats").TryGetProperty("native_phase", out var nativePhase) ? nativePhase.GetString() : "준비 중");
@@ -326,7 +379,8 @@ public sealed class MainWindow : Window
         details.Text = $"{phase}{openingText} · 수신 {capture.GetProperty("accepted_audio_s").GetDouble():F3}초\n" +
             (!joined || !vadJoined ? "소유 스레드가 동작/정리 중입니다. 정리 완료 전 새 캡처를 시작할 수 없습니다.\n" : "") +
             (captureState == "Failed" ? $"실패: {capture.GetProperty("error").GetString()} · 세션 종료 또는 Worker 종료 후 다시 연결하세요." : "일시정지/종료는 미확정 발화와 대기 작업을 폐기합니다.") +
-            $"\nUUID {sessionId ?? "없음"} · 경과 {session.GetProperty("elapsed_s").GetDouble():F3}초 · native 실행 {state.GetProperty("diagnostic_asr").GetProperty("native_running").GetBoolean()}";
+            $"\nUUID {sessionId ?? "없음"} · 경과 {session.GetProperty("elapsed_s").GetDouble():F3}초 · native 실행 {state.GetProperty("diagnostic_asr").GetProperty("native_running").GetBoolean()}" +
+            (session.TryGetProperty("started_at_utc", out var utc) ? $"\n시작 UTC {utc.GetString()}" : "");
         if (state.GetProperty("model").GetProperty("state").GetString() == "Failed")
             details.Text += "\n모델 읽기 실패: 모델/DLL 경로·해시와 native CPU 빌드를 확인하세요.";
         while (client.Events.TryRead(out _)) { }
@@ -363,6 +417,9 @@ public sealed class MainWindow : Window
         modelReady = captureStartable = captureNeedsStop = false;
         sessionId = sessionState = null;
         resumeReady = false;
+        exportReady = exportSupported = false;
+        exportSession.ItemsSource = null;
+        exportResult.Text = "";
         if (oldClient is not null)
         {
             if (disconnectedHandler is not null) oldClient.Disconnected -= disconnectedHandler;
@@ -385,11 +442,16 @@ public sealed class MainWindow : Window
         stopCaptureButton.IsEnabled = available && connected && captureNeedsStop;
         pauseButton.IsEnabled = available && connected && sessionState is "Preparing" or "Running";
         resumeButton.IsEnabled = available && connected && resumeReady;
+        exportTxtButton.IsEnabled = exportSrtButton.IsEnabled = available && connected && exportReady && !selectingExport && exportSession.SelectedItem is ExportChoice;
         language.IsEnabled = endpoint.IsEnabled = available && captureStartable;
     }
 
     public sealed record EndpointChoice(string? Id, string Name)
     {
         public override string ToString() => Name;
+    }
+    public sealed record ExportChoice(string Id, string? StartedUtc)
+    {
+        public override string ToString() => $"{StartedUtc ?? "UTC 없음"} · {Id}";
     }
 }

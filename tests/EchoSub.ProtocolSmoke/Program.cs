@@ -18,7 +18,8 @@ await using (var client = WorkerClient.Start(workerPath))
     Require(!hello.GetProperty("capabilities").GetProperty("fixture_asr").GetBoolean(), "native fixtures require opt-in");
     Require(!hello.GetProperty("capabilities").GetProperty("vad").GetBoolean(), "VAD fixtures require opt-in");
     Require(!hello.GetProperty("capabilities").GetProperty("live_asr").GetBoolean(), "live ASR requires opt-in");
-    foreach (var method in new[] { "transcribe_fixture", "reset_fixture_epoch", "start_capture", "stop_capture", "start_session", "pause_session", "resume_session", "stop_session" })
+    Require(!hello.GetProperty("capabilities").GetProperty("history_export").GetBoolean(), "history export requires UUID mode");
+    foreach (var method in new[] { "transcribe_fixture", "reset_fixture_epoch", "start_capture", "stop_capture", "start_session", "pause_session", "resume_session", "stop_session", "export_history" })
     {
         try { await client.SendAsync(method); throw new Exception("Native fixture opt-in was bypassed"); }
         catch (WorkerException error) when (error.Code == "UNSUPPORTED_CAPABILITY") { }
@@ -67,6 +68,7 @@ await using (var client = WorkerClient.Start(workerPath, arguments: new[] { "--m
     await client.SendAsync("mock_segment", new { source = "세션 원문" });
     var before = await client.ReadHistoryAsync();
     Require(before.Records[0].ProductSessionId == id && before.Records[0].SessionAudioStartSeconds >= 0, "UUID/session time in typed history");
+    Require(DateTimeOffset.TryParse(before.Records[0].SessionStartedAtUtc, out var startedUtc) && startedUtc.Offset == TimeSpan.Zero, "UTC timestamp in history");
     await client.SendAsync("pause_session", new { session_id = id });
     var paused = await client.SendAsync("get_state");
     Require(paused.GetProperty("session").GetProperty("state").GetString() == "Paused", "paused state");
@@ -82,12 +84,59 @@ await using (var client = WorkerClient.Start(workerPath, arguments: new[] { "--m
     await client.SendAsync("stop_session", new { session_id = id });
     var stopped = await client.SendAsync("get_state");
     Require(stopped.GetProperty("session").GetProperty("state").GetString() == "Idle", "mock stop reaches idle");
+    Require(stopped.GetProperty("session").GetProperty("started_at_utc").GetString() == before.Records[0].SessionStartedAtUtc, "UTC retained through Pause/Resume/Stop");
     var next = await client.SendAsync("start_session", config);
     Require(next.GetProperty("session_id").GetString() != id, "new session has fresh UUID");
     Require((await client.ReadHistoryAsync()).Records.Count == 2, "new session retains old history");
     await client.SendAsync("mock_segment", new { source = "새 UUID 원문" });
     var mixed = await client.ReadHistoryAsync();
     Require(mixed.Records[0].ProductSessionId == id && mixed.Records[^1].ProductSessionId == next.GetProperty("session_id").GetString(), "UUID preserved across sessions");
+}
+
+await using (var client = WorkerClient.Start(workerPath, arguments: new[] { "--mock-pipeline", "--mock-session-control" }))
+{
+    await client.SendAsync("hello", new { client = "ExportSmoke", protocol_major = 1 });
+    var start = await client.SendAsync("start_session", new { history_policy = "retain", config = new { source_language = "en" } });
+    var id = start.GetProperty("session_id").GetString()!;
+    await client.SendAsync("mock_segment", new { source = "한국어\r\n\r\n日本語 😊" });
+    var directory = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "EchoSub-export-" + Guid.NewGuid()));
+    Directory.CreateDirectory(directory);
+    var txt = Path.Combine(directory, "history.txt");
+    var srt = Path.Combine(directory, "history.srt");
+    try
+    {
+        async Task Reject(string code, object p)
+        {
+            try { await client.SendAsync("export_history", p); throw new Exception("Export guard bypassed: " + code); }
+            catch (WorkerException e) when (e.Code == code) { }
+        }
+        await Reject("INVALID_STATE", new { session_id = id, format = "txt", path = txt, overwrite = false });
+        Require(!File.Exists(txt), "running export never writes");
+        await client.SendAsync("pause_session", new { session_id = id });
+        var result = await client.SendAsync("export_history", new { session_id = id, format = "txt", path = txt, overwrite = false });
+        Require(result.GetProperty("record_count").GetInt32() == 1, "TXT retained record count");
+        var content = File.ReadAllText(txt);
+        Require(content.Contains("한국어\r\n\r\n日本語 😊") && content.Contains(id) && content.Contains("Started UTC:"), "TXT Unicode/UTC round trip");
+        await Reject("EXPORT_EXISTS", new { session_id = id, format = "txt", path = txt, overwrite = false });
+        Require(File.ReadAllText(txt) == content, "existing export preserved");
+        await Reject("INVALID_REQUEST", new { session_id = id, format = "csv", path = srt, overwrite = true });
+        await Reject("INVALID_REQUEST", new { session_id = id, format = "srt", path = "relative.srt", overwrite = true });
+        await client.SendAsync("export_history", new { session_id = id, format = "srt", path = srt, overwrite = false });
+        Require(File.ReadAllText(srt).StartsWith("1\n") && File.ReadAllText(srt).Contains(" --> ") && File.ReadAllText(srt).Contains("한국어\n日本語 😊"), "SRT consecutive cue/Unicode/blank line normalization");
+        await client.SendAsync("export_history", new { session_id = id, format = "srt", path = txt, overwrite = true });
+        Require(File.ReadAllText(txt) == File.ReadAllText(srt), "explicit replacement writes complete file");
+        Require(Directory.GetFiles(directory, ".echosub-*.tmp").Length == 0, "no staging file remains");
+        await client.SendAsync("stop_session", new { session_id = id });
+        var next = await client.SendAsync("start_session", new { history_policy = "retain", config = new { source_language = "en" } });
+        await client.SendAsync("stop_session", new { session_id = next.GetProperty("session_id").GetString() });
+        await Reject("EMPTY_HISTORY", new { session_id = next.GetProperty("session_id").GetString(), format = "txt", path = txt, overwrite = true });
+        await client.SendAsync("export_history", new { session_id = id, format = "srt", path = srt, overwrite = true });
+        Require(File.ReadAllText(srt).Contains("日本語"), "retained older UUID export");
+    }
+    finally
+    {
+        File.Delete(txt); File.Delete(srt); Directory.Delete(directory);
+    }
 }
 
 await using (var client = WorkerClient.Start(workerPath))

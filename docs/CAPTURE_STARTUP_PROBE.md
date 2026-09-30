@@ -26,4 +26,12 @@ Opening을 최대 12초 관측해 worker의 10초 실패 정책을 확인한다.
 
 ## 해석
 
+T02-03c부터 Initialize 전에 실제 endpoint/mix format/native thread ID를 공개한다.
+실패 시 owner join이 남아 있으면 shutdown 전에 소유 worker의 스택 덤프를
+별도 helper로 수집한다. full-memory dump는 사용하지 않는다. helper 완료를
+5초 기다린 뒤 필요하면 종료하며 추가 정리 대기는 최대 5초다.
+`dump`에 파일/성공/오류/시간을 남긴다. results 밖으로 자동 전송하지 않는다.
+분석용 심볼은 빌드 전에 `$env:CARGO_PROFILE_RELEASE_DEBUG='1'`로 유지한다.
+[이번 결과·미해결 원인](evidence/T02-03c-windows-startup-diagnostics.md).
+
 새 프로세스는 OS/드라이버/오디오 엔진의 초기 상태를 보장하지 않는다. 장치별로 묶어 순차 측정하므로 앞선 실행의 영향도 가능하다. owned_playback=false와 accepted_audio_s=0은 시스템의 디지털 무음을 입증하지 않는다. 시작·정리 관측을 발화 품질, 실제 장치 전환, 장시간 게임 공존 수용으로 확대하지 않는다. [Windows 실측](evidence/T02-02d-windows-capture-startup.md)을 따른다.

@@ -250,6 +250,7 @@ fn history_capability_is_empty_by_default_and_mock_requires_opt_in() {
         "reset_fixture_epoch",
         "start_capture",
         "stop_capture",
+        "export_history",
         "start_session",
         "pause_session",
         "resume_session",

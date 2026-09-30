@@ -179,4 +179,4 @@ post-playback observation, active shutdown and parent EOF. Reports omit transcri
 WAVs stay under ignored results. No download is performed. Subtitle UI, translation,
 partial inference and the quality gate remain pending. See [live contracts](../docs/WORKER_LIVE_ASR.md).
 
-Add `-Sessions` to the live ASR probe to exercise UUID start/pause/resume/stop, retained history, and a fresh session. This uses existing consented assets and performs no downloads. This mode's ignored report includes source records; keep it out of Git. It does not verify UI rendering or natural-speech quality. See [session controls](../docs/SESSION_CONTROL.md).
+Add `-Sessions` to the live ASR probe to exercise UUID start/pause/resume/stop, retained history, a fresh session, and source TXT/SRT export after cleanup. This uses existing consented assets and performs no downloads. This mode's ignored report directory includes source records and exported files; keep it out of Git. It does not verify UI rendering or natural-speech quality. See [session controls](../docs/SESSION_CONTROL.md) and [export](../docs/HISTORY_EXPORT.md).

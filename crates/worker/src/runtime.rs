@@ -9,6 +9,8 @@ use echosub_audio_core::{
 use echosub_pipeline_core::{AsrKind, CoreError, Outcome, Pipeline, Record, TranslationJob};
 use serde_json::{json, Value};
 use std::time::Instant;
+#[path = "export.rs"]
+mod export;
 #[path = "session.rs"]
 mod session;
 pub type Reply = Result<Value, (&'static str, &'static str)>;

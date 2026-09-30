@@ -27,6 +27,7 @@ internal static class CaptureStartupSmoke
                 bool forced = false;
                 bool? restartBlocked = null;
                 int? exitCode = null;
+                CaptureDump.Result? dump = null;
                 var client = WorkerClient.Start(args[1], arguments: ["--diagnostic-capture"]);
                 using var process = Process.GetProcessById(client.ProcessId);
                 _ = process.Handle;
@@ -78,6 +79,12 @@ internal static class CaptureStartupSmoke
                 catch (Exception failure) { error ??= failure.Message; }
                 finally
                 {
+                    if (error is not null && !process.HasExited &&
+                        last?.GetProperty("awaiting_capture_join").GetBoolean() == true)
+                    {
+                        var dumpPath = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(args[2]))!, $"case-{results.Count + 1}-worker.dmp");
+                        dump = await CaptureDump.Collect(process, dumpPath);
+                    }
                     var cleanup = Stopwatch.StartNew();
                     try
                     {
@@ -106,7 +113,7 @@ internal static class CaptureStartupSmoke
                 results.Add(new
                 {
                     endpoint = endpoint.Name, device_id = endpoint.Id, round, passed, error,
-                    capture = last, ping_max_s = pingMax, restart_blocked_before_join = restartBlocked,
+                    capture = last, dump, ping_max_s = pingMax, restart_blocked_before_join = restartBlocked,
                     forced_termination = forced, cleanup_s = cleanupSeconds, exit_code = exitCode
                 });
                 WriteReport(); // Preserve every completed case even when a later one fails.

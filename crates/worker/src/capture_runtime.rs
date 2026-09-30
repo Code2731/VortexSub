@@ -215,7 +215,7 @@ impl CaptureRuntime {
             }
             self.stats = json!({"native_phase":s.phase,"packets":s.packets,"input_frames":s.input_frames,"normalized_frames":s.normalized_frames,"discontinuities":s.discontinuities,"first_qpc_100ns":s.first_qpc_100ns,"last_qpc_100ns":s.last_qpc_100ns,"packet_slots":echosub_capture_windows::PACKET_SLOTS,"normalized_queue_capacity":echosub_capture_windows::FRAME_QUEUE});
             if let Some(info) = owner.info() {
-                self.info = json!({"device_id":info.device_id,"sample_rate":info.rate,"channels":info.channels,"channel_mask":info.mask,"selection_policy":"pinned_until_restart"});
+                self.info = json!({"device_id":info.device_id,"sample_rate":info.rate,"channels":info.channels,"channel_mask":info.mask,"native_thread_id":info.native_thread_id,"selection_policy":"pinned_until_restart","com_apartment":"STA","share_mode":"shared","buffer_duration_100ns":0,"periodicity_100ns":0,"loopback":true,"event_callback":true});
             }
             let ready = owner.ready();
             let error = owner.error().or_else(|| {

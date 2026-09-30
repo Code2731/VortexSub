@@ -125,6 +125,13 @@ internal static class SessionSmoke
             await client.SendAsync("stop_session", new { session_id = next.GetProperty("session_id").GetString() });
             Native.PlaySound(null, IntPtr.Zero, 0);
             await Wait(s => Is(s, "Idle"), 10);
+            phase = "export_real_history";
+            var srtPath = Path.Combine(Path.GetDirectoryName(args[4])!, "current-session.srt");
+            var txtPath = Path.Combine(Path.GetDirectoryName(args[4])!, "first-session.txt");
+            var srt = await client.SendAsync("export_history", new { session_id = next.GetProperty("session_id").GetString(), format = "srt", path = srtPath, overwrite = false });
+            var txt = await client.SendAsync("export_history", new { session_id = id, format = "txt", path = txtPath, overwrite = false });
+            Require(srt.GetProperty("cue_count").GetInt32() >= 1 && File.ReadAllText(srtPath).Contains(" --> "), "Real source SRT export");
+            Require(txt.GetProperty("record_count").GetInt32() >= 2 && File.ReadAllText(txtPath).Contains("Started UTC:"), "Retained real history/UTC TXT export");
             phase = "complete";
             Save(true);
             Console.WriteLine($"PASS: UUID live sessions; finals={finals.Count}; pause={pauseResponse:F6}s; stop={stopResponse:F6}s; idle={idleAfterStop:F6}s");
