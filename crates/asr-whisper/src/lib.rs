@@ -12,6 +12,16 @@ pub struct Segment {
     pub start_ms: i64,
     pub end_ms: i64,
     pub text: String,
+    pub tokens: Vec<Token>,
+}
+
+/// Byte offsets address the validated segment text; timestamps address input PCM.
+#[derive(Clone, Debug)]
+pub struct Token {
+    pub byte_start: usize,
+    pub byte_end: usize,
+    pub start_ms: i64,
+    pub end_ms: i64,
 }
 
 pub const ENGINE_ID: &str = "whisper-rs=0.14.4; whisper-rs-sys=0.13.1; bundled whisper.cpp=1.7.4";

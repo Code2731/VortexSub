@@ -2,7 +2,17 @@ using System.Diagnostics;
 using System.Text.Json;
 using EchoSub.Desktop;
 
-if (args.Length == 7) { await NativeVadSmoke.Run(args); return; }
+if (args.Length == 7)
+{
+    try { await NativeVadSmoke.Run(args); }
+    catch (Exception error)
+    {
+        JsonElement? checkpoint = File.Exists(args[5]) ? JsonSerializer.Deserialize<JsonElement>(File.ReadAllText(args[5])) : null;
+        File.WriteAllText(args[5], JsonSerializer.Serialize(new { passed = false, error = error.Message, checkpoint }, new JsonSerializerOptions { WriteIndented = true }));
+        throw;
+    }
+    return;
+}
 if (args.Length != 6) throw new ArgumentException("worker model sha256 manifest backend report are required");
 var options = new[] { "--diagnostic-asr", "--asr-model", args[1], "--asr-sha256", args[2], "--asr-backend", args[4] };
 using var manifest = JsonDocument.Parse(File.ReadAllText(args[3]));

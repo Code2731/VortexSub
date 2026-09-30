@@ -56,6 +56,7 @@ await using (var client = WorkerClient.Start(workerPath))
     Require(!hello.GetProperty("capabilities").GetProperty("fixture_asr").GetBoolean(), "native fixtures require opt-in");
     Require(!hello.GetProperty("capabilities").GetProperty("vad").GetBoolean(), "VAD fixtures require opt-in");
     Require(!hello.GetProperty("capabilities").GetProperty("live_asr").GetBoolean(), "live ASR requires opt-in");
+    Require(!hello.GetProperty("capabilities").GetProperty("source_token_alignment").GetBoolean(), "token alignment requires native owner");
     Require(!hello.GetProperty("capabilities").GetProperty("history_export").GetBoolean(), "history export requires UUID mode");
     Require(!hello.GetProperty("capabilities").GetProperty("history_clear").GetBoolean(), "clear requires UUID mode");
     foreach (var method in new[] { "transcribe_fixture", "reset_fixture_epoch", "start_capture", "stop_capture", "start_session", "pause_session", "resume_session", "stop_session", "export_history", "clear_history" })

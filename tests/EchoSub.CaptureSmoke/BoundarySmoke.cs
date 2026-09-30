@@ -106,6 +106,10 @@ internal static class BoundarySmoke
             Require(events.Any(e => e.Name == "capture.segmented" && e.Payload.GetProperty("reason").GetString() == "ChunkLimit"), "Actual eight-second chunk boundary");
             Require(events.Any(e => e.Name == "capture.segmented" && e.Payload.GetProperty("continued_from").ValueKind == JsonValueKind.Number), "Actual continuation metadata");
             Require(events.Where(e => e.Name == "asr.completed").All(e => e.Payload.TryGetProperty("overlap_segments_removed", out _)), "Native reconciliation diagnostics");
+            var completed = events.Where(e => e.Name == "asr.completed").ToArray();
+            Require(completed.Length >= 2, "Native completions observed");
+            Require(completed.All(e => e.Payload.GetProperty("nonzero_samples").GetInt32() <= e.Payload.GetProperty("input_samples").GetInt32()), "Measured PCM bounds");
+            Require(completed.Any(e => e.Payload.GetProperty("timed_token_count").GetInt32() > 0), "Actual native token timestamps");
             boundaryVerified = true;
             phase = "stop"; await client.SendAsync("stop_session", new { session_id = uuid }); Native.PlaySound(null, IntPtr.Zero, 0);
             await Wait(() => last.GetProperty("session").GetProperty("state").GetString() == "Idle", 10);

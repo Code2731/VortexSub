@@ -1,4 +1,4 @@
-use crate::{cancellation::Control, Cancellation, Segment};
+use crate::{cancellation::Control, Cancellation, Segment, Token};
 use std::error::Error;
 use std::ffi::c_void;
 use std::sync::atomic::Ordering;
@@ -91,6 +91,25 @@ impl AsrEngine {
         language: &str,
         cancellation: &Cancellation,
     ) -> Result<DecodeOutcome, Box<dyn Error>> {
+        self.decode(pcm, language, cancellation, false)
+    }
+
+    pub fn transcribe_cancellable_timed(
+        &mut self,
+        pcm: &[f32],
+        language: &str,
+        cancellation: &Cancellation,
+    ) -> Result<DecodeOutcome, Box<dyn Error>> {
+        self.decode(pcm, language, cancellation, true)
+    }
+
+    fn decode(
+        &mut self,
+        pcm: &[f32],
+        language: &str,
+        cancellation: &Cancellation,
+        token_timestamps: bool,
+    ) -> Result<DecodeOutcome, Box<dyn Error>> {
         if pcm.is_empty()
             || pcm.len() > 16_000 * 120
             || pcm.iter().any(|sample| !sample.is_finite())
@@ -117,6 +136,7 @@ impl AsrEngine {
         parameters.set_language(Some(language));
         parameters.set_translate(false);
         parameters.set_no_context(true);
+        parameters.set_token_timestamps(token_timestamps);
         parameters.set_print_special(false);
         parameters.set_print_progress(false);
         parameters.set_print_realtime(false);
@@ -134,6 +154,7 @@ impl AsrEngine {
         control.running.store(true, Ordering::Release);
         let _running = Running(control);
         let result = self.state.full(parameters, pcm);
+        drop(_running); // Token extraction owns the context, but native full has returned.
         let observed = control.observed.load(Ordering::Acquire);
         if let Err(error) = &result {
             // These are the pinned native encode/decode abort return paths. Other
@@ -149,11 +170,46 @@ impl AsrEngine {
             });
         }
         let mut segments = Vec::new();
+        let mut token_budget = 4096usize;
         for index in 0..self.state.full_n_segments()? {
+            let text = self.state.full_get_segment_text(index)?;
+            let mut tokens = Vec::new();
+            if token_timestamps && text.len() <= 4096 {
+                let count = self.state.full_n_tokens(index)?;
+                if count >= 0 && count as usize <= token_budget {
+                    token_budget -= count as usize;
+                    let mut bytes = Vec::new();
+                    for token_index in 0..count {
+                        let data = self.state.full_get_token_data(index, token_index)?;
+                        if data.id >= self._context.token_eot() {
+                            continue;
+                        }
+                        let piece = self.state.full_get_token_bytes(index, token_index)?;
+                        if bytes.len() + piece.len() > 4096 {
+                            tokens.clear();
+                            bytes.clear();
+                            break;
+                        }
+                        let start = bytes.len();
+                        bytes.extend(piece);
+                        tokens.push(Token {
+                            byte_start: start,
+                            byte_end: bytes.len(),
+                            start_ms: data.t0.saturating_mul(10),
+                            end_ms: data.t1.saturating_mul(10),
+                        });
+                    }
+                    // Individual tokens may split UTF-8 characters. Never use lossy token text.
+                    if bytes != text.as_bytes() {
+                        tokens.clear();
+                    }
+                }
+            }
             segments.push(Segment {
                 start_ms: self.state.full_get_segment_t0(index)? * 10,
                 end_ms: self.state.full_get_segment_t1(index)? * 10,
-                text: self.state.full_get_segment_text(index)?,
+                text,
+                tokens,
             });
         }
         Ok(DecodeOutcome::Completed(segments))

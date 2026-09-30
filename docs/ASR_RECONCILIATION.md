@@ -36,7 +36,8 @@ emoji도 UTF-8 부분 byte로 자르지 않는다. 실제 반복 대사는 보�
 
 native text 최대 4,096 UTF-8 bytes, span 최대 4,096개, 이전 context 1개를
 유지한다. 모델 no-speech score/반복률/신뢰도 임계값은 새로 적용하지 않았다.
-효과음·음악 환각 억제와 coarse timestamp의 토큰 단위 정합은 추가 자료가 필요하다.
+coarse timestamp의 토큰 단위 정합은 [T02-04c](ASR_TOKEN_ALIGNMENT.md)에서
+보수적 fallback으로 구현했다. 효과음·음악 환각 억제와 실제 dedup 품질은 추가 자료가 필요하다.
 
 ## 검증
 

@@ -63,6 +63,10 @@ pub enum Completion {
         decode_s: f64,
         abort_observed: bool,
         overlap_segments_removed: usize,
+        overlap_tokens_removed: usize,
+        timed_token_count: usize,
+        input_samples: usize,
+        nonzero_samples: usize,
     },
 }
 pub struct NativeOwner {
@@ -306,12 +310,16 @@ impl NativeOwner {
                 let key = task.job.key();
                 let start = Instant::now();
                 let mut overlap_segments_removed = 0;
+                let mut overlap_tokens_removed = 0;
+                let mut timed_token_count = 0;
+                let input_samples = task.job.pcm.samples().len();
+                let nonzero_samples = task.job.pcm.samples().iter().filter(|s| **s != 0.0).count();
                 let outcome = if task.cancellation.snapshot().requested {
                     Outcome::Cancelled
-                } else if task.job.pcm.samples().iter().all(|s| *s == 0.0) {
+                } else if nonzero_samples == 0 {
                     Outcome::NoSpeech
                 } else {
-                    match engine.transcribe_cancellable(
+                    match engine.transcribe_cancellable_timed(
                         task.job.pcm.samples(),
                         &task.language,
                         &task.cancellation,
@@ -328,6 +336,8 @@ impl NativeOwner {
                                 segments,
                             );
                             overlap_segments_removed = removed;
+                            overlap_tokens_removed = reconcile.tokens_removed;
+                            timed_token_count = reconcile.timed_tokens;
                             outcome
                         }
                         Ok(echosub_asr_whisper::DecodeOutcome::Cancelled { .. }) => {
@@ -346,6 +356,10 @@ impl NativeOwner {
                         decode_s,
                         abort_observed,
                         overlap_segments_removed,
+                        overlap_tokens_removed,
+                        timed_token_count,
+                        input_samples,
+                        nonzero_samples,
                     })
                     .is_err()
                 {

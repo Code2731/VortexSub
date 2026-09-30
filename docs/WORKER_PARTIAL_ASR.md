@@ -21,6 +21,7 @@ IPC는 `start_session`의 `config.partial_enabled: true`로 켠다.
 유지한다. 확정 요청은 진행 중인 부분 추론에 취소를 요청한다. native 반환
 전에는 실행 예약을 해제하지 않는다. 교체된 요청의 언어 메타데이터도 제거해
 대기 언어 항목을 최대 3개로 제한한다. 번역 요청은 확정 원문만 대상으로 한다.
+후속 [token 시간 정합](ASR_TOKEN_ALIGNMENT.md)은 partial을 이전 확정 context로 저장하지 않는다.
 
 Pause/Stop/epoch 변경은 진행 중 구간을 폐기하며 늦은 결과를 거부한다.
 VAD의 로컬 구간 번호가 재시작해도 제품 구간 번호는 세션에서 증가한다.

@@ -28,6 +28,7 @@ pub(crate) enum Selection {
 
 struct Options {
     list: bool,
+    initialize_only: bool,
     duration: Duration,
     selection: Selection,
 }
@@ -36,6 +37,7 @@ impl Options {
     fn parse() -> ProbeResult<Self> {
         let mut result = Self {
             list: false,
+            initialize_only: false,
             duration: Duration::from_secs(600),
             selection: Selection::FollowDefault,
         };
@@ -43,6 +45,7 @@ impl Options {
         while let Some(arg) = args.next() {
             match arg.as_str() {
                 "--list" => result.list = true,
+                "--initialize-only" => result.initialize_only = true,
                 "--seconds" => {
                     let value = args.next().ok_or("--seconds needs a positive integer")?;
                     let seconds: u64 = value.parse()?;
@@ -56,7 +59,7 @@ impl Options {
                         Selection::Fixed(args.next().ok_or("--device-id needs an ID")?);
                 }
                 "--help" | "-h" => {
-                    println!("Usage: echosub-capture-windows [--list] [--seconds N] [--device-id ID]\nDefault: follow the console render endpoint for 600 seconds. No PCM is saved.");
+                    println!("Usage: echosub-capture-windows [--list | --initialize-only] [--seconds N] [--device-id ID]\nDefault: follow the console render endpoint for 600 seconds. No PCM is saved. --initialize-only calls Initialize once without starting capture.");
                     std::process::exit(0);
                 }
                 _ => return Err(format!("unknown argument: {arg}").into()),
@@ -376,6 +379,38 @@ pub fn run() -> ProbeResult<()> {
     let _com = ComGuard::new()?;
     let enumerator: IMMDeviceEnumerator =
         unsafe { CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL)? };
+    if options.initialize_only {
+        let device = selected_device(&enumerator, &options.selection)?;
+        println!("device={}", device_id(&device)?);
+        let client: IAudioClient = unsafe { device.Activate(CLSCTX_ALL, None)? };
+        let mix = unsafe { client.GetMixFormat()? };
+        let format = unsafe { Format::from_ptr(mix) };
+        println!(
+            "rate={} channels={} bits={} block_align={}",
+            format.rate, format.channels, format.bits, format.block_align
+        );
+        println!(
+            "InitializeAudioClient calling shared loopback eventcallback duration=0 periodicity=0"
+        );
+        let started = Instant::now();
+        let result = unsafe {
+            client.Initialize(
+                AUDCLNT_SHAREMODE_SHARED,
+                AUDCLNT_STREAMFLAGS_LOOPBACK | AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
+                0,
+                0,
+                mix,
+                None,
+            )
+        };
+        println!(
+            "InitializeAudioClient returned elapsed_s={:.6} result={result:?}",
+            started.elapsed().as_secs_f64()
+        );
+        unsafe { CoTaskMemFree(Some(mix as *const c_void)) };
+        result?;
+        return Ok(());
+    }
     if options.list {
         let devices = unsafe { enumerator.EnumAudioEndpoints(eRender, DEVICE_STATE_ACTIVE)? };
         let default = selected_device(&enumerator, &Selection::FollowDefault)

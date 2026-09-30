@@ -36,4 +36,7 @@ T02-02c는 [시작 10초 실패 정책·STA·관측 메타데이터](WORKER_CAPT
 
 ## T02-04b 경계·빈 결과 처리
 
+T02-04c는 [token 시간 정합](ASR_TOKEN_ALIGNMENT.md)과 PCM/token 진단을 추가했다.
+600초 디지털 무음 파일 검증이 통과했으며 실제 live 경계 품질은 미검증이다.
+
 Live continuation을 제품 ID로 전달하고 native timestamp/완전한 span 문자열로 보수적으로 정합한다. 빈 결과/겹침만 남은 결과는 NoSpeech/OverlapOnly 사유로 skip한다. 실제 dedup 효과와 격리된 무음은 아직 수용하지 않았다. [계약](ASR_RECONCILIATION.md) · [실측](evidence/T02-04b-windows-asr-reconciliation.md).

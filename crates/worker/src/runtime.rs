@@ -427,6 +427,10 @@ impl Runtime {
                     decode_s,
                     abort_observed,
                     overlap_segments_removed,
+                    overlap_tokens_removed,
+                    timed_token_count,
+                    input_samples,
+                    nonzero_samples,
                 } => {
                     self.flight = None;
                     let applied = self
@@ -434,7 +438,7 @@ impl Runtime {
                         .complete_asr(key, outcome, self.now())
                         .map_err(|_| std::io::Error::other("ASR completion rejected"))?;
                     self.completed_jobs += 1;
-                    q.publish("asr.completed",json!({"session_id":key.audio.session_id,"epoch":key.audio.epoch,"segment_id":key.segment_id,"source_revision":key.source_revision,"decode_s":decode_s,"applied":applied==echosub_pipeline_core::Apply::Applied,"abort_observed":abort_observed,"overlap_segments_removed":overlap_segments_removed}),None)?;
+                    q.publish("asr.completed",json!({"session_id":key.audio.session_id,"epoch":key.audio.epoch,"segment_id":key.segment_id,"source_revision":key.source_revision,"decode_s":decode_s,"applied":applied==echosub_pipeline_core::Apply::Applied,"abort_observed":abort_observed,"overlap_segments_removed":overlap_segments_removed,"overlap_tokens_removed":overlap_tokens_removed,"timed_token_count":timed_token_count,"input_samples":input_samples,"nonzero_samples":nonzero_samples}),None)?;
                     if applied == echosub_pipeline_core::Apply::Applied {
                         let record = self
                             .core

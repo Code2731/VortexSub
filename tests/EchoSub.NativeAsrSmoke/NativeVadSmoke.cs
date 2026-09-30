@@ -20,14 +20,35 @@ internal static class NativeVadSmoke
         var fixtures = corpus.RootElement.GetProperty("fixtures").EnumerateArray().ToArray();
         var fixtureRoot = Path.GetDirectoryName(args[3])!;
         int finals = 0, failed = 0, calls = 0, suppressed = 0;
+        int skipped = 0;
+        var decodeDiagnostics = new List<JsonElement>();
         var vadSeconds = new List<double>();
         var pingMax = 0.0;
+        double controlledSilentAudio = 0;
+        int controlledSilentRounds = 0;
         var outputDirectory = Path.GetDirectoryName(args[5])!;
         var baselineRanges = new List<(double, double)>();
         await using var client = WorkerClient.Start(args[0], arguments: options);
         var hello = await client.SendAsync("hello", new { protocol_major = 1, client = "NativeVadSmoke" });
         Require(hello.GetProperty("capabilities").GetProperty("vad").GetBoolean(), "VAD capability");
+        Require(hello.GetProperty("capabilities").GetProperty("source_token_alignment").GetBoolean(), "Native token alignment capability");
         await Event("model.state");
+        // File PCM bypasses system loopback and cannot contain unrelated playback.
+        var controlledSilence = Path.Combine(outputDirectory, "controlled-silence-8s.wav");
+        Save(controlledSilence, new short[128000]);
+        var controlledHash = Hash(controlledSilence);
+        for (int i = 0; i < 75; i++)
+        {
+            var split = await Feed(controlledSilence, controlledHash, "en");
+            Require(split.GetProperty("segments").GetArrayLength() == 0 && split.GetProperty("vad_calls").GetInt32() == 0, "Controlled zero PCM suppresses VAD/ASR");
+            controlledSilentAudio += 8; controlledSilentRounds++;
+        }
+        var silentState = await client.SendAsync("get_state");
+        Require(silentState.GetProperty("diagnostic_asr").GetProperty("completed_jobs").GetInt32() == 0
+            && (await client.ReadHistoryAsync()).Records.Count == 0, "600 seconds controlled file PCM produces no ASR/history");
+        File.WriteAllText(args[5], JsonSerializer.Serialize(new { passed = false, phase = "controlled_silence_complete",
+            controlled_silence_audio_s = controlledSilentAudio, controlled_silence_rounds = controlledSilentRounds,
+            controlled_silence_is_file_pcm = true, loopback_silence_gate_passed = false, state = silentState }));
         foreach (var fixture in fixtures)
         {
             var path = Path.GetFullPath(Path.Combine(fixtureRoot, fixture.GetProperty("path").GetString()!));
@@ -93,9 +114,13 @@ internal static class NativeVadSmoke
             Require((await badClient.SendAsync("get_state")).GetProperty("diagnostic_asr").GetProperty("completed_jobs").GetInt32() == 0, "failed VAD never calls ASR");
         }
         var state = await client.SendAsync("get_state");
-        Require(state.GetProperty("diagnostic_asr").GetProperty("completed_jobs").GetInt32() == finals + failed, "suppressed inputs never called ASR");
+        Require(state.GetProperty("diagnostic_asr").GetProperty("completed_jobs").GetInt32() == finals + failed + skipped, "suppressed inputs never called ASR");
+        Require(decodeDiagnostics.Any(d => d.GetProperty("timed_token_count").GetInt32() > 0), "Real token timestamps extracted");
         var report = new { passed = true, quality_gate_passed = false, backend = args[4], vad_model = "silero-v6.0", runtime = "1.22.0", finals, failed,
             suppressed, vad_calls = calls, epoch_reset_rounds = 10, pair_segments = 2, model_hash_rejected = true, runtime_hash_rejected = true,
+            controlled_silence_audio_s = controlledSilentAudio, controlled_silence_rounds = controlledSilentRounds,
+            controlled_silence_is_file_pcm = true, loopback_silence_gate_passed = false,
+            skipped, decode_diagnostics = decodeDiagnostics,
             vad_mean_s = vadSeconds.Average(), vad_max_s = vadSeconds.Max(), ping_max_s = pingMax,
             capture = false, partial = false, translation = false, fixtures = "synthetic_tts_and_generated_negatives" };
         File.WriteAllText(args[5], JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }));
@@ -113,6 +138,12 @@ internal static class NativeVadSmoke
                 Require(segment.GetProperty("queued").GetBoolean(), "fixture final admitted");
                 var final = await Event("source.terminal", segment.GetProperty("segment_id").GetUInt64());
                 var record = final.GetProperty("record");
+                if (record.GetProperty("source_state").GetString() == "Skipped")
+                {
+                    Require(record.GetProperty("source_reason").GetString() is "NoSpeech" or "OverlapOnly"
+                        && record.GetProperty("translation_state").GetString() == "None", "Explicit no-speech skip");
+                    skipped++; continue;
+                }
                 if (record.GetProperty("source_state").GetString() == "Failed")
                 {
                     Require(record.GetProperty("source_reason").GetString() == "InvalidText" && record.GetProperty("source").GetString() == "", "empty output remains failed");
@@ -135,8 +166,10 @@ internal static class NativeVadSmoke
                 while (client.Events.TryRead(out var e))
                 {
                     if (e!.Name == "fixture.failed") throw new Exception("Fixture failed: " + e.Payload.GetProperty("code").GetString());
-                    if (e.Name == "segment.skipped") throw new Exception("Unexpected final admission skip");
-                    if (e.Name != name && !(name == "source.terminal" && e.Name is "source.final" or "segment.failed")) continue;
+                    if (e.Name == "asr.completed") decodeDiagnostics.Add(e.Payload.Clone());
+                    if (e.Name == "segment.skipped" && e.Payload.GetProperty("record").GetProperty("source_reason").GetString() is not ("NoSpeech" or "OverlapOnly"))
+                        throw new Exception("Unexpected final admission skip");
+                    if (e.Name != name && !(name == "source.terminal" && e.Name is "source.final" or "segment.failed" or "segment.skipped")) continue;
                     var payload = e.Payload;
                     var key = payload.TryGetProperty("record", out var record) ? record.GetProperty("segment_id").GetUInt64() :
                         payload.TryGetProperty("fixture_id", out var id) ? id.GetUInt64() : 0;

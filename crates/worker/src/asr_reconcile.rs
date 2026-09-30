@@ -11,6 +11,8 @@ struct Previous {
 #[derive(Default)]
 pub struct Reconciler {
     previous: Option<Previous>,
+    pub tokens_removed: usize,
+    pub timed_tokens: usize,
 }
 fn text(segments: &[Segment]) -> Option<String> {
     let mut text = String::new();
@@ -58,6 +60,18 @@ impl Reconciler {
         continued_from: Option<SegmentIdentity>,
         segments: Vec<Segment>,
     ) -> (Outcome, usize) {
+        self.tokens_removed = 0;
+        self.timed_tokens = segments
+            .iter()
+            .flat_map(|s| &s.tokens)
+            .filter(|t| {
+                t.start_ms >= 0
+                    && t.end_ms > t.start_ms
+                    && (t.end_ms as u64)
+                        .checked_mul(16)
+                        .is_some_and(|end| end <= range.end - range.start)
+            })
+            .count();
         // Bound native metadata as well as the visible UTF-8 text.
         if segments.len() > MAX_TEXT_BYTES {
             return (Outcome::Failed, 0);
@@ -111,7 +125,29 @@ impl Reconciler {
                 }
             }
         }
-        let output = text(&segments[removed..]).unwrap();
+        let mut output = text(&segments[removed..]).unwrap();
+        if let Some(previous) = self.previous.as_ref().filter(|p| {
+            Some(p.id) == continued_from
+                && p.id.audio == id.audio
+                && p.id.segment_id < id.segment_id
+                && p.range.start < range.start
+                && range.start < p.range.end
+                && p.range.end < range.end
+                && p.range.end - range.start <= 9728
+        }) {
+            if let Some((suffix, count)) = super::token_reconcile::reconcile(
+                &previous.segments,
+                previous.range,
+                &segments,
+                range,
+            ) {
+                // Fine alignment must remove at least as much as complete-span alignment.
+                if suffix.len() < output.len() {
+                    output = suffix;
+                    self.tokens_removed = count;
+                }
+            }
+        }
         if kind == AsrKind::Final {
             self.previous = (!raw.is_empty()).then_some(Previous {
                 id,
@@ -121,7 +157,7 @@ impl Reconciler {
         }
         let outcome = if raw.is_empty() {
             Outcome::NoSpeech
-        } else if output.is_empty() && removed > 0 {
+        } else if output.is_empty() && (removed > 0 || self.tokens_removed > 0) {
             Outcome::OverlapOnly
         } else {
             Outcome::Text(output)
@@ -148,6 +184,7 @@ mod tests {
             start_ms,
             end_ms,
             text: text.into(),
+            tokens: Vec::new(),
         }
     }
     fn previous(r: &mut Reconciler) {
@@ -246,6 +283,90 @@ mod tests {
             );
             assert_eq!(removed, 1);
             assert!(matches!(outcome, Outcome::Text(t) if t == "進もう🙂"));
+        }
+    }
+    #[test]
+    fn token_fallback_respects_product_identity_and_resets_diagnostics() {
+        use echosub_asr_whisper::Token;
+        let mut old = span(0, 8000, "We should go");
+        old.tokens = vec![
+            Token {
+                byte_start: 0,
+                byte_end: 9,
+                start_ms: 0,
+                end_ms: 7000,
+            },
+            Token {
+                byte_start: 9,
+                byte_end: 12,
+                start_ms: 7400,
+                end_ms: 8000,
+            },
+        ];
+        let mut next = span(0, 8000, " go go again");
+        next.tokens = vec![
+            Token {
+                byte_start: 0,
+                byte_end: 3,
+                start_ms: 10,
+                end_ms: 600,
+            },
+            Token {
+                byte_start: 3,
+                byte_end: 6,
+                start_ms: 610,
+                end_ms: 900,
+            },
+            Token {
+                byte_start: 6,
+                byte_end: 12,
+                start_ms: 900,
+                end_ms: 1500,
+            },
+        ];
+        for parent in [None, Some(id(1))] {
+            let mut r = Reconciler::default();
+            r.finish(
+                id(1),
+                SampleRange {
+                    start: 0,
+                    end: 128000,
+                },
+                AsrKind::Final,
+                None,
+                vec![old.clone()],
+            );
+            let (outcome, spans) = r.finish(
+                id(2),
+                SampleRange {
+                    start: 118272,
+                    end: 246272,
+                },
+                AsrKind::Partial,
+                parent,
+                vec![next.clone()],
+            );
+            assert_eq!(spans, 0);
+            assert_eq!(r.timed_tokens, 3);
+            if parent.is_some() {
+                assert_eq!(r.tokens_removed, 1);
+                assert!(matches!(outcome, Outcome::Text(t) if t == "go again"));
+            } else {
+                assert_eq!(r.tokens_removed, 0);
+                assert!(matches!(outcome, Outcome::Text(t) if t == "go go again"));
+            }
+            r.finish(
+                id(2),
+                SampleRange {
+                    start: 118272,
+                    end: 246272,
+                },
+                AsrKind::Final,
+                parent,
+                vec![],
+            );
+            assert_eq!(r.tokens_removed, 0);
+            assert_eq!(r.timed_tokens, 0);
         }
     }
     #[test]

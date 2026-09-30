@@ -7,6 +7,8 @@ mod capture_runtime;
 mod live_owner;
 mod native_owner;
 mod runtime;
+#[cfg(any(feature = "native-asr", test))]
+mod token_reconcile;
 mod transport;
 
 use serde_json::{json, Value};
@@ -191,6 +193,7 @@ fn serve() -> io::Result<()> {
                             "capture_pcm": runtime.capture.enabled,
                             "live_asr": runtime.is_live(),
                             "source_partial": runtime.is_live() || runtime.session.mock,
+                            "source_token_alignment": runtime.has_native(),
                             "session_control": runtime.session.enabled,
                             "session_history_uuid": runtime.session.enabled,
                             "history_export": runtime.session.enabled,
