@@ -26,6 +26,7 @@ public sealed class MainWindow : Window
     private readonly Button overlayButton = new();
     private readonly Button exportTxtButton = new() { Content = "TXT 저장" };
     private readonly Button exportSrtButton = new() { Content = "원문 SRT 저장" };
+    private readonly Button clearHistoryButton = new() { Content = "선택 세션 기록 삭제" };
     private readonly ComboBox exportSession = new() { Width = 420 };
     private readonly TextBlock exportResult = new() { TextWrapping = TextWrapping.Wrap };
     private readonly ComboBox language = new() { ItemsSource = new[] { "en", "ja", "ko" }, SelectedIndex = 0, Width = 80 };
@@ -47,6 +48,7 @@ public sealed class MainWindow : Window
     private string? sessionState;
     private bool resumeReady;
     private bool exportReady, exportSupported, selectingExport;
+    private bool clearSupported, historyReady;
 
     public MainWindow()
     {
@@ -94,7 +96,7 @@ public sealed class MainWindow : Window
                     {
                         new TextBlock { Text = "기록 저장 · 일시정지/종료 및 추론 정리 후 · 최대 1,000개, 오래된 대사는 제외될 수 있습니다.", TextWrapping = TextWrapping.Wrap },
                         exportSession,
-                        new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { exportTxtButton, exportSrtButton } },
+                        new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { exportTxtButton, exportSrtButton, clearHistoryButton } },
                         exportResult
                     } },
                     new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { overlayButton, resetOverlay } },
@@ -110,6 +112,7 @@ public sealed class MainWindow : Window
         });
         exportTxtButton.Click += async (_, _) => await ExportAsync("txt");
         exportSrtButton.Click += async (_, _) => await ExportAsync("srt");
+        clearHistoryButton.Click += async (_, _) => await ClearHistoryAsync();
         exportSession.SelectionChanged += (_, _) => UpdateButtons();
         connectButton.Click += async (_, _) => await ExecuteAsync(ConnectCoreAsync);
         pingButton.Click += async (_, _) => await ExecuteAsync(async () =>
@@ -246,6 +249,47 @@ public sealed class MainWindow : Window
         finally { selectingExport = false; UpdateButtons(); }
     }
 
+    private async Task ClearHistoryAsync()
+    {
+        if (!historyReady || !clearSupported || selectingExport || client is null || exportSession.SelectedItem is not ExportChoice choice) return;
+        var selectedClient = client;
+        var count = snapshot?.Records.Count(r => r.ProductSessionId == choice.Id) ?? 0;
+        selectingExport = true;
+        UpdateButtons();
+        try
+        {
+            var confirm = new Window
+            {
+                Title = "세션 기록 삭제", Width = 510, SizeToContent = SizeToContent.Height,
+                CanResize = false, WindowStartupLocation = WindowStartupLocation.CenterOwner
+            };
+            var cancel = new Button { Content = "취소" };
+            var remove = new Button { Content = "기록 삭제" };
+            cancel.Click += (_, _) => confirm.Close(false);
+            remove.Click += (_, _) => confirm.Close(true);
+            confirm.Content = new StackPanel { Margin = new Thickness(20), Spacing = 12, Children =
+            {
+                new TextBlock { Text = $"선택 세션의 메모리 기록 {count}개를 삭제합니다.\n{choice}\n복구할 수 없습니다. 필요한 기록은 먼저 저장하세요.\n이미 저장한 TXT/SRT 파일은 유지됩니다.", TextWrapping = TextWrapping.Wrap },
+                new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { cancel, remove } }
+            } };
+            if (!await confirm.ShowDialog<bool>(this)) return;
+            await ExecuteAsync(async () =>
+            {
+                if (!ReferenceEquals(client, selectedClient)) throw new IOException("Worker 연결이 변경되었습니다. 세션을 다시 선택하세요.");
+                try
+                {
+                    var result = await selectedClient.SendAsync("clear_history", new { session_id = choice.Id });
+                    ClearSource();
+                    exportResult.Text = $"기록 삭제 완료 · {result.GetProperty("removed_count").GetInt32()}개 · {choice.Id}";
+                }
+                catch (Exception error) { exportResult.Text = $"기록 삭제 실패: {error.Message}"; throw; }
+                await RefreshCoreAsync();
+            });
+        }
+        catch (Exception error) { ReportError(error); }
+        finally { selectingExport = false; UpdateButtons(); }
+    }
+
     private async Task ExecuteAsync(Func<Task> action)
     {
         // User commands cancel background reads before waiting for their ownership gate.
@@ -320,6 +364,7 @@ public sealed class MainWindow : Window
             if (live && (!hello.GetProperty("capabilities").TryGetProperty("session_history_uuid", out var historyCapability) || !historyCapability.GetBoolean()))
                 throw new IOException("UUID history worker를 다시 빌드하세요: scripts/run.ps1 -Live");
             exportSupported = hello.GetProperty("capabilities").TryGetProperty("history_export", out var exportCapability) && exportCapability.GetBoolean();
+            clearSupported = hello.GetProperty("capabilities").TryGetProperty("history_clear", out var clearCapability) && clearCapability.GetBoolean();
             StartupDiagnostics.Write($"Worker connected; live={live}");
             snapshot = null;
             await RefreshCoreAsync();
@@ -370,7 +415,8 @@ public sealed class MainWindow : Window
         captureStartable = sessionState == "Idle" && joined && vadJoined;
         captureNeedsStop = sessionId is not null && sessionState is "Preparing" or "Running" or "Paused" or "Error";
         resumeReady = sessionState == "Paused" && joined && vadJoined && modelReady;
-        exportReady = exportSupported && sessionState is "Idle" or "Paused" && joined && vadJoined && !state.GetProperty("diagnostic_asr").GetProperty("decoding").GetBoolean();
+        historyReady = sessionState is "Idle" or "Paused" && joined && vadJoined && !state.GetProperty("diagnostic_asr").GetProperty("decoding").GetBoolean();
+        exportReady = exportSupported && historyReady;
         status.Text = $"세션 {sessionState} · 모델 {state.GetProperty("model").GetProperty("state").GetString()} · 캡처 {captureState}";
         var phase = capture.GetProperty("failure_native_phase").GetString() ??
             (capture.GetProperty("stats").TryGetProperty("native_phase", out var nativePhase) ? nativePhase.GetString() : "준비 중");
@@ -418,6 +464,7 @@ public sealed class MainWindow : Window
         sessionId = sessionState = null;
         resumeReady = false;
         exportReady = exportSupported = false;
+        clearSupported = historyReady = false;
         exportSession.ItemsSource = null;
         exportResult.Text = "";
         if (oldClient is not null)
@@ -443,6 +490,7 @@ public sealed class MainWindow : Window
         pauseButton.IsEnabled = available && connected && sessionState is "Preparing" or "Running";
         resumeButton.IsEnabled = available && connected && resumeReady;
         exportTxtButton.IsEnabled = exportSrtButton.IsEnabled = available && connected && exportReady && !selectingExport && exportSession.SelectedItem is ExportChoice;
+        clearHistoryButton.IsEnabled = available && connected && clearSupported && historyReady && !selectingExport && exportSession.SelectedItem is ExportChoice;
         language.IsEnabled = endpoint.IsEnabled = available && captureStartable;
     }
 

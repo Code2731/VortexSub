@@ -410,6 +410,116 @@ fn uuid_session_controls_preserve_history_and_reject_stale_identity() {
 }
 
 #[test]
+fn uuid_history_clear_is_scoped_and_preserves_resume_identity() {
+    let mut w = Worker::start_args(vec!["--mock-pipeline", "--mock-session-control"]);
+    hello(&mut w);
+    let config = json!({"config":{"source_language":"en"},"history_policy":"retain"});
+    let id =
+        w.send(command("start", "start_session", config.clone()))["result"]["session_id"].clone();
+    w.send(command("source", "mock_segment", json!({"source":"first"})));
+    let old = w.send(command("before", "get_history", json!({})))["result"].clone();
+    assert_eq!(
+        w.send(command(
+            "running",
+            "clear_history",
+            json!({"session_id":id})
+        ))["error"]["code"],
+        "INVALID_STATE"
+    );
+    w.send(command("pause", "pause_session", json!({"session_id":id})));
+    assert_eq!(
+        w.send(command("missing", "clear_history", json!({})))["error"]["code"],
+        "INVALID_REQUEST"
+    );
+    assert_eq!(
+        w.send(command(
+            "stale",
+            "clear_history",
+            json!({"session_id":"00000000-0000-0000-0000-000000000000"})
+        ))["error"]["code"],
+        "STALE_SESSION"
+    );
+    let removed = w.send(command("clear", "clear_history", json!({"session_id":id})));
+    assert_eq!(removed["result"]["removed_count"], 1);
+    assert!(
+        removed["result"]["history_version"].as_u64().unwrap()
+            > old["history_version"].as_u64().unwrap()
+    );
+    assert_eq!(
+        w.send(command("again", "clear_history", json!({"session_id":id})))["result"]
+            ["removed_count"],
+        0
+    );
+    assert_eq!(
+        w.send(command(
+            "snapshot",
+            "get_history",
+            json!({"expected_version":old["history_version"]})
+        ))["error"]["code"],
+        "STALE_SNAPSHOT"
+    );
+    assert!(
+        w.send(command("empty", "get_history", json!({})))["result"]["records"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    w.send(command(
+        "resume",
+        "resume_session",
+        json!({"session_id":id}),
+    ));
+    w.send(command(
+        "source2",
+        "mock_segment",
+        json!({"source":"after clear"}),
+    ));
+    let resumed =
+        w.send(command("resumed", "get_history", json!({})))["result"]["records"][0].clone();
+    assert_eq!(resumed["product_session_id"], id);
+    assert_eq!(
+        resumed["session_started_at_utc"],
+        old["records"][0]["session_started_at_utc"]
+    );
+    assert!(
+        resumed["segment_id"].as_u64().unwrap() > old["records"][0]["segment_id"].as_u64().unwrap()
+    );
+    w.send(command("stop", "stop_session", json!({"session_id":id})));
+    let next = w.send(command("new", "start_session", config))["result"]["session_id"].clone();
+    w.send(command(
+        "source3",
+        "mock_segment",
+        json!({"source":"keep new"}),
+    ));
+    w.send(command("stop2", "stop_session", json!({"session_id":next})));
+    assert_eq!(
+        w.send(command(
+            "clear-old",
+            "clear_history",
+            json!({"session_id":id})
+        ))["result"]["removed_count"],
+        1
+    );
+    let kept = w.send(command("kept", "get_history", json!({})))["result"]["records"].clone();
+    assert_eq!(kept.as_array().unwrap().len(), 1);
+    assert_eq!(kept[0]["product_session_id"], next);
+    assert_eq!(
+        w.send(command(
+            "deleted-uuid",
+            "clear_history",
+            json!({"session_id":id})
+        ))["error"]["code"],
+        "STALE_SESSION"
+    );
+    assert!(w
+        .events
+        .iter()
+        .any(|e| e["event"] == "history.changed" && e["payload"]["reason"] == "history_cleared"));
+    w.send(command("exit", "shutdown", json!({})));
+    w.finish();
+}
+
+#[test]
 fn mock_source_translation_and_versioned_pages_round_trip() {
     let mut worker = Worker::start_with(true);
     hello(&mut worker);

@@ -275,6 +275,26 @@ impl Pipeline {
     pub fn history_identities(&self) -> impl Iterator<Item = AudioIdentity> + '_ {
         self.records.iter().map(|r| r.key.audio)
     }
+    /// Caller enforces paused/idle input. Never remove records while jobs own them.
+    /// Keep the segment watermark so clearing cannot make old IDs reusable.
+    pub fn clear_session_history(&mut self, session_id: u64) -> Result<usize, CoreError> {
+        if self.asr.is_some()
+            || self.translation.is_some()
+            || !self.final_queue.is_empty()
+            || self.partial.is_some()
+            || !self.translation_queue.is_empty()
+        {
+            return Err(CoreError::Closed);
+        }
+        let before = self.records.len();
+        self.records
+            .retain(|r| r.key.audio.session_id != session_id);
+        let removed = before - self.records.len();
+        if removed != 0 {
+            self.changed();
+        }
+        Ok(removed)
+    }
     fn room(&mut self) -> Result<(), CoreError> {
         if self.records.len() < self.capacity {
             return Ok(());

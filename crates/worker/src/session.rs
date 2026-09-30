@@ -37,6 +37,12 @@ impl Session {
             (id == uuid).then_some((*key, *origin, utc.as_str()))
         })
     }
+    pub fn cleared_history(&mut self, internal_id: u64) {
+        // A paused current session can resume with the same UTC and audio origin.
+        if internal_id != self.internal_id {
+            self.metadata.remove(&internal_id);
+        }
+    }
     pub fn decorate_record(&self, internal_id: u64, start: u64, end: u64, value: &mut Value) {
         if let Some((uuid, origin, utc)) = self.metadata.get(&internal_id) {
             value["product_session_id"] = json!(uuid);
@@ -256,6 +262,16 @@ impl Runtime {
             self.core
                 .restart(self.epoch, false, self.now())
                 .map_err(super::core_error)?;
+            // Mock translation has no asynchronous owner; acknowledge cancellation here.
+            if let Some(job) = self.translation.take() {
+                self.core
+                    .complete_translation(
+                        job.key,
+                        echosub_pipeline_core::Outcome::Cancelled,
+                        self.now(),
+                    )
+                    .map_err(super::core_error)?;
+            }
             q.publish(
                 "history.changed",
                 json!({"history_version":self.core.version()}),

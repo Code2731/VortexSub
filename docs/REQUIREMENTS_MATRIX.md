@@ -27,7 +27,7 @@
 | UI-004 | T00-04.3, T03-02 | HW-UI01; `OVERLAY_PROBE.md` | PARTIAL: MOCK 표시/숨김·조절·초기 위치; 물리 조작·다중 화면 검증 전 |
 | UI-005 | T03-02 | 장애 상태 UI 검증 필요 | PLANNED |
 | HIS-001 | T01-02, T03-02 | UT-008, 기록/페이지 버전 fixture | PARTIAL: 1,200 final→1,000 record 상한·skip/실패·페이지 사이 변경 재시도 검증; IPC mock snapshot·C# 301개 기록 복구 통과; UI history 렌더링 미연결 |
-| HIS-002 | T03-02 | UT-009/010 | PLANNED |
+| HIS-002 | T02-03c/d, T03-02 | UT-009/010 subset; `evidence/T02-03c-windows-history-export.md`, `evidence/T02-03d-windows-history-clear.md` | PARTIAL: 원문 TXT/SRT·UTC/sample 시간축·명시적 덮어쓰기·세션별 삭제 IPC 및 실제 Windows 파일 보존 PASS. 번역 SRT·UI 조작·Mac 미검증 |
 | MOD-001 | T00-04.1, T02-01 | P0-MODEL, 모델 경로/해시 오류 시험 필요 | PARTIAL: 고정 모델 3개 해시 확인과 실제 probe 로딩; 제품 설치·오류 수용 미검증 |
 | MOD-002 (P0B) | T04-01 | REL-001, 손상/취소 시험 필요 | PLANNED |
 | SEC-001 | T03-01 | UT-012, 기본 오프라인 실행 확인 | PLANNED |

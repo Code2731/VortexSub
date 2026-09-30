@@ -200,3 +200,11 @@ T02-02c는 진단 capture에 `startup_deadline_s=10`, `opening_elapsed_s`, `fail
 ### T02-03b UUID history 메타데이터
 
 UUID 제어 모드의 record는 product_session_id와 session_audio_start_s/session_audio_end_s를 추가한다. numeric session_id와 worker 기준 audio 시간은 유지한다. metadata는 retained history session+현재 session에 한정되며 C#은 UUID/상대 시간 tuple을 검증한다. 이는 제품 목표의 session_id UUID/type-data 전체 wire 교체가 아니다. [상대 시간·수명](SESSION_CONTROL.md)과 [native Pause 실측/시작 실패](evidence/T02-03b-windows-session-history.md)를 따른다.
+
+### T02-03c/d UTC·저장·삭제
+
+UUID 제어 모드는 started_at_utc와 record.session_started_at_utc를 기록한다.
+export_history(txt/srt)와 clear_history(session_id UUID)는 안정된 Paused/Idle에서
+owner/native 반환 뒤 실행한다. 삭제는 메모리 record만 제거하며 저장 파일은
+유지한다. 현재 세션의 metadata/구간 ID는 재개를 위해 유지한다.
+[현재 구현 계약](HISTORY_EXPORT.md). 전체 제품 type/data wire 전환은 후속이다.

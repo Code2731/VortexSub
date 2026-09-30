@@ -198,15 +198,48 @@ fn publish_file(
     }
 }
 impl Runtime {
+    fn history_ready(&self) -> bool {
+        matches!(self.session.state, "Idle" | "Paused")
+            && self.capture.startable()
+            && self.live_owner.is_none()
+            && self.flight.is_none()
+            && self.translation.is_none()
+            && self.core.queue_lengths() == (0, 0, 0)
+    }
+    pub fn clear_history(&mut self, p: &Value, q: &crate::transport::Outbox) -> Reply {
+        if !self.session.enabled {
+            return Err(("UNSUPPORTED_CAPABILITY", "UUID session mode required"));
+        }
+        if !self.history_ready() {
+            return Err((
+                "INVALID_STATE",
+                "Pause or stop and wait for all owners before clearing",
+            ));
+        }
+        let uuid = p
+            .get("session_id")
+            .and_then(Value::as_str)
+            .ok_or(("INVALID_REQUEST", "Session UUID required"))?;
+        let (internal, _, _) = self
+            .session
+            .export_info(uuid)
+            .ok_or(("STALE_SESSION", "Session history metadata not retained"))?;
+        let removed = self
+            .core
+            .clear_session_history(internal)
+            .map_err(super::core_error)?;
+        self.session.cleared_history(internal);
+        if removed != 0 {
+            q.publish("history.changed", json!({"history_version":self.core.version(),"session_id":uuid,"reason":"history_cleared"}), None)
+                .map_err(|_| ("INTERNAL_ERROR", "History event unavailable"))?;
+        }
+        Ok(json!({"session_id":uuid,"removed_count":removed,"history_version":self.core.version()}))
+    }
     pub fn export_history(&self, p: &Value) -> Reply {
         if !self.session.enabled {
             return Err(("UNSUPPORTED_CAPABILITY", "UUID session mode required"));
         }
-        if !matches!(self.session.state, "Idle" | "Paused")
-            || !self.capture.startable()
-            || self.live_owner.is_some()
-            || self.flight.is_some()
-        {
+        if !self.history_ready() {
             return Err((
                 "INVALID_STATE",
                 "Pause or stop and wait for all owners before exporting",

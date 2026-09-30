@@ -19,7 +19,8 @@ await using (var client = WorkerClient.Start(workerPath))
     Require(!hello.GetProperty("capabilities").GetProperty("vad").GetBoolean(), "VAD fixtures require opt-in");
     Require(!hello.GetProperty("capabilities").GetProperty("live_asr").GetBoolean(), "live ASR requires opt-in");
     Require(!hello.GetProperty("capabilities").GetProperty("history_export").GetBoolean(), "history export requires UUID mode");
-    foreach (var method in new[] { "transcribe_fixture", "reset_fixture_epoch", "start_capture", "stop_capture", "start_session", "pause_session", "resume_session", "stop_session", "export_history" })
+    Require(!hello.GetProperty("capabilities").GetProperty("history_clear").GetBoolean(), "clear requires UUID mode");
+    foreach (var method in new[] { "transcribe_fixture", "reset_fixture_epoch", "start_capture", "stop_capture", "start_session", "pause_session", "resume_session", "stop_session", "export_history", "clear_history" })
     {
         try { await client.SendAsync(method); throw new Exception("Native fixture opt-in was bypassed"); }
         catch (WorkerException error) when (error.Code == "UNSUPPORTED_CAPABILITY") { }
@@ -103,6 +104,7 @@ await using (var client = WorkerClient.Start(workerPath, arguments: new[] { "--m
     Directory.CreateDirectory(directory);
     var txt = Path.Combine(directory, "history.txt");
     var srt = Path.Combine(directory, "history.srt");
+    Exception? exportFailure = null;
     try
     {
         async Task Reject(string code, object p)
@@ -132,10 +134,25 @@ await using (var client = WorkerClient.Start(workerPath, arguments: new[] { "--m
         await Reject("EMPTY_HISTORY", new { session_id = next.GetProperty("session_id").GetString(), format = "txt", path = txt, overwrite = true });
         await client.SendAsync("export_history", new { session_id = id, format = "srt", path = srt, overwrite = true });
         Require(File.ReadAllText(srt).Contains("日本語"), "retained older UUID export");
+        var saved = File.ReadAllText(srt);
+        var removed = await client.SendAsync("clear_history", new { session_id = id });
+        Require(removed.GetProperty("removed_count").GetInt32() == 1 && (await client.ReadHistoryAsync()).Records.Count == 0, "clear typed retained history");
+        Require(File.ReadAllText(srt) == saved, "clear never deletes exported files");
+        await Reject("STALE_SESSION", new { session_id = id, format = "srt", path = srt, overwrite = true });
     }
+    catch (Exception error) { exportFailure = error; throw; }
     finally
     {
-        File.Delete(txt); File.Delete(srt); Directory.Delete(directory);
+        // A timed-out command may still be writing. Stop the owned worker first.
+        try
+        {
+            await client.DisposeAsync();
+            File.Delete(txt); File.Delete(srt); Directory.Delete(directory);
+        }
+        catch (Exception error) when (exportFailure is not null)
+        {
+            Console.Error.WriteLine($"Export cleanup also failed: {error.Message}");
+        }
     }
 }
 

@@ -24,6 +24,7 @@
 | T02-03a | PARTIAL: UUID session 제어 어댑터·실제 CPU IPC 확인 | 시작/Pause/Resume/Stop·숫자 ID 대응·history 유지·native 반환 후 Idle·UI 버튼 연결. Rust 92개·확장 C# smoke·native 빌드와 실제 final 3개 PASS. 화면 조작·full 도중 Pause·전체 제품 wire·Mac 후속. [계약](SESSION_CONTROL.md) · [근거](evidence/T02-03a-windows-session-control.md) |
 | T02-03b | PARTIAL: UUID history·세션 상대 시간·native Pause 확인 | source/history UUID 메타데이터·UI UUID 필터·최대 1,001개 session metadata 구현. Rust 92개·C# IPC PASS, 빈 세션 1,001회 뒤 UUID 유지. 실제 첫 시작 timeout 1회; 재실행 native Pause/Resume·final 3개 PASS. 시작/화면/품질 gate는 유지. [근거](evidence/T02-03b-windows-session-history.md) |
 | T02-03c | PARTIAL: UTC·원문 TXT/SRT export·시작 진단 보완 | Rust 94개·C# IPC/native CPU 빌드 PASS, 실제 두 세션 TXT/SRT 파일 저장 PASS. 모델 없는 시작 16/16 정상; 다음 실패용 endpoint/thread ID·덤프 수집 추가. 근본 원인·UI 저장 창·제품 수용 미확정. [export 근거](evidence/T02-03c-windows-history-export.md) · [시작 진단](evidence/T02-03c-windows-startup-diagnostics.md) |
+| T02-03d | PARTIAL: 세션 기록 삭제·재개 ID 보존 | Rust 95개·C# IPC/native CPU 빌드 및 실제 이전 세션 삭제/새 세션·저장 파일 보존 PASS. UI 확인 창 조작·Mac 미검증. 사용자 요청으로 시작 timeout 원인 분석은 후속으로 보류. [근거](evidence/T02-03d-windows-history-clear.md) |
 | M2 | PARTIAL | CPU 실제 VAD 파일 분할·전사·제어/history 연결. WASAPI live final/history 진단 연결. 시작 안정성·화면 자막·제품 session·자연 음성 경계 수용 미통과. |
 | M3~M5 | NOT_STARTED | 해당 제품 통합/실기기 수용 결과 없음. |
 

@@ -32,7 +32,8 @@ WASAPI Running과 live VAD 준비 완료 후 `session.state`가 Running이 된�
   보장이 아니며 간헐적 Initialize 문제는 남아 있다.
 - 새 세션은 새 UUID·증가하는 내부 숫자 ID·새 ring을 사용한다. segment ID는
   세션 내 Pause/Resume 때 초기화하지 않는다. history는 최대 1,000개 유지하며
-  현재는 명시적 `retain`만 지원한다. 원문 export는 T02-03c에서 제공하며 clear는 후속이다.
+  시작 정책은 명시적 `retain`만 지원한다. 원문 export와 안정된 Paused/Idle의
+  세션별 `clear_history`를 제공한다. [저장·삭제 계약](HISTORY_EXPORT.md).
 
 ## 제품 목표와 현재 wire 형식
 
@@ -51,7 +52,7 @@ UUID 대응 정보는 history에 남은 세션(최대 1,000개)과 현재 세션
 세션 경과 초는 Pause를 포함하고 Idle에서 고정된다.
 
 제품 목표의 `session_id` UUID/type-data 형식으로의 전면 전환,
-apply_config/clear, Recovering, partial·번역·macOS는 미구현이다.
+apply_config, 시작 시 history 정책 선택, Recovering, partial·번역·macOS는 미구현이다.
 이 어댑터를 제품 명세 전체의 완료로 간주하지 않는다.
 
 ## 확인 범위

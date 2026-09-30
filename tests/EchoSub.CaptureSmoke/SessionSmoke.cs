@@ -132,6 +132,15 @@ internal static class SessionSmoke
             var txt = await client.SendAsync("export_history", new { session_id = id, format = "txt", path = txtPath, overwrite = false });
             Require(srt.GetProperty("cue_count").GetInt32() >= 1 && File.ReadAllText(srtPath).Contains(" --> "), "Real source SRT export");
             Require(txt.GetProperty("record_count").GetInt32() >= 2 && File.ReadAllText(txtPath).Contains("Started UTC:"), "Retained real history/UTC TXT export");
+            phase = "clear_real_history";
+            var beforeClear = await client.ReadHistoryAsync();
+            var savedSrt = File.ReadAllText(srtPath);
+            var savedTxt = File.ReadAllText(txtPath);
+            var cleared = await client.SendAsync("clear_history", new { session_id = id });
+            Require(cleared.GetProperty("removed_count").GetInt32() == beforeClear.Records.Count(r => r.ProductSessionId == id), "Clear retained real session count");
+            var afterClear = await client.ReadHistoryAsync();
+            Require(afterClear.Records.Count > 0 && afterClear.Records.All(r => r.ProductSessionId != id), "Other session remains after clear");
+            Require(File.ReadAllText(srtPath) == savedSrt && File.ReadAllText(txtPath) == savedTxt, "Exported files survive clear");
             phase = "complete";
             Save(true);
             Console.WriteLine($"PASS: UUID live sessions; finals={finals.Count}; pause={pauseResponse:F6}s; stop={stopResponse:F6}s; idle={idleAfterStop:F6}s");

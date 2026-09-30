@@ -135,3 +135,14 @@ Initialize 전에 endpoint/mix/thread ID를 기록하고 모델 없는 실패 pr
 [다음 증거 수집·분석](evidence/T02-03c-windows-startup-diagnostics.md).
 다음은 실패 스택으로 대기 지점 확인 및 UI 실제 저장/조작 수용이다. 전체 제품 wire,
 partial/overlap 정합·번역·장치 전환·macOS gate는 유지한다.
+
+## T02-03d 세션별 기록 삭제 (2026-10-01)
+
+사용자 요청으로 시작 timeout의 근본 원인 분석은 후속 과제로 보류한다.
+안정된 Paused/Idle에서 UUID별 메모리 기록을 삭제하는 명령과 UI 확인 창을 연결했다.
+현재 세션의 UTC/시간축/다음 구간 ID와 다른 세션·저장한 파일을 보존한다.
+Rust 95개·C# IPC 및 실제 Windows 원문 기록 삭제를 확인했다.
+[계약](HISTORY_EXPORT.md) · [검증·한계](evidence/T02-03d-windows-history-clear.md).
+다음 구현은 M2의 opt-in 부분 전사다. 기존 최신 partial 1개/확정 우선/단일 native
+예약과 동일 segment revision을 live VAD에 연결하고, Pause/Stop의 늦은 결과 거부와
+UI의 인식 중 표시를 먼저 구현한다. 기본 final-only 후보와 전체 품질 gate는 유지한다.

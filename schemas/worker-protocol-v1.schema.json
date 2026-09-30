@@ -134,7 +134,7 @@
           "then": {"properties": {"params": {"$ref": "#/$defs/sessionStartParams"}}}
         },
         {
-          "if": {"properties": {"method": {"enum": ["pause_session", "resume_session", "stop_session"]}}},
+          "if": {"properties": {"method": {"enum": ["pause_session", "resume_session", "stop_session", "clear_history"]}}},
           "then": {"properties": {"params": {"$ref": "#/$defs/sessionIdentityParams"}}}
         },
         {

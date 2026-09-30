@@ -46,3 +46,19 @@ history 아래 목록에서 UTC·UUID로 세션을 선택하고 **TXT 저장** �
 파일 I/O는 안정된 Paused/Idle 제어 경로에서 수행한다. 네트워크 파일시스템의
 지연·원자성, macOS 저장, 실제 저장 창 조작은 미검증이다.
 [Windows 확인 근거](evidence/T02-03c-windows-history-export.md).
+
+## 세션 기록 삭제 — T02-03d
+
+일시정지/종료 후 정리가 끝나면 목록에서 세션을 선택하고 **선택 세션 기록 삭제**를
+누른다. 확인 창에 UTC·UUID와 기록 개수를 표시한다. 취소하면 그대로 유지한다.
+확인하면 선택한 세션의 메모리 기록만 삭제한다. 복구할 수 없으므로 필요한 기록은
+먼저 저장한다. 이미 저장한 TXT/SRT 파일과 다른 세션의 기록은 유지한다.
+
+`hello.capabilities.history_clear=true`일 때 `clear_history`에
+`{"session_id":"세션 UUID"}`를 보낸다. 실행/추론/정리 중에는 `INVALID_STATE`다.
+응답은 `removed_count`, `history_version`, `session_id`이며 실제 삭제 시
+`history.changed`를 발행한다. 이전 snapshot은 `STALE_SNAPSHOT`으로 거부한다.
+현재 세션은 UUID·UTC·오디오 원점·다음 segment ID를 유지해 재개할 수 있다.
+빈 현재 세션을 다시 삭제하면 0개/동일 버전이다. 삭제한 이전 세션의 metadata는
+회수하므로 이후 해당 UUID의 저장/삭제는 `STALE_SESSION`이다.
+[확인 범위](evidence/T02-03d-windows-history-clear.md).

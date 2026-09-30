@@ -29,7 +29,7 @@ On macOS, install the pinned SDKs and run `bash scripts/check.sh`. Platform supp
 
 ## Live source diagnostic UI
 
-Run `./run.cmd -Live -Offline`, wait for model Ready, select an output device and source language, then click **세션 시작** (Start session). Final source history and an overlay are connected; translation and partial output are pending. After Pause/Stop and owner cleanup, select a retained session and use **TXT 저장 / 원문 SRT 저장** (Save TXT / source SRT). See [export, UTC, and timing](docs/HISTORY_EXPORT.md). Actual clicks and source rendering remain unverified. See [execution and verification scope](docs/LIVE_UI.md).
+Run `./run.cmd -Live -Offline`, wait for model Ready, select an output device and source language, then click **세션 시작** (Start session). Final source history and an overlay are connected; translation and partial output are pending. After Pause/Stop and owner cleanup, select a retained session and use **TXT 저장 / 원문 SRT 저장** (Save TXT / source SRT). See [export, UTC, and timing](docs/HISTORY_EXPORT.md). You can also clear in-memory history for the selected session after confirmation. Saved files remain intact. Actual clicks and source rendering remain unverified. See [execution and verification scope](docs/LIVE_UI.md).
 
 ## Windows system-audio capture probe
 
