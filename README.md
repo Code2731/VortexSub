@@ -4,7 +4,7 @@
 
 EchoSub는 Windows/macOS의 시스템 오디오를 전사하고 한국어로 번역하는 데스크톱 앱을 목표로 합니다.
 
-**현재는 M0 probe·M1 코어와 M2 전사 경로를 개발하는 단계입니다.** 진단 worker에서 실제 Windows loopback→Silero VAD→Whisper→원문 history를 연결했습니다. 파일 전사도 지원합니다. 진단 원문 history·오버레이 UI도 연결했습니다. 제품 session·번역은 후속이며 macOS는 실기기에서 검증하지 않았습니다.
+**현재는 M0 probe·M1 코어와 M2 전사 경로를 개발하는 단계입니다.** 진단 worker에서 실제 Windows loopback→Silero VAD→Whisper→원문 history를 연결했습니다. 파일 전사도 지원합니다. 진단 원문 history·오버레이 UI도 연결했습니다. UUID 세션 시작·일시정지·재개·종료 어댑터도 연결했습니다. 번역과 전체 제품 wire 전환은 후속이며 macOS는 실기기에서 검증하지 않았습니다.
 
 ## Windows에서 빌드하고 실행하기
 
@@ -29,7 +29,7 @@ macOS에서는 고정 SDK 설치 후 `bash scripts/check.sh`를 실행합니다.
 
 ## 실제 원문 진단 UI
 
-`./run.cmd -Live -Offline`로 실행하고 모델 Ready 뒤 출력 장치·원문 언어를 선택해 **캡처 시작**을 누르세요. 확정 원문 history와 오버레이를 연결했으며 번역·partial은 후속입니다. 실제 클릭·원문 화면 수용은 미검증입니다. [실행과 확인 범위](docs/LIVE_UI.md)
+`./run.cmd -Live -Offline`로 실행하고 모델 Ready 뒤 출력 장치·원문 언어를 선택해 **세션 시작**을 누르세요. 확정 원문 history와 오버레이를 연결했으며 번역·partial은 후속입니다. 실제 클릭·원문 화면 수용은 미검증입니다. [실행과 확인 범위](docs/LIVE_UI.md)
 
 ## Windows 시스템 오디오 캡처 probe
 
@@ -124,5 +124,5 @@ worker의 실제 WASAPI 수신·16 kHz 정규화, 반복 Start/Stop·활성 종�
 - 기여 안내: [Repository Guidelines](AGENTS.md)
 - IPC 계약: [계약 문서](docs/05_CONTRACTS.md), [v1 JSON schema](schemas/worker-protocol-v1.schema.json)
 
-현재 worker는 `hello`, `ping`, `get_state`, `get_history`, `shutdown`에 응답합니다. mock 또는 native 파일 진단 명령은 해당 모드를 켰을 때만 허용합니다. 실제 세션 시작은 미지원입니다. [설정 예시](examples/config.example.toml)는 향후 설정을 설명하며 현재 worker가 읽는 파일은 아닙니다.
+현재 worker는 `hello`, `ping`, `get_state`, `get_history`, `shutdown`에 응답합니다. `-Live` 실행은 UUID `start_session`/`pause_session`/`resume_session`/`stop_session` 제어도 제공합니다. [세션 계약·검증](docs/SESSION_CONTROL.md). mock 또는 native 파일 진단 명령은 해당 모드를 켰을 때만 허용합니다. 일반 MOCK 실행에는 세션 제어가 없습니다. [설정 예시](examples/config.example.toml)는 향후 설정을 설명하며 현재 worker가 읽는 파일은 아닙니다.
 

@@ -6,7 +6,7 @@ using EchoSub.Desktop;
 try { await Run(args); return 0; }
 catch (Exception error)
 {
-    var reportPath = args.Length == 6 ? args[4] : args.Length is 3 or 4 ? args[2] : null;
+    var reportPath = args.Length == 7 && args[0] == "--sessions" ? args[5] : args.Length == 6 ? args[4] : args.Length is 3 or 4 ? args[2] : null;
     if (reportPath is not null)
     {
         JsonElement? checkpoint = File.Exists(reportPath)
@@ -20,6 +20,7 @@ catch (Exception error)
 static async Task Run(string[] args)
 {
     if (args.FirstOrDefault() == "--startup") { await CaptureStartupSmoke.Run(args); return; }
+    if (args.FirstOrDefault() == "--sessions") { await SessionSmoke.Run(args[1..]); return; }
     if (args.Length == 6) { await LiveAsrSmoke.Run(args); return; }
     if (args.Length is not (3 or 4) || !OperatingSystem.IsWindows()) throw new ArgumentException("worker WAV report [rounds] required on Windows");
     var rounds = args.Length == 4 ? int.Parse(args[3]) : 3;

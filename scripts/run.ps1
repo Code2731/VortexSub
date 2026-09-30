@@ -48,7 +48,7 @@ try {
         foreach ($assetPath in @($asrPath,$vadPath,$runtimePath)) {
             if (-not (Test-Path -LiteralPath $assetPath -PathType Leaf)) { throw "Consented local asset is missing: $assetPath. This launcher does not download models." }
         }
-        $workerArguments = @('--diagnostic-capture','--live-asr','--diagnostic-asr','--asr-model',$asrPath,'--asr-sha256',$asr.sha256,
+        $workerArguments = @('--diagnostic-capture','--live-asr','--session-control','--diagnostic-asr','--asr-model',$asrPath,'--asr-sha256',$asr.sha256,
             '--diagnostic-vad','--vad-model',$vadPath,'--vad-sha256',$vad.sha256,'--vad-runtime',$runtimePath,'--vad-runtime-sha256',$runtime.sha256)
         $env:ECHOSUB_WORKER_ARGUMENTS = ConvertTo-Json -InputObject $workerArguments -Compress
         Write-Host 'Live CPU source diagnostics: translation/partial disabled; select capture Start in the UI.'

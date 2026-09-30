@@ -4,7 +4,7 @@
 
 EchoSub aims to provide system-audio transcription and Korean translation in a Windows/macOS desktop app.
 
-**M0 probes, the M1 core, and M2 transcription paths are in development.** A diagnostic worker connects real Windows loopback→Silero VAD→Whisper→source history. File transcription is also supported. A diagnostic source history/overlay UI is connected. Product sessions and translation are pending. macOS has not been verified on a real device.
+**M0 probes, the M1 core, and M2 transcription paths are in development.** A diagnostic worker connects real Windows loopback→Silero VAD→Whisper→source history. File transcription is also supported. A diagnostic source history/overlay UI is connected. UUID session start/pause/resume/stop control is connected. Translation and full product wire migration are pending. macOS has not been verified on a real device.
 
 ## Build and run on Windows
 
@@ -29,7 +29,7 @@ On macOS, install the pinned SDKs and run `bash scripts/check.sh`. Platform supp
 
 ## Live source diagnostic UI
 
-Run `./run.cmd -Live -Offline`, wait for model Ready, select an output device and source language, then click **캡처 시작** (Start capture). Final source history and an overlay are connected; translation and partial output are pending. Actual clicks and source rendering remain unverified. See [execution and verification scope](docs/LIVE_UI.md).
+Run `./run.cmd -Live -Offline`, wait for model Ready, select an output device and source language, then click **세션 시작** (Start session). Final source history and an overlay are connected; translation and partial output are pending. Actual clicks and source rendering remain unverified. See [execution and verification scope](docs/LIVE_UI.md).
 
 ## Windows system-audio capture probe
 
@@ -129,6 +129,6 @@ Run `scripts/run.ps1` and select **샘플 오버레이 표시** (show sample ove
 - Contributor guide: [Repository Guidelines](AGENTS.md)
 - IPC contract: [contract document](docs/05_CONTRACTS.md), [v1 JSON schema](schemas/worker-protocol-v1.schema.json)
 
-The worker supports `hello`, `ping`, `get_state`, `get_history`, and `shutdown`. Mock and native file diagnostics require their explicit modes; live session start is unsupported. The [configuration example](examples/config.example.toml) illustrates future settings; the current worker does not load it.
+The worker supports `hello`, `ping`, `get_state`, `get_history`, and `shutdown`. Mock and native file diagnostics require their explicit modes; normal MOCK mode has no session control. The live launcher enables UUID `start_session`/`pause_session`/`resume_session`/`stop_session`. See [control contract and verification](docs/SESSION_CONTROL.md). The [configuration example](examples/config.example.toml) illustrates future settings; the current worker does not load it.
 
 

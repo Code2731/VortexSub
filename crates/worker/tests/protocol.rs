@@ -16,12 +16,15 @@ impl Worker {
         Self::start_with(false)
     }
     fn start_with(mock: bool) -> Self {
+        Self::start_args(if mock {
+            vec!["--mock-pipeline"]
+        } else {
+            vec![]
+        })
+    }
+    fn start_args(args: Vec<&str>) -> Self {
         let mut child = Command::new(env!("CARGO_BIN_EXE_echosub-worker"))
-            .args(if mock {
-                vec!["--mock-pipeline"]
-            } else {
-                vec![]
-            })
+            .args(args)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
@@ -247,6 +250,10 @@ fn history_capability_is_empty_by_default_and_mock_requires_opt_in() {
         "reset_fixture_epoch",
         "start_capture",
         "stop_capture",
+        "start_session",
+        "pause_session",
+        "resume_session",
+        "stop_session",
     ] {
         let denied = worker.send(command("fixture", method, json!({})));
         assert_eq!(denied["error"]["code"], "UNSUPPORTED_CAPABILITY");
@@ -264,6 +271,116 @@ fn history_capability_is_empty_by_default_and_mock_requires_opt_in() {
     }
     worker.send(command("stop", "shutdown", json!({})));
     worker.finish();
+}
+
+#[test]
+fn uuid_session_controls_preserve_history_and_reject_stale_identity() {
+    let mut w = Worker::start_args(vec!["--mock-pipeline", "--mock-session-control"]);
+    hello(&mut w);
+    let config = json!({"config":{"source_language":"en"},"history_policy":"retain"});
+    assert_eq!(
+        w.send(command(
+            "bad",
+            "start_session",
+            json!({"config":{"source_language":"xx"},"history_policy":"retain"})
+        ))["ok"],
+        false
+    );
+    assert_eq!(
+        w.send(command("state", "get_state", json!({})))["result"]["session"]["session_id"],
+        Value::Null
+    );
+    let start = w.send(command("start", "start_session", config.clone()));
+    assert_eq!(start["ok"], true);
+    assert_eq!(start["result"]["state"], "Preparing");
+    let id = start["result"]["session_id"].as_str().unwrap().to_owned();
+    assert_eq!(id.len(), 36);
+    assert_eq!(
+        w.send(command("duplicate", "start_session", config.clone()))["error"]["code"],
+        "INVALID_STATE"
+    );
+    assert_eq!(
+        w.send(command("bypass", "stop_capture", json!({})))["error"]["code"],
+        "UNSUPPORTED_CAPABILITY"
+    );
+    assert_eq!(
+        w.send(command(
+            "source",
+            "mock_segment",
+            json!({"source":"before pause"})
+        ))["ok"],
+        true
+    );
+    let first =
+        w.send(command("history", "get_history", json!({})))["result"]["records"][0].clone();
+    let pause = w.send(command("pause", "pause_session", json!({"session_id":id})));
+    assert_eq!(pause["result"]["state"], "Paused");
+    assert!(pause["result"]["epoch"].as_u64().unwrap() > first["epoch"].as_u64().unwrap());
+    assert_eq!(
+        w.send(command(
+            "source",
+            "mock_segment",
+            json!({"source":"paused"})
+        ))["error"]["code"],
+        "INVALID_STATE"
+    );
+    assert_eq!(
+        w.send(command(
+            "stale",
+            "resume_session",
+            json!({"session_id":"00000000-0000-0000-0000-000000000000"})
+        ))["error"]["code"],
+        "STALE_SESSION"
+    );
+    assert_eq!(
+        w.send(command(
+            "resume",
+            "resume_session",
+            json!({"session_id":id})
+        ))["ok"],
+        true
+    );
+    assert_eq!(
+        w.send(command(
+            "source",
+            "mock_segment",
+            json!({"source":"after resume"})
+        ))["ok"],
+        true
+    );
+    let records = w.send(command("history", "get_history", json!({})))["result"]["records"]
+        .as_array()
+        .unwrap()
+        .clone();
+    assert_eq!(records.len(), 2);
+    assert_eq!(records[0]["source"], "before pause");
+    assert!(
+        records[1]["segment_id"].as_u64().unwrap() > records[0]["segment_id"].as_u64().unwrap()
+    );
+    assert!(records[1]["epoch"].as_u64().unwrap() > records[0]["epoch"].as_u64().unwrap());
+    assert_eq!(
+        w.send(command("stop", "stop_session", json!({"session_id":id})))["result"]["state"],
+        "Stopping"
+    );
+    assert_eq!(
+        w.send(command("state", "get_state", json!({})))["result"]["session"]["state"],
+        "Idle"
+    );
+    let second = w.send(command("start", "start_session", config));
+    assert_ne!(second["result"]["session_id"], id);
+    assert_eq!(
+        w.send(command("old", "stop_session", json!({"session_id":id})))["error"]["code"],
+        "STALE_SESSION"
+    );
+    assert_eq!(
+        w.send(command("history", "get_history", json!({})))["result"]["records"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+    w.send(command("exit", "shutdown", json!({})));
+    w.finish();
 }
 
 #[test]

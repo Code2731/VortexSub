@@ -39,6 +39,19 @@ fn serve() -> io::Result<()> {
     let config = native_owner::config_from_args(&args).map_err(io::Error::other)?;
     let capture = args.iter().any(|a| a == "--diagnostic-capture");
     let live = args.iter().any(|a| a == "--live-asr");
+    let sessions = args.iter().any(|a| a == "--session-control");
+    let mock_sessions = args.iter().any(|a| a == "--mock-session-control");
+    if (sessions && !live)
+        || (mock_sessions
+            && (sessions
+                || capture
+                || config.is_some()
+                || !args.iter().any(|a| a == "--mock-pipeline")))
+    {
+        return Err(io::Error::other(
+            "Session control requires live ASR; mock session control requires only mock pipeline",
+        ));
+    }
     if live && (!capture || !config.as_ref().is_some_and(|c| c.vad.is_some())) {
         return Err(io::Error::other(
             "Live ASR requires Windows capture and diagnostic ASR/VAD assets",
@@ -55,6 +68,8 @@ fn serve() -> io::Result<()> {
     }
     let mut runtime =
         runtime::Runtime::new(args.iter().any(|a| a == "--mock-pipeline"), config, capture);
+    runtime.session.enabled = sessions || mock_sessions;
+    runtime.session.mock = mock_sessions;
     let mut hello_done = false;
 
     loop {
@@ -173,6 +188,7 @@ fn serve() -> io::Result<()> {
                             "output_device_selection": runtime.capture.enabled,
                             "capture_pcm": runtime.capture.enabled,
                             "live_asr": runtime.is_live(),
+                            "session_control": runtime.session.enabled,
                             "asr": runtime.has_native(),
                             "fixture_asr": runtime.has_native() && !runtime.is_live(),
                             "vad": runtime.has_vad(),
@@ -193,8 +209,18 @@ fn serve() -> io::Result<()> {
             },
             "get_state" if hello_done => Ok(runtime.state(&outbox)),
             "get_history" if hello_done => runtime.history(params, &outbox),
+            "start_session" | "pause_session" | "resume_session" | "stop_session" if hello_done => {
+                runtime.session_command(method, params, &outbox)
+            }
             "start_capture" | "stop_capture" if hello_done => {
-                runtime.capture_command(method, params, &outbox)
+                if runtime.session.enabled {
+                    Err((
+                        "UNSUPPORTED_CAPABILITY",
+                        "Use UUID session commands in session control mode",
+                    ))
+                } else {
+                    runtime.capture_command(method, params, &outbox)
+                }
             }
             "mock_segment" | "mock_translate" | "mock_burst" if hello_done => {
                 runtime.mock(method, params, &outbox)
@@ -209,6 +235,10 @@ fn serve() -> io::Result<()> {
             "ping"
             | "get_state"
             | "get_history"
+            | "start_session"
+            | "pause_session"
+            | "resume_session"
+            | "stop_session"
             | "mock_segment"
             | "mock_translate"
             | "mock_burst"

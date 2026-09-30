@@ -18,7 +18,7 @@ await using (var client = WorkerClient.Start(workerPath))
     Require(!hello.GetProperty("capabilities").GetProperty("fixture_asr").GetBoolean(), "native fixtures require opt-in");
     Require(!hello.GetProperty("capabilities").GetProperty("vad").GetBoolean(), "VAD fixtures require opt-in");
     Require(!hello.GetProperty("capabilities").GetProperty("live_asr").GetBoolean(), "live ASR requires opt-in");
-    foreach (var method in new[] { "transcribe_fixture", "reset_fixture_epoch", "start_capture", "stop_capture" })
+    foreach (var method in new[] { "transcribe_fixture", "reset_fixture_epoch", "start_capture", "stop_capture", "start_session", "pause_session", "resume_session", "stop_session" })
     {
         try { await client.SendAsync(method); throw new Exception("Native fixture opt-in was bypassed"); }
         catch (WorkerException error) when (error.Code == "UNSUPPORTED_CAPABILITY") { }
@@ -54,6 +54,35 @@ await using (var client = WorkerClient.Start(workerPath))
     }
     await client.DisposeAsync();
     Require(!IsAlive(processId), "normal shutdown left worker alive");
+}
+
+await using (var client = WorkerClient.Start(workerPath, arguments: new[] { "--mock-pipeline", "--mock-session-control" }))
+{
+    var hello = await client.SendAsync("hello", new { client = "SessionSmoke", protocol_major = 1 });
+    Require(hello.GetProperty("capabilities").GetProperty("session_control").GetBoolean(), "explicit mock session capability");
+    var config = new { history_policy = "retain", config = new { source_language = "en" } };
+    var accepted = await client.SendAsync("start_session", config);
+    var id = accepted.GetProperty("session_id").GetString()!;
+    Require(Guid.TryParseExact(id, "D", out _), "worker UUID session identity");
+    await client.SendAsync("mock_segment", new { source = "세션 원문" });
+    var before = await client.ReadHistoryAsync();
+    await client.SendAsync("pause_session", new { session_id = id });
+    var paused = await client.SendAsync("get_state");
+    Require(paused.GetProperty("session").GetProperty("state").GetString() == "Paused", "paused state");
+    Require(paused.GetProperty("session").GetProperty("epoch").GetUInt64() > before.Records[0].Epoch, "pause invalidates epoch");
+    try { await client.SendAsync("resume_session", new { session_id = Guid.NewGuid().ToString() }); throw new Exception("Stale session accepted"); }
+    catch (WorkerException error) when (error.Code == "STALE_SESSION") { }
+    await client.SendAsync("resume_session", new { session_id = id });
+    await client.SendAsync("mock_segment", new { source = "재개 원문" });
+    var after = await client.ReadHistoryAsync();
+    Require(after.Records.Count == 2 && after.Records[0].Source == "세션 원문", "history retained across pause");
+    Require(after.Records[1].SegmentId > before.Records[0].SegmentId && after.Records[1].Epoch > before.Records[0].Epoch, "resume identity monotonic");
+    await client.SendAsync("stop_session", new { session_id = id });
+    var stopped = await client.SendAsync("get_state");
+    Require(stopped.GetProperty("session").GetProperty("state").GetString() == "Idle", "mock stop reaches idle");
+    var next = await client.SendAsync("start_session", config);
+    Require(next.GetProperty("session_id").GetString() != id, "new session has fresh UUID");
+    Require((await client.ReadHistoryAsync()).Records.Count == 2, "new session retains old history");
 }
 
 await using (var client = WorkerClient.Start(workerPath))

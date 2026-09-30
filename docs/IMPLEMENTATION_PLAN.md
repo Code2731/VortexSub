@@ -115,3 +115,7 @@ Start/Stop 수락과 실제 상태를 분리하며 원문 만료는 UI tick에�
 제품 session/Pause다. UUID 제품 ID와 진단 u64 ID의 구분, session 내 segment ID
 증가, Pause/Resume epoch와 capture/VAD join 및 native 반환의 관계를 먼저
 고정한 뒤 worker 명령·UI를 연결한다.
+
+## T02-03a UUID session 제어 (2026-10-01)
+
+Windows UUID 제어 어댑터와 UI 시작/Pause/Resume/Stop을 연결했다. history는 retain만 지원하며 새 session은 새 ring을 사용한다. Resume은 capture/VAD join, Stop Idle은 native 반환까지 확인한다. mock IPC와 실제 CPU loopback final 3개 검증을 완료했다. [계약](SESSION_CONTROL.md) · [근거](evidence/T02-03a-windows-session-control.md). 다음은 전체 UUID source/history wire·시작 UTC/세션 export 시간축, native full 중 Pause/Resume·화면 수용이다. partial·경계 정합·번역·Mac도 남아 있으며 제품 gate는 미통과다.

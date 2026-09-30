@@ -11,9 +11,9 @@ Whisper base, Silero v6.0, ONNX Runtime CPU 파일은 기존 manifest 경로에
 없으면 기본 출력 장치만 선택할 수 있다.
 
 1. 모델 상태가 Ready가 되면 출력 장치와 원문 언어(en/ja/ko)를 선택한다.
-2. **캡처 시작**을 누르고 선택한 출력 장치에서 음성을 재생한다.
+2. **세션 시작**을 누르고 선택한 출력 장치에서 음성을 재생한다.
 3. 최근 100개 구간과 **원문 오버레이 표시**로 확정 원문을 확인한다.
-4. 장치/언어 변경 전 **캡처 정지**를 누른다. 실패 시 native phase와
+4. 장치/언어 변경 전 **세션 종료**를 누른다. 실패 시 native phase와
    시작 대기 시간을 확인하고 필요하면 **Worker 종료 → 다시 연결**한다.
 
 ## 표시·수명 계약
@@ -42,7 +42,7 @@ Start/Stop 응답 뒤에는 수락 상태를 표시하고 다음 tick에서 실�
 worker 종료가 5초를 넘으면 소유 프로세스를 종료하고 그 사실을 표시한다.
 native 반환 시간과 캡처 Stop 응답 시간은 서로 다르다.
 
-진단의 숫자 session/epoch namespace를 유지한다. 제품 session/Pause,
+T02-03a부터 UUID session 제어와 Pause/Resume 버튼을 제공한다. source/history의 숫자 namespace와 전체 제품 wire의 차이는 [세션 계약](SESSION_CONTROL.md)을 따른다.
 partial, 번역, overlap 텍스트 병합은 후속이다. 간헐적 Initialize 대기와
 자연 음성 품질·게임 포커스·macOS 수용은 해결/검증되지 않았다.
 
@@ -69,3 +69,7 @@ Start/Stop/재시작, 언어/장치 선택, 새 원문/만료, Worker 종료/재
 Rust 91개·포맷·빌드·C# 빌드(경고/오류 0)·IPC smoke가 통과했다. 이 검사는 UI 지연을
 실측하지 않는다. 지연된 조회 중 Stop/종료, 5초 만료, 반복 창 닫기의 실제
 마우스 조작은 미검증이며 Stop 0.5초 수용을 통과했다고 간주하지 않는다.
+
+## T02-03a 세션 제어 연결
+
+세션 시작 시 UUID를 발급하고 기존 history를 유지한다. 일시정지는 입력/대기 작업을 취소하며 재개는 capture/VAD join 뒤 허용한다. 세션 종료 뒤 Idle은 native full 반환까지 확인한다. 설정 변경은 Idle에서 새 세션을 시작할 때 적용한다. 버튼·원문 화면의 실제 조작은 여전히 미검증이다. [실행·제어 계약](SESSION_CONTROL.md).

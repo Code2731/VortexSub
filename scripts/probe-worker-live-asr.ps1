@@ -1,4 +1,4 @@
-param([switch] $Offline, [switch] $NoBuild)
+param([switch] $Offline, [switch] $NoBuild, [switch] $Sessions)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
 $oldTarget = $env:CARGO_TARGET_DIR
@@ -15,7 +15,9 @@ try {
     $model = $catalogue.models | Where-Object { $_.id -eq 'whisper-base' }
     $output = Join-Path $repo ('benchmarks/results/worker-live-asr-cpu-' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
     New-Item -ItemType Directory -Path $output -Force | Out-Null
-    & dotnet run --project $project --no-build -- (Join-Path $env:CARGO_TARGET_DIR 'release/echosub-worker.exe') ([IO.Path]::GetFullPath((Join-Path (Join-Path $repo 'benchmarks') $model.path))) $model.sha256 (Join-Path $repo 'benchmarks/fixtures/local-tts/en-01.wav') (Join-Path $output 'report.json') (Join-Path $repo 'benchmarks/vad-assets.json')
+    $probeArgs = @((Join-Path $env:CARGO_TARGET_DIR 'release/echosub-worker.exe'), ([IO.Path]::GetFullPath((Join-Path (Join-Path $repo 'benchmarks') $model.path))), $model.sha256, (Join-Path $repo 'benchmarks/fixtures/local-tts/en-01.wav'), (Join-Path $output 'report.json'), (Join-Path $repo 'benchmarks/vad-assets.json'))
+    if ($Sessions) { $probeArgs = @('--sessions') + $probeArgs }
+    & dotnet run --project $project --no-build -- @probeArgs
     if ($LASTEXITCODE -ne 0) { throw 'Live worker ASR smoke failed' }
     Write-Host "Report: $output/report.json"
 }

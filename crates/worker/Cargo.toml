@@ -21,3 +21,4 @@ echosub-vad-silero = { path = "../vad-silero" }
 
 [target.'cfg(windows)'.dependencies]
 echosub-capture-windows = { path = "../capture-windows" }
+windows = { version = "=0.62.2", features = ["Win32_System_Com"] }

@@ -203,7 +203,7 @@ internal static class LiveAsrSmoke
         throw new TimeoutException(label);
     }
     static void Require(bool valid, string label) { if (!valid) throw new Exception("Live smoke failed: " + label); }
-    static void WriteLoop(string source, string target)
+    internal static void WriteLoop(string source, string target)
     {
         using var reader = new BinaryReader(File.OpenRead(source));
         Require(reader.ReadUInt32() == 0x46464952, "RIFF"); reader.ReadUInt32(); Require(reader.ReadUInt32() == 0x45564157, "WAVE");

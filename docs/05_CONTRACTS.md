@@ -192,3 +192,7 @@ T02-02b는 명시적 `--live-asr`와 ASR/VAD 자산 옵션을 추가해 implemen
 
 T02-02c는 진단 capture에 `startup_deadline_s=10`, `opening_elapsed_s`, `failure_native_phase`, 최대 16개의 `phase_observations`를 추가한다. Ready 없는 Opening의 timeout은 Failed/`CAPTURE_START_TIMEOUT`이며 실제 native owner join 전에는 재시작할 수 없다. 이 deadline은 native 반환 보장이 아니다. [시작 대기·초 단위 관측](WORKER_CAPTURE.md)을 따른다.
 
+
+### T02-03a UUID 제어 어댑터
+
+명시적 --session-control은 Windows live 경로에 start_session(config, history_policy=retain), pause_session/resume_session/stop_session(session_id UUID)을 연결한다. get_state.session과 session.state는 UUID 및 internal_session_id 대응을 제공한다. source/history는 기존 u64 ID·worker 기준 초·get_history/event/payload를 유지한다. 이 단계는 전체 제품 wire 형식 전환이 아니며 started_at_utc·세션 export 시간축·apply_config·Recovering은 후속이다. [구현·검증 계약](SESSION_CONTROL.md)을 따른다.

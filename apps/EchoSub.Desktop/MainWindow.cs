@@ -18,8 +18,10 @@ public sealed class MainWindow : Window
     private readonly Button pingButton = new() { Content = "Ping" };
     private readonly Button stateButton = new() { Content = "상태 조회" };
     private readonly Button stopButton = new() { Content = "Worker 종료" };
-    private readonly Button startCaptureButton = new() { Content = "캡처 시작" };
-    private readonly Button stopCaptureButton = new() { Content = "캡처 정지" };
+    private readonly Button startCaptureButton = new() { Content = "세션 시작" };
+    private readonly Button stopCaptureButton = new() { Content = "세션 종료" };
+    private readonly Button pauseButton = new() { Content = "일시정지" };
+    private readonly Button resumeButton = new() { Content = "재개" };
     private readonly Button overlayButton = new();
     private readonly ComboBox language = new() { ItemsSource = new[] { "en", "ja", "ko" }, SelectedIndex = 0, Width = 80 };
     private readonly ComboBox endpoint = new() { Width = 450 };
@@ -36,6 +38,9 @@ public sealed class MainWindow : Window
     private long sourceSince;
     private bool closing, closeReady, modelReady, captureStartable, captureNeedsStop;
     private int pendingActions;
+    private string? sessionId;
+    private string? sessionState;
+    private bool resumeReady;
 
     public MainWindow()
     {
@@ -71,9 +76,9 @@ public sealed class MainWindow : Window
                         IsVisible = live, Spacing = 8,
                         Children =
                         {
-                            new TextBlock { Text = "출력 장치 / 원문 언어 · 실행 중 변경하려면 먼저 정지하세요." },
+                            new TextBlock { Text = "출력 장치 / 원문 언어 · 변경하려면 세션을 종료하세요. 이전 history는 유지됩니다." },
                             new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { endpoint, language } },
-                            new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { startCaptureButton, stopCaptureButton } }
+                            new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { startCaptureButton, pauseButton, resumeButton, stopCaptureButton } }
                         }
                     },
                     new ScrollViewer { Height = live ? 90 : 80, Content = details },
@@ -105,10 +110,16 @@ public sealed class MainWindow : Window
         {
             if (client is null || !captureStartable || !modelReady) return;
             ClearSource();
-            await client.SendAsync("start_capture", new { language = language.SelectedItem as string, device_id = (endpoint.SelectedItem as EndpointChoice)?.Id });
+            var accepted = await client.SendAsync("start_session", new
+            {
+                history_policy = "retain",
+                config = new { source_language = language.SelectedItem as string, device_id = (endpoint.SelectedItem as EndpointChoice)?.Id }
+            });
+            sessionId = accepted.GetProperty("session_id").GetString();
+            sessionState = "Preparing";
             captureStartable = false;
             captureNeedsStop = true;
-            status.Text = "캡처 시작 요청 수락 · 상태 확인 중";
+            status.Text = "세션 시작 요청 수락 · 준비 상태 확인 중";
         });
         stopCaptureButton.Click += async (_, _) =>
         {
@@ -116,11 +127,33 @@ public sealed class MainWindow : Window
             await ExecuteAsync(async () =>
             {
                 if (client is null) return;
-                await client.SendAsync("stop_capture");
+                await client.SendAsync("stop_session", new { session_id = sessionId });
+                sessionState = "Stopping";
                 captureStartable = captureNeedsStop = false;
-                status.Text = "캡처 정지 요청 수락 · 소유 스레드 정리 확인 중";
+                resumeReady = false;
+                status.Text = "세션 종료 요청 수락 · 소유 스레드/native 반환 확인 중";
             });
         };
+        pauseButton.Click += async (_, _) =>
+        {
+            ClearSource();
+            await ExecuteAsync(async () =>
+            {
+                if (client is null || sessionId is null) return;
+                await client.SendAsync("pause_session", new { session_id = sessionId });
+                sessionState = "Paused";
+                resumeReady = false;
+                status.Text = "일시정지 수락 · 캡처/VAD 정리 확인 중";
+            });
+        };
+        resumeButton.Click += async (_, _) => await ExecuteAsync(async () =>
+        {
+            if (client is null || !resumeReady) return;
+            await client.SendAsync("resume_session", new { session_id = sessionId });
+            sessionState = "Preparing";
+            resumeReady = false;
+            status.Text = "재개 요청 수락 · 준비 상태 확인 중";
+        });
         overlayButton.Click += (_, _) =>
         {
             if (overlay?.IsVisible == true) { overlay.Hide(); overlayButton.Content = OverlayLabel(false); return; }
@@ -234,6 +267,10 @@ public sealed class MainWindow : Window
             var hello = await connected.SendAsync("hello", new { client = "EchoSub.Desktop", protocol_major = 1 });
             if (live && !hello.GetProperty("capabilities").GetProperty("live_asr").GetBoolean())
                 throw new IOException("연결한 worker는 실제 원문 진단을 지원하지 않습니다.");
+            if (live && !hello.GetProperty("capabilities").TryGetProperty("session_control", out var sessionCapability))
+                throw new IOException("session control worker를 다시 빌드하세요: scripts/run.ps1 -Live");
+            if (live && !hello.GetProperty("capabilities").GetProperty("session_control").GetBoolean())
+                throw new IOException("session control 모드로 실행하세요: scripts/run.ps1 -Live");
             StartupDiagnostics.Write($"Worker connected; live={live}");
             snapshot = null;
             await RefreshCoreAsync();
@@ -265,7 +302,7 @@ public sealed class MainWindow : Window
         {
             snapshot = refreshedSnapshot;
             history.ItemsSource = snapshot?.Records.TakeLast(100).Reverse().Select(record =>
-                $"[{record.Epoch}/{record.SegmentId} · {record.AudioStartSeconds:F3}~{record.AudioEndSeconds:F3}초 · {record.SourceState}] {record.SourceReason}\n{record.Source}").ToArray();
+                $"[{record.SessionId}/{record.Epoch}/{record.SegmentId} · {record.AudioStartSeconds:F3}~{record.AudioEndSeconds:F3}초 · {record.SourceState}] {record.SourceReason}\n{record.Source}").ToArray();
         }
         var capture = state.GetProperty("diagnostic_capture");
         var captureState = capture.GetProperty("state").GetString();
@@ -273,22 +310,27 @@ public sealed class MainWindow : Window
         var joined = !capture.GetProperty("awaiting_capture_join").GetBoolean();
         var vad = state.GetProperty("diagnostic_live_vad");
         var vadJoined = !vad.TryGetProperty("awaiting_join", out var awaitingVad) || !awaitingVad.GetBoolean();
-        captureStartable = (captureState is "Idle" or "Stopped" or "Failed") && joined && vadJoined;
-        captureNeedsStop = captureState is "Opening" or "Running";
-        status.Text = $"모델 {state.GetProperty("model").GetProperty("state").GetString()} · 캡처 {captureState}";
+        var session = state.GetProperty("session");
+        sessionId = session.GetProperty("session_id").GetString();
+        sessionState = session.GetProperty("state").GetString();
+        captureStartable = sessionState == "Idle" && joined && vadJoined;
+        captureNeedsStop = sessionId is not null && sessionState is "Preparing" or "Running" or "Paused" or "Error";
+        resumeReady = sessionState == "Paused" && joined && vadJoined && modelReady;
+        status.Text = $"세션 {sessionState} · 모델 {state.GetProperty("model").GetProperty("state").GetString()} · 캡처 {captureState}";
         var phase = capture.GetProperty("failure_native_phase").GetString() ??
             (capture.GetProperty("stats").TryGetProperty("native_phase", out var nativePhase) ? nativePhase.GetString() : "준비 중");
         var opening = capture.GetProperty("opening_elapsed_s");
         var openingText = opening.ValueKind == JsonValueKind.Number ? $" · 시작 대기 {opening.GetDouble():F3}초" : "";
         details.Text = $"{phase}{openingText} · 수신 {capture.GetProperty("accepted_audio_s").GetDouble():F3}초\n" +
             (!joined || !vadJoined ? "소유 스레드가 동작/정리 중입니다. 정리 완료 전 새 캡처를 시작할 수 없습니다.\n" : "") +
-            (captureState == "Failed" ? $"실패: {capture.GetProperty("error").GetString()} · Worker 종료 후 다시 연결할 수 있습니다." : "정지는 미확정 발화와 대기 작업을 폐기합니다.");
+            (captureState == "Failed" ? $"실패: {capture.GetProperty("error").GetString()} · 세션 종료 또는 Worker 종료 후 다시 연결하세요." : "일시정지/종료는 미확정 발화와 대기 작업을 폐기합니다.") +
+            $"\nUUID {sessionId ?? "없음"} · 경과 {session.GetProperty("elapsed_s").GetDouble():F3}초 · native 실행 {state.GetProperty("diagnostic_asr").GetProperty("native_running").GetBoolean()}";
         if (state.GetProperty("model").GetProperty("state").GetString() == "Failed")
             details.Text += "\n모델 읽기 실패: 모델/DLL 경로·해시와 native CPU 빌드를 확인하세요.";
         while (client.Events.TryRead(out _)) { }
         var epoch = state.GetProperty("diagnostic_asr").GetProperty("epoch").GetUInt64();
-        var final = captureState == "Running" ? snapshot?.Records.LastOrDefault(record =>
-            record.SessionId == capture.GetProperty("session_id").GetUInt64() && record.Epoch == epoch &&
+        var final = sessionState == "Running" && captureState == "Running" ? snapshot?.Records.LastOrDefault(record =>
+            record.SessionId == session.GetProperty("internal_session_id").GetUInt64() && record.Epoch == epoch &&
             record.SourceState == "Final" && record.AppliedSourceRevision == record.SourceRevision) : null;
         if (final is not null)
         {
@@ -317,6 +359,8 @@ public sealed class MainWindow : Window
         displayedKey = null;
         history.ItemsSource = null;
         modelReady = captureStartable = captureNeedsStop = false;
+        sessionId = sessionState = null;
+        resumeReady = false;
         if (oldClient is not null)
         {
             if (disconnectedHandler is not null) oldClient.Disconnected -= disconnectedHandler;
@@ -337,6 +381,8 @@ public sealed class MainWindow : Window
         pingButton.IsEnabled = stateButton.IsEnabled = stopButton.IsEnabled = available && connected;
         startCaptureButton.IsEnabled = available && connected && modelReady && captureStartable;
         stopCaptureButton.IsEnabled = available && connected && captureNeedsStop;
+        pauseButton.IsEnabled = available && connected && sessionState is "Preparing" or "Running";
+        resumeButton.IsEnabled = available && connected && resumeReady;
         language.IsEnabled = endpoint.IsEnabled = available && captureStartable;
     }
 

@@ -14,6 +14,38 @@
     }
   ],
   "$defs": {
+    "sessionStartParams": {
+      "type": "object", "required": ["config", "history_policy"],
+      "properties": {
+        "history_policy": {"const": "retain"},
+        "config": {
+          "type": "object", "required": ["source_language"],
+          "properties": {
+            "source_language": {"enum": ["en", "ja", "ko"]},
+            "device_id": {"type": ["string", "null"], "minLength": 1, "maxLength": 2048}
+          }, "additionalProperties": false
+        }
+      }
+    },
+    "sessionIdentityParams": {
+      "type": "object", "required": ["session_id"],
+      "properties": {"session_id": {"type": "string", "format": "uuid"}}
+    },
+    "sessionState": {
+      "type": "object",
+      "required": ["session_id", "internal_session_id", "epoch", "state", "elapsed_s", "audio_origin_s", "history_policy", "implementation"],
+      "properties": {
+        "session_id": {"type": ["string", "null"], "format": "uuid"},
+        "internal_session_id": {"type": ["integer", "null"], "minimum": 1},
+        "epoch": {"type": "integer", "minimum": 0},
+        "state": {"enum": ["Idle", "Preparing", "Running", "Paused", "Stopping", "Error"]},
+        "elapsed_ms": {"type": "integer", "minimum": 0},
+        "elapsed_s": {"type": "number", "minimum": 0},
+        "audio_origin_s": {"type": "number", "minimum": 0},
+        "history_policy": {"const": "retain"},
+        "implementation": {"enum": ["uuid-control-adapter", "mock-session-control"]}
+      }, "additionalProperties": false
+    },
     "fixtureSegmented": {
       "type": "object",
       "required": ["fixture_id", "epoch", "segments", "vad_calls", "vad_s", "audio_duration_s", "vad"],
@@ -86,6 +118,14 @@
               }
             }
           }
+        },
+        {
+          "if": {"properties": {"method": {"const": "start_session"}}},
+          "then": {"properties": {"params": {"$ref": "#/$defs/sessionStartParams"}}}
+        },
+        {
+          "if": {"properties": {"method": {"enum": ["pause_session", "resume_session", "stop_session"]}}},
+          "then": {"properties": {"params": {"$ref": "#/$defs/sessionIdentityParams"}}}
         }
       ]
     },
@@ -190,6 +230,9 @@
       "allOf": [{
         "if": {"properties": {"event": {"const": "fixture.segmented"}}},
         "then": {"properties": {"payload": {"$ref": "#/$defs/fixtureSegmented"}}}
+      }, {
+        "if": {"properties": {"event": {"const": "session.state"}}},
+        "then": {"properties": {"payload": {"$ref": "#/$defs/sessionState"}}}
       }],
       "type": "object",
       "additionalProperties": false

@@ -9,8 +9,11 @@ use echosub_audio_core::{
 use echosub_pipeline_core::{AsrKind, CoreError, Outcome, Pipeline, Record, TranslationJob};
 use serde_json::{json, Value};
 use std::time::Instant;
+#[path = "session.rs"]
+mod session;
 pub type Reply = Result<Value, (&'static str, &'static str)>;
 pub struct Runtime {
+    pub session: session::Session,
     pub capture: crate::capture_runtime::CaptureRuntime,
     pub core: Pipeline,
     ring: RollingAudio,
@@ -50,6 +53,7 @@ impl Runtime {
             epoch: 1,
         };
         Self {
+            session: session::Session::default(),
             capture: capture_runtime,
             core: if config.is_some() {
                 Pipeline::new_asr_only(epoch, 1000).unwrap()
@@ -107,7 +111,7 @@ impl Runtime {
         self.vad_enabled
     }
     pub fn state(&self, q: &Outbox) -> Value {
-        json!({"session":{"session_id":null,"epoch":0,"state":"Idle","elapsed_ms":0},"translator":{"state":"Unavailable"},"model":{"state":self.model_state},"last_seq":q.last_seq(),"history_version":self.core.version(),"diagnostic_capture":self.capture.value(),"diagnostic_live_vad":self.live_owner.as_ref().map(|o|o.state()).unwrap_or_else(||self.live_stats.clone()),"diagnostic_asr":{"enabled":self.has_native(),"epoch":self.epoch.epoch,"pending_inputs":self.pending_inputs.len(),"decoding":self.flight.is_some(),"native_running":self.flight.as_ref().is_some_and(|(_,token)|token.snapshot().running),"completed_jobs":self.completed_jobs,"model_load_s":self.load_s,"vad":self.vad_enabled}})
+        json!({"session":self.session.value(self.now(),self.epoch),"translator":{"state":"Unavailable"},"model":{"state":self.model_state},"last_seq":q.last_seq(),"history_version":self.core.version(),"diagnostic_capture":self.capture.value(),"diagnostic_live_vad":self.live_owner.as_ref().map(|o|o.state()).unwrap_or_else(||self.live_stats.clone()),"diagnostic_asr":{"enabled":self.has_native(),"epoch":self.epoch.epoch,"pending_inputs":self.pending_inputs.len(),"decoding":self.flight.is_some(),"native_running":self.flight.as_ref().is_some_and(|(_,token)|token.snapshot().running),"completed_jobs":self.completed_jobs,"model_load_s":self.load_s,"vad":self.vad_enabled}})
     }
     pub fn fixture(&mut self, method: &str, p: &Value, q: &Outbox) -> Reply {
         if self.native.is_none() || self.is_live() {
@@ -590,6 +594,7 @@ impl Runtime {
         let frames = self.capture.poll(q, &mut self.ring)?;
         self.poll_live(frames, q)?;
         self.poll_native(q)?;
+        self.poll_session(q)?;
         let before = self.core.version();
         self.core
             .poll(self.now())
@@ -645,6 +650,9 @@ impl Runtime {
                 "UNSUPPORTED_CAPABILITY",
                 "Mock pipeline requires --mock-pipeline",
             ));
+        }
+        if self.session.enabled && self.session.state != "Running" {
+            return Err(("INVALID_STATE", "Mock session must be running"));
         }
         match method {
             "mock_segment" | "mock_burst" => {
