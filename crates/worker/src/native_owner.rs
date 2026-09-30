@@ -62,6 +62,7 @@ pub enum Completion {
         outcome: Outcome,
         decode_s: f64,
         abort_observed: bool,
+        language: String,
         overlap_segments_removed: usize,
         overlap_tokens_removed: usize,
         timed_token_count: usize,
@@ -348,6 +349,7 @@ impl NativeOwner {
                 };
                 let abort_observed = task.cancellation.snapshot().abort_observed;
                 let decode_s = start.elapsed().as_secs_f64();
+                let language = task.language.clone();
                 drop(task); // Full returned; release PCM before acknowledging reservation.
                 if done_tx
                     .send(Completion::Decoded {
@@ -355,6 +357,7 @@ impl NativeOwner {
                         outcome,
                         decode_s,
                         abort_observed,
+                        language,
                         overlap_segments_removed,
                         overlap_tokens_removed,
                         timed_token_count,

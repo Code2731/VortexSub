@@ -4,7 +4,7 @@
 
 EchoSub는 Windows/macOS의 시스템 오디오를 전사하고 한국어로 번역하는 데스크톱 앱을 목표로 합니다.
 
-**현재는 M0 probe·M1 코어와 M2 전사 경로를 개발하는 단계입니다.** 진단 worker에서 실제 Windows loopback→Silero VAD→Whisper→원문 history를 연결했습니다. 파일 전사도 지원합니다. 진단 원문 history·오버레이 UI도 연결했습니다. UUID 세션 시작·일시정지·재개·종료 어댑터와 UUID별 history·세션 상대 시간을 연결했습니다. 번역과 전체 제품 wire 전환은 후속이며 macOS는 실기기에서 검증하지 않았습니다.
+**현재는 M2 전사와 M3 번역 통합을 개발하는 단계입니다.** 진단 worker에서 실제 Windows loopback→Silero VAD→Whisper→원문 history를 연결했습니다. 파일 전사도 지원합니다. 진단 원문 history·오버레이 UI, UUID 세션 시작·일시정지·재개·종료와 세션별 history를 연결했습니다. opt-in worker의 파일 전사→로컬 HTTP 번역→history도 확인했습니다. 화면 번역·전체 제품 wire 전환은 후속이며 macOS는 실기기에서 검증하지 않았습니다.
 
 ## Windows에서 빌드하고 실행하기
 
@@ -102,8 +102,9 @@ ONNX Runtime 1.22.0 CPU로 발화 범위를 나누고 실제 전사합니다. �
 전사 경계에는 [token 시간 정합](docs/ASR_TOKEN_ALIGNMENT.md)을 추가했습니다.
 600초 **파일 PCM** 무음 검증에서 VAD/ASR/history 생성이 없었습니다.
 실제 live dedup 품질은 미검증입니다. M3 [로컬 번역 계약](docs/TRANSLATION_CONTRACT.md)은
-HTTP owner·모델 조회/선택·취소·응답 검사를 구현했습니다. `scripts/probe-translation.ps1 -Contract -Offline`로
-실제 로컬 서버를 검사할 수 있습니다. worker·화면 번역 연결과 품질 수용은 후속입니다.
+HTTP owner·모델 조회/선택·취소·응답 검사를 구현했습니다. worker의 확정 원문→번역→history도
+연결했습니다. `scripts/probe-translation.ps1 -Worker -Offline`로 실제 파일 ASR→로컬 서버를
+검사할 수 있습니다. [worker 번역 계약](docs/WORKER_TRANSLATION.md). 화면 번역 연결과 품질 수용은 후속입니다.
 
 ## MOCK 자막 오버레이
 

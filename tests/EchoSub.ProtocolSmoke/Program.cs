@@ -8,6 +8,7 @@ if (args.Length != 1 || !File.Exists(args[0]))
 }
 
 var workerPath = Path.GetFullPath(args[0]);
+await HttpTranslationSmoke.Run(workerPath);
 
 await using (var client = WorkerClient.Start(workerPath, arguments: new[] { "--mock-pipeline" }))
 {

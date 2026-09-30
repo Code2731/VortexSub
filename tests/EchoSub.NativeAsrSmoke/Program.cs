@@ -2,6 +2,18 @@ using System.Diagnostics;
 using System.Text.Json;
 using EchoSub.Desktop;
 
+if (args.Length == 8 && args[0] == "--translation")
+{
+    try { await WorkerTranslationSmoke.Run(args); }
+    catch (Exception error)
+    {
+        JsonElement? checkpoint = File.Exists(args[7]) ? JsonSerializer.Deserialize<JsonElement>(File.ReadAllText(args[7])) : null;
+        File.WriteAllText(args[7], JsonSerializer.Serialize(new { passed = false, error = error.Message, checkpoint }));
+        throw;
+    }
+    return;
+}
+
 if (args.Length == 7)
 {
     try { await NativeVadSmoke.Run(args); }

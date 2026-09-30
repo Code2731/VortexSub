@@ -1,6 +1,7 @@
-param([string] $ServerPath, [ValidateRange(1024, 65535)] [int] $Port = 18083, [switch] $Contract, [switch] $Offline)
+param([string] $ServerPath, [ValidateRange(1024, 65535)] [int] $Port = 18083, [switch] $Contract, [switch] $Worker, [switch] $Offline)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
+if ($Contract -and $Worker) { throw 'Choose Contract or Worker mode' }
 $env:NUGET_PACKAGES = Join-Path $repo '.nuget/packages'
 if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) { $env:PATH = (Join-Path $env:ProgramFiles 'dotnet') + ';' + $env:PATH }
 if (-not $ServerPath) {
@@ -15,7 +16,12 @@ $model = $catalog.models | Where-Object role -eq 'translation' | Select-Object -
 $modelPath = [IO.Path]::GetFullPath((Join-Path (Join-Path $repo 'benchmarks') $model.path))
 if ((Get-FileHash -LiteralPath $modelPath -Algorithm SHA256).Hash.ToLowerInvariant() -ne $model.sha256) { throw 'Translation model hash mismatch' }
 $project = Join-Path $repo 'benchmarks/EchoSub.TranslationProbe/EchoSub.TranslationProbe.csproj'
-if ($Contract) {
+if ($Worker) {
+    & (Join-Path $repo 'scripts/build-model-probe.ps1') -Backend cpu -Package echosub-worker -Offline:$Offline
+    if ($LASTEXITCODE -ne 0) { throw 'Native worker build failed' }
+    $project = Join-Path $repo 'tests/EchoSub.NativeAsrSmoke/EchoSub.NativeAsrSmoke.csproj'
+    dotnet build $project
+} elseif ($Contract) {
     $cargoArgs = @('build', '--manifest-path', (Join-Path $repo 'crates/translation/Cargo.toml'), '--bin', 'translation-probe', '--locked')
     if ($Offline) { $cargoArgs += '--offline' }
     cargo @cargoArgs
@@ -47,7 +53,11 @@ try {
     $readyTimer.Stop()
     Write-Host "Local server ready in $($readyTimer.Elapsed.TotalSeconds) s; running authored translation fixtures"
     $reportPath = Join-Path $output 'report.json'
-    if ($Contract) {
+    if ($Worker) {
+        $asr = $catalog.models | Where-Object id -eq 'whisper-base' | Select-Object -First 1
+        $asrPath = [IO.Path]::GetFullPath((Join-Path (Join-Path $repo 'benchmarks') $asr.path))
+        dotnet run --project $project --no-build -- --translation (Join-Path $repo 'target/model-probe-cpu/release/echosub-worker.exe') $asrPath $asr.sha256 (Join-Path $repo 'benchmarks/fixtures/local-tts/manifest.json') "http://127.0.0.1:$Port/v1/" $model.id $reportPath
+    } elseif ($Contract) {
         & (Join-Path $repo 'target/debug/translation-probe.exe') "http://127.0.0.1:$Port/v1/" $model.id (Join-Path $repo 'benchmarks/translation-fixtures.json') $reportPath
     } else {
         dotnet run --project $project --no-build -- "http://127.0.0.1:$Port/v1/" $model.id (Join-Path $repo 'benchmarks/translation-fixtures.json') $reportPath

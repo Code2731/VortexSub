@@ -4,7 +4,7 @@
 
 EchoSub aims to provide system-audio transcription and Korean translation in a Windows/macOS desktop app.
 
-**M0 probes, the M1 core, and M2 transcription paths are in development.** A diagnostic worker connects real Windows loopback→Silero VAD→Whisper→source history. File transcription is also supported. A diagnostic source history/overlay UI is connected. UUID session start/pause/resume/stop control, history UUIDs, and session-relative audio times are connected. Translation and full product wire migration are pending. macOS has not been verified on a real device.
+**M2 transcription and M3 translation integration are in development.** A diagnostic worker connects real Windows loopback→Silero VAD→Whisper→source history. File transcription, source history/overlay UI and UUID session controls/history are connected. An opt-in worker path also verifies file ASR→local HTTP translation→history. Translated desktop captions and full product wire migration are pending. macOS has not been verified on a real device.
 
 ## Build and run on Windows
 
@@ -109,7 +109,9 @@ ASR jobs or history. Live dedup quality remains unverified. The M3
 [local translation contract](docs/TRANSLATION_CONTRACT.md) now includes an HTTP
 owner, model discovery/selection, cancellation and response validation. Run
 `scripts/probe-translation.ps1 -Contract -Offline` against the installed local
-server. Worker/caption integration and quality acceptance remain pending.
+server, or `-Worker -Offline` for actual file ASR→translation→worker history.
+See [worker translation](docs/WORKER_TRANSLATION.md). Desktop captions and
+quality acceptance remain pending.
 
 ## MOCK caption overlay
 

@@ -18,6 +18,7 @@ echosub-asr-whisper = { path = "../asr-whisper" }
 sha2 = "=0.10.9"
 hound = "=3.5.1"
 echosub-vad-silero = { path = "../vad-silero" }
+echosub-translation = { path = "../translation" }
 
 [target.'cfg(windows)'.dependencies]
 echosub-capture-windows = { path = "../capture-windows" }

@@ -74,6 +74,9 @@ fn serve() -> io::Result<()> {
         runtime::Runtime::new(args.iter().any(|a| a == "--mock-pipeline"), config, capture);
     runtime.session.enabled = sessions || mock_sessions;
     runtime.session.mock = mock_sessions;
+    if args.iter().any(|a| a == "--diagnostic-translation") {
+        runtime.enable_http_translation();
+    }
     let mut hello_done = false;
 
     loop {
@@ -201,7 +204,7 @@ fn serve() -> io::Result<()> {
                             "asr": runtime.has_native(),
                             "fixture_asr": runtime.has_native() && !runtime.is_live(),
                             "vad": runtime.has_vad(),
-                            "translation": false,
+                            "translation": runtime.translator.enabled,
                             "events": true,
                             "history_snapshot": true,
                             "mock_pipeline": runtime.enabled
@@ -220,6 +223,9 @@ fn serve() -> io::Result<()> {
             "get_history" if hello_done => runtime.history(params, &outbox),
             "export_history" if hello_done => runtime.export_history(params),
             "clear_history" if hello_done => runtime.clear_history(params, &outbox),
+            "configure_translation" | "disable_translation" if hello_done => {
+                runtime.translation_command(method, params, &outbox)
+            }
             "start_session" | "pause_session" | "resume_session" | "stop_session" if hello_done => {
                 runtime.session_command(method, params, &outbox)
             }
@@ -248,6 +254,8 @@ fn serve() -> io::Result<()> {
             | "get_history"
             | "export_history"
             | "clear_history"
+            | "configure_translation"
+            | "disable_translation"
             | "start_session"
             | "pause_session"
             | "resume_session"

@@ -180,6 +180,11 @@ impl Runtime {
             self.session.started_ns = started_ns;
             self.session.ended_ns = None;
             self.partial_enabled = partial_enabled;
+            if self.translator.enabled {
+                self.core
+                    .set_translation_languages(language, "ko")
+                    .map_err(super::core_error)?;
+            }
             self.session.config =
                 json!({"language":language,"device_id":device,"partial_enabled":partial_enabled});
             self.epoch = AudioIdentity {
@@ -277,7 +282,11 @@ impl Runtime {
                 .restart(self.epoch, false, self.now())
                 .map_err(super::core_error)?;
             // Mock translation has no asynchronous owner; acknowledge cancellation here.
-            if let Some(job) = self.translation.take() {
+            if self.translator.enabled {
+                if let Some(owner) = &self.translator.owner {
+                    owner.cancel();
+                }
+            } else if let Some(job) = self.translation.take() {
                 self.core
                     .complete_translation(
                         job.key,
@@ -303,8 +312,11 @@ impl Runtime {
         }
         let capture = self.capture.value();
         let next = if self.session.state == "Stopping" {
-            (self.capture.startable() && self.live_owner.is_none() && self.flight.is_none())
-                .then_some("Idle")
+            (self.capture.startable()
+                && self.live_owner.is_none()
+                && self.flight.is_none()
+                && self.translation.is_none())
+            .then_some("Idle")
         } else if matches!(self.session.state, "Preparing" | "Running")
             && !self.session.mock
             && self.capture.failed()

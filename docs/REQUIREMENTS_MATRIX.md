@@ -15,10 +15,10 @@
 | ASR-003 | T01-01, T02-01/04c | UT-003/005, IT-005/006 | PARTIAL: exact-zero PCM/VAD·NoSpeech skip·반복 보존 fixture 통과. T02-04c 600초 파일 무음 VAD/ASR/history 0 PASS; 실제 loopback/효과음/음악 수용은 후속 |
 | ASR-004 | T01-02, T02-01/04c | UT-005, 긴 발화 fixture | PARTIAL: span/token 시간·UTF-8 정합 fixture PASS. 실제 8초 분할/0.608초 continuation 확인; 실제 token dedup/무누락 미검증 |
 | ASR-005 (P1) | 후속 별도 작업 | 후속 수용 시험 필요 | DEFERRED |
-| TR-001 | T00-04.1, T03-01a/b | P0-MODEL, IT-003 subset | PARTIAL: 요청/응답 및 HTTP fixture PASS; 실제 Qwen en/ja 20/20 응답 확인. worker/제품 통합 후속 |
+| TR-001 | T00-04.1, T03-01a/b/c | P0-MODEL, IT-003 subset | PARTIAL: HTTP/worker fixture PASS; 실제 파일 Whisper 영어 3개→Qwen→history 및 한국어 bypass 확인. UI/제품 수용 후속 |
 | TR-002 | T03-01/03 | UT-007, IT-003, HW-E2E, 품질 평가 | OPEN: 귀환 조건 오역·용어/시간 표현 문제 발견; T00-04.1 검토와 M3 재검증 연결 |
-| TR-003 | T01-02, T03-01 | UT-006, IT-004 | PARTIAL: 원문 전체 키+request ID, epoch/새 session 뒤 늦은 응답 폐기·pending terminal fixture 통과; mock 전체 키 IPC 검증; 실제 HTTP/UI 적용 미연결 |
-| TR-004 | T03-01a | 문맥 경계·epoch 초기화 fixture | PARTIAL: 동일 epoch 직전 확정 원문 2개 mock job 및 600 scalar 문맥/2,000 scalar 입력 예산·원문 보존 fixture PASS; 실제 번역 문맥 품질 미검증 |
+| TR-003 | T01-02, T03-01c | UT-006, IT-004 subset | PARTIAL: 원문 전체 키+request ID·HTTP worker 결과 적용, Pause/Resume epoch 뒤 applied=false·pending terminal/원문 보존 fixture PASS. UI 적용·live E2E 후속 |
+| TR-004 | T03-01a/c | 문맥 경계·epoch 초기화 fixture | PARTIAL: 600 scalar 문맥/2,000 scalar 예산·원문 보존 및 실제 HTTP fixture에서 직전 확정 2개/새 epoch 문맥 초기화 PASS. 실제 모델 문맥 품질 미검증 |
 | TR-005 (P0B) | T04-01/02 | REL-001, 관리형 번역 회귀 시험 필요 | PLANNED |
 | TR-006 (P1) | 후속 별도 작업 | 후속 수용 시험 필요 | DEFERRED |
 | UI-001 | T03-02 | REL-002, HW-E2E | PLANNED |

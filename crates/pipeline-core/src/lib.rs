@@ -203,6 +203,27 @@ impl Pipeline {
         pipeline.translation_enabled = false;
         Ok(pipeline)
     }
+    /// Change admission policy only after existing translation reservations drain.
+    pub fn set_translation_enabled(&mut self, enabled: bool) -> Result<(), CoreError> {
+        if self.translation.is_some() || !self.translation_queue.is_empty() {
+            return Err(CoreError::InvalidConfig);
+        }
+        self.translation_enabled = enabled;
+        Ok(())
+    }
+    /// Language is captured into each final job, not read again at HTTP completion.
+    pub fn set_translation_languages(
+        &mut self,
+        source: &str,
+        target: &str,
+    ) -> Result<(), CoreError> {
+        if !matches!(source, "en" | "ja" | "ko") || !matches!(target, "en" | "ja" | "ko") {
+            return Err(CoreError::InvalidConfig);
+        }
+        self.source_language = source.into();
+        self.target_language = target.into();
+        Ok(())
+    }
     fn time(&mut self, now: u64) -> Result<(), CoreError> {
         if now < self.clock {
             return Err(CoreError::ClockRegression);

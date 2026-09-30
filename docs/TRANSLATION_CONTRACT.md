@@ -49,8 +49,8 @@ discovery; only the validated local HTTP endpoints are supported.
 Cancellation drops the client future and interrupts retry waits; reservation is
 held until completion is polled. Owner destruction cancels and joins its thread.
 This cannot guarantee cancellation of inference already executing at the server.
-Completions retain the full source key/request ID. Worker integration must apply
-results through the pipeline to reject stale epochs; it is the next round.
+Completions retain the full source key/request ID. [Worker integration](WORKER_TRANSLATION.md)
+applies results through the pipeline to reject stale epochs.
 
 ## Validation and next step
 
@@ -60,4 +60,5 @@ cancellation and owner lifetime. `scripts/probe-translation.ps1 -Contract -Offli
 uses the Rust owner with an installed llama-server and existing pinned model.
 Without `-Contract`, the earlier C# baseline probe remains available.
 See [T03-01b evidence](evidence/T03-01b-windows-translation-http.md).
-Next: worker final-job dispatch/cancellation/history, followed by UI integration.
+`-Worker` exercises actual native file ASR→HTTP→worker history. Desktop integration
+is next; the worker path and scope are in [T03-01c](WORKER_TRANSLATION.md).

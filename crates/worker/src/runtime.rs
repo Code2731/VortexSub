@@ -15,11 +15,14 @@ mod export;
 mod live_segments;
 #[path = "session.rs"]
 mod session;
+#[path = "translation.rs"]
+mod translation;
 pub type Reply = Result<Value, (&'static str, &'static str)>;
 pub struct Runtime {
     pub session: session::Session,
     pub capture: crate::capture_runtime::CaptureRuntime,
     pub core: Pipeline,
+    pub translator: translation::Translator,
     ring: RollingAudio,
     pool: SnapshotPool,
     next_segment: u64,
@@ -62,6 +65,7 @@ impl Runtime {
         };
         Self {
             session: session::Session::default(),
+            translator: translation::Translator::default(),
             capture: capture_runtime,
             core: if config.is_some() {
                 Pipeline::new_asr_only(epoch, 1000).unwrap()
@@ -123,7 +127,7 @@ impl Runtime {
         self.vad_enabled
     }
     pub fn state(&self, q: &Outbox) -> Value {
-        json!({"session":self.session.value(self.now(),self.epoch),"translator":{"state":"Unavailable"},"model":{"state":self.model_state},"last_seq":q.last_seq(),"history_version":self.core.version(),"diagnostic_capture":self.capture.value(),"diagnostic_live_vad":self.live_owner.as_ref().map(|o|o.state()).unwrap_or_else(||self.live_stats.clone()),"diagnostic_asr":{"enabled":self.has_native(),"epoch":self.epoch.epoch,"pending_inputs":self.pending_inputs.len(),"decoding":self.flight.is_some(),"native_running":self.flight.as_ref().is_some_and(|(_,token)|token.snapshot().running),"completed_jobs":self.completed_jobs,"partial_enabled":self.partial_enabled,"pending_language_count":self.languages.len(),"model_load_s":self.load_s,"vad":self.vad_enabled}})
+        json!({"session":self.session.value(self.now(),self.epoch),"translator":self.translator.value(self.translation.is_some()),"model":{"state":self.model_state},"last_seq":q.last_seq(),"history_version":self.core.version(),"diagnostic_capture":self.capture.value(),"diagnostic_live_vad":self.live_owner.as_ref().map(|o|o.state()).unwrap_or_else(||self.live_stats.clone()),"diagnostic_asr":{"enabled":self.has_native(),"epoch":self.epoch.epoch,"pending_inputs":self.pending_inputs.len(),"decoding":self.flight.is_some(),"native_running":self.flight.as_ref().is_some_and(|(_,token)|token.snapshot().running),"completed_jobs":self.completed_jobs,"partial_enabled":self.partial_enabled,"pending_language_count":self.languages.len(),"model_load_s":self.load_s,"vad":self.vad_enabled}})
     }
     pub fn fixture(&mut self, method: &str, p: &Value, q: &Outbox) -> Reply {
         if self.native.is_none() || self.is_live() {
@@ -426,6 +430,7 @@ impl Runtime {
                     outcome,
                     decode_s,
                     abort_observed,
+                    language,
                     overlap_segments_removed,
                     overlap_tokens_removed,
                     timed_token_count,
@@ -433,6 +438,11 @@ impl Runtime {
                     nonzero_samples,
                 } => {
                     self.flight = None;
+                    if self.translator.enabled && key.audio == self.epoch {
+                        self.core
+                            .set_translation_languages(&language, "ko")
+                            .map_err(|_| std::io::Error::other("Translation language rejected"))?;
+                    }
                     let applied = self
                         .core
                         .complete_asr(key, outcome, self.now())
@@ -591,6 +601,7 @@ impl Runtime {
         self.interrupt();
         self.capture.finish();
         self.live_owner.take();
+        self.translator.owner.take();
         if let Some(native) = self.native.take() {
             native.finish();
         }
@@ -602,11 +613,12 @@ impl Runtime {
         let frames = self.capture.poll(q, &mut self.ring)?;
         self.poll_live(frames, q)?;
         self.poll_native(q)?;
-        self.poll_session(q)?;
         let before = self.core.version();
         self.core
             .poll(self.now())
             .map_err(|_| std::io::Error::other("Pipeline clock error"))?;
+        self.poll_translation(q)?;
+        self.poll_session(q)?;
         if self.core.version() != before {
             q.publish(
                 "history.changed",
@@ -617,6 +629,9 @@ impl Runtime {
         Ok(())
     }
     pub fn interrupt(&mut self) {
+        if let Some(owner) = &self.translator.owner {
+            owner.cancel();
+        }
         self.capture.request_stop();
         if let Some(owner) = &self.live_owner {
             owner.stop();
@@ -711,6 +726,12 @@ impl Runtime {
                 )
             }
             "mock_translate" => {
+                if self.translator.enabled {
+                    return Err((
+                        "UNSUPPORTED_CAPABILITY",
+                        "HTTP translations cannot be injected",
+                    ));
+                }
                 let job = self
                     .translation
                     .as_ref()
@@ -805,7 +826,7 @@ impl Runtime {
             },
             q,
         )?;
-        if self.translation.is_none() {
+        if !self.translator.enabled && self.translation.is_none() {
             self.translation = self.core.next_translation(self.now()).map_err(core_error)?;
         }
         Ok(json!({}))

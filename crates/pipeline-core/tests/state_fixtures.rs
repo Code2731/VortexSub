@@ -45,6 +45,46 @@ fn asr_only_final_does_not_schedule_or_fake_translation() {
     assert_eq!(f.records()[0].translation_state, TranslationState::None);
     assert!(f.records()[0].translation.is_empty());
 }
+#[test]
+fn translation_reconfiguration_waits_for_reservations_and_language_is_job_local() {
+    let mut f = Fixture::new(1000, "ko");
+    f.finish(1, "first", 0);
+    assert_eq!(
+        f.core.set_translation_enabled(false),
+        Err(CoreError::InvalidConfig)
+    );
+    f.core.set_translation_languages("ja", "ko").unwrap();
+    let first = f.core.next_translation(0).unwrap().unwrap();
+    assert_eq!(first.source_language, "en");
+    assert_eq!(
+        f.core.set_translation_enabled(false),
+        Err(CoreError::InvalidConfig)
+    );
+    f.core
+        .complete_translation(first.key, Outcome::Text("첫째".into()), 1)
+        .unwrap();
+    f.finish(2, "次", 2);
+    let next = f.core.next_translation(2).unwrap().unwrap();
+    assert_eq!(next.source_language, "ja");
+    f.core
+        .complete_translation(next.key, Outcome::Text("다음".into()), 3)
+        .unwrap();
+    f.core.set_translation_enabled(false).unwrap();
+    f.finish(3, "source only", 4);
+    assert_eq!(f.records()[2].translation_state, TranslationState::None);
+}
+#[test]
+fn invalid_translation_language_does_not_change_bypass_policy() {
+    let mut f = Fixture::new(1000, "ko");
+    f.core.set_translation_languages("ko", "ko").unwrap();
+    assert_eq!(
+        f.core.set_translation_languages("auto", "ko"),
+        Err(CoreError::InvalidConfig)
+    );
+    f.finish(1, "한국어", 0);
+    assert_eq!(f.records()[0].translation_state, TranslationState::Bypassed);
+    assert!(f.core.next_translation(0).unwrap().is_none());
+}
 struct Fixture {
     core: Pipeline,
     ring: RollingAudio,

@@ -4,6 +4,8 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
+#[path = "support/translation_protocol.rs"]
+mod translation_protocol;
 
 struct Worker {
     child: Child,

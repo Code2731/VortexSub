@@ -188,3 +188,13 @@ Qwen 로컬 서버의 20개 응답을 확인했다. 귀환 조건 오역/누락�
 다음 T03-01c는 기존 pipeline의 final-only 번역 job을 HTTP owner에 전달하고,
 전체 키로 완료를 적용해 history·실패/skip/취소 terminal과 원문 보존을 확인한다.
 서버 설정/모델 조회 진단 명령을 worker에 노출하고, UI 번역 연결은 그 뒤에 진행한다.
+
+## T03-01c worker 번역/history (2026-10-01)
+
+번역 설정/모델 조회·disable과 final-only HTTP dispatch, 전체 키 완료 적용을
+연결했다. Rust 138개·C# HTTP/IPC와 실제 Whisper CPU 파일→Qwen→history가
+통과했다. 영어 3개 번역 완료·한국어 1개 bypass; 조건/위치 오역으로 품질은 보류다.
+[실행·제한](evidence/T03-01c-windows-worker-translation.md).
+다음 T03-02a는 데스크톱의 로컬 서버 설정/모델 준비 표시, 번역 history·오버레이다.
+서버 실패 시 원문 표시를 유지하고 applied source revision과 번역 request ID로
+갱신을 제한한다. UI 실제 조작·live E2E·Mac·품질 수용은 별도로 판정한다.

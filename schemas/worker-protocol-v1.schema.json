@@ -14,6 +14,13 @@
     }
   ],
   "$defs": {
+    "translationConfigParams": {
+      "type": "object", "required": ["endpoint"],
+      "properties": {
+        "endpoint": {"type": "string", "minLength": 1, "maxLength": 256, "description": "Numeric loopback HTTP with explicit port; runtime validates address and path."},
+        "model_id": {"type": ["string", "null"], "minLength": 1, "maxLength": 256}
+      }, "additionalProperties": false
+    },
     "exportParams": {
       "type": "object", "required": ["session_id", "format", "path", "overwrite"],
       "properties": {
@@ -141,6 +148,14 @@
         {
           "if": {"properties": {"method": {"const": "export_history"}}},
           "then": {"properties": {"params": {"$ref": "#/$defs/exportParams"}}}
+        },
+        {
+          "if": {"properties": {"method": {"const": "configure_translation"}}},
+          "then": {"properties": {"params": {"$ref": "#/$defs/translationConfigParams"}}}
+        },
+        {
+          "if": {"properties": {"method": {"const": "disable_translation"}}},
+          "then": {"properties": {"params": {"type": "object", "maxProperties": 0}}}
         }
       ]
     },

@@ -234,6 +234,7 @@ dependencies = [
  "echosub-audio-core",
  "echosub-capture-windows",
  "echosub-pipeline-core",
+ "echosub-translation",
  "echosub-vad-silero",
  "hound",
  "serde_json",
