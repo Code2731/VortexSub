@@ -4,7 +4,7 @@
 
 EchoSub는 Windows/macOS의 시스템 오디오를 전사하고 한국어로 번역하는 데스크톱 앱을 목표로 합니다.
 
-**현재는 M0 probe·M1 코어와 M2 전사 경로를 개발하는 단계입니다.** 진단 worker에서 실제 Windows loopback→Silero VAD→Whisper→원문 history를 연결했습니다. 파일 전사도 지원합니다. 제품 session·번역·자막 UI 연결은 후속이며 macOS는 실기기에서 검증하지 않았습니다.
+**현재는 M0 probe·M1 코어와 M2 전사 경로를 개발하는 단계입니다.** 진단 worker에서 실제 Windows loopback→Silero VAD→Whisper→원문 history를 연결했습니다. 파일 전사도 지원합니다. 진단 원문 history·오버레이 UI도 연결했습니다. 제품 session·번역은 후속이며 macOS는 실기기에서 검증하지 않았습니다.
 
 ## Windows에서 빌드하고 실행하기
 
@@ -26,6 +26,10 @@ $env:AVALONIA_TELEMETRY_OPTOUT = '1'
 오프라인 NuGet 환경에서는 `ECHOSUB_NUGET_SOURCE`를 로컬 패키지 소스로 지정하고 Cargo에 `ECHOSUB_OFFLINE=1`을 설정한 뒤 검사 스크립트를 실행하세요. 패키지 캐시는 Git에서 제외된 `.nuget/`에 둡니다. 검사·앱 실행 스크립트는 모델을 다운로드하지 않습니다.
 
 macOS에서는 고정 SDK 설치 후 `bash scripts/check.sh`를 실행합니다. Mac 실기기 결과가 확보되기 전까지 지원 검증은 미완료입니다.
+
+## 실제 원문 진단 UI
+
+`./run.cmd -Live -Offline`로 실행하고 모델 Ready 뒤 출력 장치·원문 언어를 선택해 **캡처 시작**을 누르세요. 확정 원문 history와 오버레이를 연결했으며 번역·partial은 후속입니다. 실제 클릭·원문 화면 수용은 미검증입니다. [실행과 확인 범위](docs/LIVE_UI.md)
 
 ## Windows 시스템 오디오 캡처 probe
 
@@ -58,7 +62,7 @@ probe는 WASAPI loopback에서 실제 오디오 형식, 패킷·프레임 수, �
 512-sample frame, 세션 sample 시간축, 12초 rolling buffer와 유한 immutable
 PCM snapshot을 제공합니다. OS·모델 없이 `cargo test -p echosub-audio-core`
 로 fixture를 실행할 수 있습니다. 발화 구간·8초 분할·packet-stop watchdog과
-실제 Silero의 worker 파일·live 캡처 연결도 구현했습니다. UI 연결은 후속입니다.
+실제 Silero의 worker 파일·live 캡처 연결도 구현했습니다. 진단 원문 UI를 연결했으며 화면 수용은 미검증입니다.
 [오디오 코어](docs/AUDIO_CORE.md) · [VAD 구간 계약과 검증](docs/VAD_CORE.md)
 
 ## 파이프라인 상태·작업 큐 (M1 진행 중)
@@ -67,7 +71,7 @@ PCM snapshot을 제공합니다. OS·모델 없이 `cargo test -p echosub-audio-
 번역 deadline·terminal 상태와 최대 1,000개 버전 history를 제공합니다.
 `cargo test -p echosub-pipeline-core`로 mock fixture를 실행합니다.
 worker event 큐·버전 history snapshot과 C# 클라이언트를 연결했습니다.
-실제 HTTP·UI history 표시는 아직입니다. 일반 실행의 history는 비어 있고,
+진단 UI history를 연결했습니다. 실제 HTTP와 화면 수용은 후속입니다. 일반 실행의 history는 비어 있고,
 진단용 생성 이벤트는 `--mock-pipeline`에서만 허용합니다.
 [상태·큐 계약](docs/PIPELINE_CORE.md) · [worker 전달·복구](docs/WORKER_DELIVERY.md)
 

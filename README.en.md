@@ -4,7 +4,7 @@
 
 EchoSub aims to provide system-audio transcription and Korean translation in a Windows/macOS desktop app.
 
-**M0 probes, the M1 core, and M2 transcription paths are in development.** A diagnostic worker connects real Windows loopback→Silero VAD→Whisper→source history. File transcription is also supported. Product sessions, translation, and subtitle UI integration are pending. macOS has not been verified on a real device.
+**M0 probes, the M1 core, and M2 transcription paths are in development.** A diagnostic worker connects real Windows loopback→Silero VAD→Whisper→source history. File transcription is also supported. A diagnostic source history/overlay UI is connected. Product sessions and translation are pending. macOS has not been verified on a real device.
 
 ## Build and run on Windows
 
@@ -26,6 +26,10 @@ If the SDKs are missing from PATH, the launcher also searches `CARGO_HOME/bin`, 
 For offline NuGet, set `ECHOSUB_NUGET_SOURCE` to a local package source and `ECHOSUB_OFFLINE=1` for Cargo before running the check script. Package caches live in the ignored `.nuget/` directory. The check and app launcher scripts do not download models.
 
 On macOS, install the pinned SDKs and run `bash scripts/check.sh`. Platform support remains unverified until results are obtained on a real Mac.
+
+## Live source diagnostic UI
+
+Run `./run.cmd -Live -Offline`, wait for model Ready, select an output device and source language, then click **캡처 시작** (Start capture). Final source history and an overlay are connected; translation and partial output are pending. Actual clicks and source rendering remain unverified. See [execution and verification scope](docs/LIVE_UI.md).
 
 ## Windows system-audio capture probe
 
@@ -59,7 +63,7 @@ provides 512-sample frames, a session sample timeline, a 12-second rolling
 buffer, and bounded immutable PCM snapshots. Run fixtures without OS/model
 dependencies using `cargo test -p echosub-audio-core`. Segmentation, eight-second
 chunking, a packet-stop watchdog, and actual Silero worker file inference are
-implemented. Continuous live VAD is also connected; UI integration is pending. See the [audio core](docs/AUDIO_CORE.md) and [VAD contract and validation](docs/VAD_CORE.md).
+implemented. Continuous live VAD is also connected; diagnostic source UI is connected; visual acceptance is unverified. See the [audio core](docs/AUDIO_CORE.md) and [VAD contract and validation](docs/VAD_CORE.md).
 
 ## Pipeline state and job queues (M1 in progress)
 
@@ -67,8 +71,8 @@ implemented. Continuous live VAD is also connected; UI integration is pending. S
 stale-result rejection, translation deadlines and terminal states, and versioned
 history capped at 1,000 records. Run mock fixtures with
 `cargo test -p echosub-pipeline-core`. Bounded worker events, versioned history
-snapshots, and the C# client are connected. Actual HTTP and history UI
-rendering are pending. Default history is empty; generated diagnostic events
+snapshots, and the C# client are connected. Diagnostic history UI is connected.
+Actual HTTP integration and visual acceptance are pending. Default history is empty; generated diagnostic events
 require `--mock-pipeline`. See the [state and queue contract](docs/PIPELINE_CORE.md)
 and [worker delivery and recovery](docs/WORKER_DELIVERY.md).
 

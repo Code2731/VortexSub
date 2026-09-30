@@ -62,6 +62,7 @@ public sealed class WorkerClient : IAsyncDisposable
 
     public bool IsRunning => !process.HasExited;
     public int ProcessId => process.Id;
+    public bool ForcedTerminationUsed { get; private set; }
 
     public async Task<JsonElement> SendAsync(
         string method,
@@ -275,6 +276,7 @@ public sealed class WorkerClient : IAsyncDisposable
                     try
                     {
                         process.Kill(entireProcessTree: true);
+                        ForcedTerminationUsed = true;
                     }
                     catch (InvalidOperationException)
                     {

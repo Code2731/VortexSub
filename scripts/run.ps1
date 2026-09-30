@@ -1,9 +1,13 @@
-param([switch] $NoBuild, [switch] $Offline, [switch] $NoPause)
+param([switch] $NoBuild, [switch] $Offline, [switch] $NoPause, [switch] $Live)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
 $env:AVALONIA_TELEMETRY_OPTOUT = '1'
 $env:NUGET_PACKAGES = Join-Path $repo '.nuget/packages'
 $env:ECHOSUB_WORKER_PATH = Join-Path $repo 'target/debug/echosub-worker.exe'
+$env:ECHOSUB_LIVE_UI = if ($Live) { '1' } else { '0' }
+$env:ECHOSUB_WORKER_ARGUMENTS = $null
+$env:ECHOSUB_ENDPOINTS = $null
+if ($Live) { $env:ECHOSUB_WORKER_PATH = Join-Path $repo 'target/model-probe-cpu/release/echosub-worker.exe' }
 $logDirectory = Join-Path $repo 'logs'
 New-Item -ItemType Directory -Force -Path $logDirectory | Out-Null
 $runId = '{0}-{1}' -f (Get-Date -Format 'yyyyMMdd-HHmmss'), $PID
@@ -31,6 +35,24 @@ try {
     $transcribing = $true
     Write-Host "EchoSub launcher: $repo"
     Write-Host "Launcher log: $launcherLog"
+    if ($Live) {
+        if (-not [Environment]::Is64BitProcess) { throw 'Live diagnostics require Windows x64 PowerShell' }
+        $catalogue = Get-Content -LiteralPath (Join-Path $repo 'benchmarks/model-downloads.json') -Raw | ConvertFrom-Json
+        $vadCatalogue = Get-Content -LiteralPath (Join-Path $repo 'benchmarks/vad-assets.json') -Raw | ConvertFrom-Json
+        $asr = $catalogue.models | Where-Object { $_.id -eq 'whisper-base' }
+        $vad = $vadCatalogue.assets | Where-Object { $_.id -eq 'silero-v6' }
+        $runtime = $vadCatalogue.assets | Where-Object { $_.id -eq 'ort-win-x64' }
+        $asrPath = [IO.Path]::GetFullPath((Join-Path (Join-Path $repo 'benchmarks') $asr.path))
+        $vadPath = [IO.Path]::GetFullPath((Join-Path (Join-Path $repo 'benchmarks') $vad.path))
+        $runtimePath = [IO.Path]::GetFullPath((Join-Path (Join-Path $repo 'benchmarks') $runtime.path))
+        foreach ($assetPath in @($asrPath,$vadPath,$runtimePath)) {
+            if (-not (Test-Path -LiteralPath $assetPath -PathType Leaf)) { throw "Consented local asset is missing: $assetPath. This launcher does not download models." }
+        }
+        $workerArguments = @('--diagnostic-capture','--live-asr','--diagnostic-asr','--asr-model',$asrPath,'--asr-sha256',$asr.sha256,
+            '--diagnostic-vad','--vad-model',$vadPath,'--vad-sha256',$vad.sha256,'--vad-runtime',$runtimePath,'--vad-runtime-sha256',$runtime.sha256)
+        $env:ECHOSUB_WORKER_ARGUMENTS = ConvertTo-Json -InputObject $workerArguments -Compress
+        Write-Host 'Live CPU source diagnostics: translation/partial disabled; select capture Start in the UI.'
+    }
     if (-not $NoBuild) {
         $cargoCandidates = @((Join-Path $env:USERPROFILE '.cargo/bin/cargo.exe'))
         if ($env:CARGO_HOME) { $cargoCandidates = @((Join-Path $env:CARGO_HOME 'bin/cargo.exe')) + $cargoCandidates }
@@ -43,9 +65,18 @@ try {
         Write-Host "Cargo: $cargoExe"
         Write-Host ".NET: $dotnetExe"
         Write-Host '[1/3] Building Rust worker...'
-        $cargoArgs = @('build', '-p', 'echosub-worker', '--locked')
+        $cargoArgs = @('build', '-p', 'echosub-worker', '--locked', '--target-dir', (Join-Path $repo 'target'))
         if ($Offline -or $env:ECHOSUB_OFFLINE -eq '1') { $cargoArgs += '--offline' }
-        & $cargoExe @cargoArgs
+        if ($Live) {
+            $previousTarget = $env:CARGO_TARGET_DIR
+            try {
+                $env:CARGO_TARGET_DIR = Join-Path $repo 'target/model-probe-cpu'
+                & (Join-Path $PSScriptRoot 'build-model-probe.ps1') -Backend cpu -Package echosub-worker -Vad -Offline:$Offline
+            } finally { $env:CARGO_TARGET_DIR = $previousTarget }
+            $endpointArgs = @('build','-p','echosub-capture-windows','--release','--locked','--target-dir',(Join-Path $repo 'target'))
+            if ($Offline -or $env:ECHOSUB_OFFLINE -eq '1') { $endpointArgs += '--offline' }
+            & $cargoExe @endpointArgs
+        } else { & $cargoExe @cargoArgs }
         if ($LASTEXITCODE -ne 0) { throw "Rust build failed (exit $LASTEXITCODE)" }
 
         $assets = Join-Path $repo 'apps/EchoSub.Desktop/obj/project.assets.json'
@@ -63,6 +94,22 @@ try {
     }
     if (-not (Test-Path -LiteralPath $desktopExe)) { throw "Desktop executable is missing: $desktopExe" }
     if (-not (Test-Path -LiteralPath $env:ECHOSUB_WORKER_PATH)) { throw "Worker executable is missing: $env:ECHOSUB_WORKER_PATH" }
+    if ($Live) {
+        $endpoints = @(@{ Id = $null; Name = 'Default render endpoint (selected at Start)' })
+        $endpointProbe = Join-Path $repo 'target/release/echosub-capture-windows.exe'
+        if (Test-Path -LiteralPath $endpointProbe -PathType Leaf) {
+            $previousOutputEncoding = [Console]::OutputEncoding
+            try {
+                [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
+                $inventory = & $endpointProbe --list
+            } finally { [Console]::OutputEncoding = $previousOutputEncoding }
+            if ($LASTEXITCODE -ne 0) { throw 'Render endpoint enumeration failed' }
+            foreach ($line in $inventory) {
+                if ($line -match '^(?:default|render)\s+(\S+) name=(.+)$') { $endpoints += @{ Id = $Matches[1]; Name = $Matches[2] } }
+            }
+        }
+        $env:ECHOSUB_ENDPOINTS = ConvertTo-Json -InputObject $endpoints -Compress
+    }
     Write-Host '[3/3] Opening EchoSub...'
     Write-Host "Desktop log: $env:ECHOSUB_STARTUP_LOG"
     $appProcess = Start-Process -FilePath $desktopExe -WorkingDirectory $repo -WindowStyle Normal -PassThru

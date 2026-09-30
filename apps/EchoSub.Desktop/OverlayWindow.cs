@@ -9,10 +9,11 @@ namespace EchoSub.Desktop;
 public sealed class OverlayWindow : Window
 {
     private readonly Border captionCard;
+    private readonly TextBlock sourceCaption;
 
-    public OverlayWindow()
+    public OverlayWindow(bool live = false)
     {
-        Title = "EchoSub · MOCK overlay";
+        Title = live ? "EchoSub · 실제 원문 진단" : "EchoSub · MOCK overlay";
         Width = 760;
         Height = 190;
         MinWidth = 420;
@@ -27,7 +28,7 @@ public sealed class OverlayWindow : Window
 
         var moveHandle = new TextBlock
         {
-            Text = "MOCK · 샘플 자막 · 이 줄을 끌어 이동",
+            Text = live ? "실제 원문 진단 · 번역 없음 · 이 줄을 끌어 이동" : "MOCK · 샘플 자막 · 이 줄을 끌어 이동",
             FontSize = 12,
             Foreground = Brushes.LightGray,
             Cursor = new Cursor(StandardCursorType.SizeAll)
@@ -56,22 +57,24 @@ public sealed class OverlayWindow : Window
                 args.Handled = true;
             }
         };
+        sourceCaption = new TextBlock
+        {
+            Text = live ? "확정 원문 대기 중" : "We should take the left path. / 左の道へ進もう。",
+            Foreground = Brushes.White,
+            FontSize = 22,
+            TextWrapping = TextWrapping.Wrap
+        };
         var captions = new StackPanel
         {
             Spacing = 7,
             VerticalAlignment = VerticalAlignment.Center,
             Children =
             {
-                new TextBlock
-                {
-                    Text = "We should take the left path. / 左の道へ進もう。",
-                    Foreground = Brushes.White,
-                    FontSize = 22,
-                    TextWrapping = TextWrapping.Wrap
-                },
+                sourceCaption,
                 new TextBlock
                 {
                     Text = "왼쪽 길로 가자.",
+                    IsVisible = !live,
                     Foreground = new SolidColorBrush(Color.Parse("#F7DE92")),
                     FontSize = 26,
                     TextWrapping = TextWrapping.Wrap
@@ -94,6 +97,9 @@ public sealed class OverlayWindow : Window
         Content = new Border { Padding = new Thickness(8), Child = captionCard };
         Opened += (_, _) => WindowsOverlayPlatform.PreventActivation(this);
     }
+
+    public void SetSource(string? source) => sourceCaption.Text =
+        string.IsNullOrWhiteSpace(source) ? "확정 원문 대기 중" : source;
 
     public void SetCardOpacity(double opacity)
     {

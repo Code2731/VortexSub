@@ -1,6 +1,6 @@
 # 구현 상태
 
-최종 갱신: 2026-10-01. 결과 범위: Windows T00-01, 독립형 T00-02 WASAPI probe, T00-04.1 모델 harness, T00-04.2 실제 취소·수명 probe, T00-04.4 동시 부하, T00-04.3 MOCK 오버레이, T01-01a/b 독립 오디오·발화 코어, T01-02a 독립 상태·작업 큐, T01-02b mock worker 전달·버전 history. T02-01a에서 실제 Whisper를 worker 파일 진단과 history에 연결했다. T02-01b에서 실제 Silero VAD도 파일 경로에 연결했다. T02-02a에서 실제 WASAPI PCM 정규화·worker 제어를 연결했다. T02-02b에서 Windows live 캡처→연속 VAD→Whisper→history도 진단으로 연결했다. 제품 session·번역·실제 자막 UI와 macOS 번들은 미구현/미검증이다.
+최종 갱신: 2026-10-01. 결과 범위: Windows T00-01, 독립형 T00-02 WASAPI probe, T00-04.1 모델 harness, T00-04.2 실제 취소·수명 probe, T00-04.4 동시 부하, T00-04.3 MOCK 오버레이, T01-01a/b 독립 오디오·발화 코어, T01-02a 독립 상태·작업 큐, T01-02b mock worker 전달·버전 history. T02-01a에서 실제 Whisper를 worker 파일 진단과 history에 연결했다. T02-01b에서 실제 Silero VAD도 파일 경로에 연결했다. T02-02a에서 실제 WASAPI PCM 정규화·worker 제어를 연결했다. T02-02b에서 Windows live 캡처→연속 VAD→Whisper→history도 진단으로 연결했다. T02-02e에서 진단 원문 history·오버레이 UI를 연결했다. 제품 session·번역과 macOS 번들은 미구현이며 실제 원문 UI 렌더링 수용은 미검증이다.
 
 | 작업 | 상태 | 근거 및 다음 단계 |
 |---|---|---|
@@ -19,6 +19,7 @@
 | T02-02 | PARTIAL: T02-02a/b PASS (Windows CPU 진단) | WASAPI bounded PCM·QPC/sample 시작점·재시작 gap, 연속 Silero→Whisper final/history, Stop/취소·활성 shutdown/EOF 연결. pinned device polling. 제품 Pause·장치 전환/soak·Mac 미검증. [live 계약](WORKER_LIVE_ASR.md) · [측정](evidence/T02-02b-windows-live-asr.md) |
 | T02-02c | PARTIAL: 시작 실패 처리·관측 구현; 무음 시작 gate 미통과 | 10초 Opening timeout/첫 실패 phase 보존·bounded 관측, STA·shared/event-driven 인수 0 보정, whole-fixture 재생 및 실패 checkpoint 추가. 실제 Initialize 대기를 재현했으며 보정 뒤에도 EOF용 무음 새 worker 시작 실패가 남음. [추가 근거](evidence/T02-02c-windows-capture-startup.md) |
 | T02-02d | PARTIAL: 모델 없는 장치별 새 worker probe 구현·검증 | matrix 62회+PowerShell 5.1 기본 1회 중 정상 시작 62/Initialize timeout 1, 전부 정상 프로세스 종료·강제 종료 0. ASR/VAD 없이도 지연 재현, Failed 뒤 Ping/재시작 거부/정리 확인. 이후 반복 성공으로 시작 안정성 gate를 올리지 않음. [probe 계약](CAPTURE_STARTUP_PROBE.md) · [근거](evidence/T02-02d-windows-capture-startup.md) |
+| T02-02e | PARTIAL: 진단 원문 UI 연결·빌드 통과; 화면 수용 미검증 | 장치/언어·Start/Stop·실패/join·worker 재연결, 버전 history·현재 epoch/revision 원문·5초 오버레이 구현. Rust 91개·C# 빌드/IPC 통과, PS5.1 live 창/연결 로그 확인. 실제 클릭/원문/만료/게임 포커스 미검증. [실행·범위](LIVE_UI.md) |
 | M2 | PARTIAL | CPU 실제 VAD 파일 분할·전사·제어/history 연결. WASAPI live final/history 진단 연결. 시작 안정성·화면 자막·제품 session·자연 음성 경계 수용 미통과. |
 | M3~M5 | NOT_STARTED | 해당 제품 통합/실기기 수용 결과 없음. |
 
@@ -97,3 +98,5 @@ T02-02a 추가 검증: Rust 84개·fmt/workspace·C# IPC와 실제 loopback Star
 T02-02b 추가 검증: Windows CPU live loopback→연속 Silero→Whisper final/history 2회 확인, native 실행 중 Stop/재시작 3회·full 예약 유지 중 새 캡처 1회, 해시 실패·활성 shutdown/EOF 통과. Rust 89개·fmt/workspace·C# IPC PASS. 단독 최종 run의 Stop 응답 최대 0.000797초·capture/VAD join 확인 0.043802초·그 이후 full 반환 확인 0.409312초, 재시작 gap 최소 0.364750초. 중간 final 하나가 8초 상한에 도달했고 추가 run에서 client Opening timeout을 관측했다. native API phase와 C# fast-exit handle/예외 처리를 보완한 최종 PCM/live 회귀는 통과했다. 시작 지연의 원인은 미확정이다. 품질/부하·제품 gate는 미통과이며 UI·Pause·장치/soak·CUDA/Mac은 후속이다. [계약](WORKER_LIVE_ASR.md) · [근거](evidence/T02-02b-windows-live-asr.md)
 
 T02-02c 추가 검증: 최종 Rust 91개·fmt/workspace·C# 빌드/IPC smoke PASS. 최종 재생 중 PCM Start/Stop 20회·즉시 Stop·활성 shutdown/EOF PASS(40.320초 PCM, 첫 Opening 3.160569초). 실제 live whole-fixture final 1.792/1.824초·취소/재시작 3회와 종료가 통과한 실행도 있으나, 보정 뒤 다음 무음 새 worker의 Initialize가 10.010085초에 timeout으로 실패했다. 첫 실패 phase/경과 시간·pending join/이전 검증 checkpoint를 보존한다. 무음 cold-start gate는 미통과이며 제품 UI 연결은 이 오류/소유 프로세스 복구 계약을 정리한 뒤 진행한다. [근거](evidence/T02-02c-windows-capture-startup.md)
+
+T02-02e: 실제 원문 진단 UI를 연결하고 Windows 저장소 검사를 통과했다. 다음은 [수동 UI 확인](LIVE_UI.md)의 Start/Stop·원문·만료·실패/재연결 및 제품 session/Pause 계약이다. native 시작 안정성 gate는 유지한다.
