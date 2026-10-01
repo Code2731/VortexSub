@@ -137,6 +137,12 @@ fn handshake_commands_and_unicode_round_trip() {
     let response = worker.send(command("state", "get_state", json!({})));
     assert_eq!(response["result"]["session"]["state"], "Idle");
     let schedule = &response["result"]["diagnostic_asr"]["partial_scheduler"];
+    assert_eq!(
+        response["result"]["diagnostic_asr"]["decode_window_enabled"],
+        false
+    );
+    assert_eq!(response["result"]["diagnostic_asr"]["window_attempts"], 0);
+    assert_eq!(response["result"]["diagnostic_asr"]["window_fallbacks"], 0);
     assert_eq!(schedule["pending"], false);
     for field in [
         "requested",

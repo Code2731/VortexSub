@@ -5,7 +5,6 @@ mod adaptive_partial;
 #[cfg(any(feature = "native-asr", test))]
 mod asr_reconcile;
 mod capture_runtime;
-#[cfg(test)]
 mod decode_window;
 mod live_owner;
 mod native_owner;
@@ -15,6 +14,7 @@ mod token_reconcile;
 mod transport;
 #[cfg(all(test, feature = "native-asr"))]
 mod trim_probe;
+mod window_state;
 
 use serde_json::{json, Value};
 
@@ -49,6 +49,11 @@ fn serve() -> io::Result<()> {
     let capture = args.iter().any(|a| a == "--diagnostic-capture");
     let live = args.iter().any(|a| a == "--live-asr");
     let fast_partials = args.iter().any(|a| a == "--fast-partials");
+    if args.iter().any(|a| a == "--experimental-decode-window") && (!fast_partials || !live) {
+        return Err(io::Error::other(
+            "Experimental decode windows require fast live CUDA ASR",
+        ));
+    }
     if fast_partials && (!live || !config.as_ref().is_some_and(|c| c.gpu)) {
         return Err(io::Error::other("Fast partials require live CUDA ASR"));
     }

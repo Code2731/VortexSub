@@ -53,10 +53,13 @@ pub struct Runtime {
     live_segment: Option<(SegmentIdentity, SegmentIdentity)>,
     last_live_final: Option<(SegmentIdentity, SegmentIdentity)>,
     continuations: Vec<(JobIdentity, SegmentIdentity)>,
+    window_enabled: bool,
+    window_state: crate::window_state::WindowState,
 }
 impl Runtime {
     pub fn new(enabled: bool, mut config: Option<ModelConfig>, capture: bool) -> Self {
         let vad_enabled = config.as_ref().is_some_and(|c| c.vad.is_some());
+        let window_enabled = config.as_ref().is_some_and(|c| c.decode_window);
         let live_config = if capture {
             config.as_mut().and_then(|c| c.vad.take())
         } else {
@@ -108,6 +111,8 @@ impl Runtime {
             live_segment: None,
             last_live_final: None,
             continuations: Vec::new(),
+            window_enabled,
+            window_state: crate::window_state::WindowState::default(),
         }
     }
     pub fn implementation(&self) -> &str {
@@ -134,7 +139,7 @@ impl Runtime {
         self.vad_enabled
     }
     pub fn state(&self, q: &Outbox) -> Value {
-        json!({"session":self.session.value(self.now(),self.epoch),"translator":self.translator.value(self.translation.is_some()),"model":{"state":self.model_state},"last_seq":q.last_seq(),"history_version":self.core.version(),"diagnostic_capture":self.capture.value(),"diagnostic_live_vad":self.live_owner.as_ref().map(|o|o.state()).unwrap_or_else(||self.live_stats.clone()),"diagnostic_asr":{"enabled":self.has_native(),"epoch":self.epoch.epoch,"pending_inputs":self.pending_inputs.len(),"decoding":self.flight.is_some(),"native_running":self.flight.as_ref().is_some_and(|(_,token)|token.snapshot().running),"completed_jobs":self.completed_jobs,"partial_enabled":self.partial_enabled,"adaptive_partials":self.fast_partials,"partial_scheduler":self.partial_schedule.value(),"pending_language_count":self.languages.len(),"model_load_s":self.load_s,"vad":self.vad_enabled}})
+        json!({"session":self.session.value(self.now(),self.epoch),"translator":self.translator.value(self.translation.is_some()),"model":{"state":self.model_state},"last_seq":q.last_seq(),"history_version":self.core.version(),"diagnostic_capture":self.capture.value(),"diagnostic_live_vad":self.live_owner.as_ref().map(|o|o.state()).unwrap_or_else(||self.live_stats.clone()),"diagnostic_asr":{"enabled":self.has_native(),"epoch":self.epoch.epoch,"pending_inputs":self.pending_inputs.len(),"decoding":self.flight.is_some(),"native_running":self.flight.as_ref().is_some_and(|(_,token)|token.snapshot().running),"completed_jobs":self.completed_jobs,"partial_enabled":self.partial_enabled,"adaptive_partials":self.fast_partials,"decode_window_enabled":self.window_enabled,"window_attempts":self.window_state.attempts,"window_fallbacks":self.window_state.fallbacks,"partial_scheduler":self.partial_schedule.value(),"pending_language_count":self.languages.len(),"model_load_s":self.load_s,"vad":self.vad_enabled}})
     }
     pub fn fixture(&mut self, method: &str, p: &Value, q: &Outbox) -> Reply {
         if self.native.is_none() || self.is_live() {
@@ -203,6 +208,7 @@ impl Runtime {
             }
             "reset_fixture_epoch" => {
                 self.partial_schedule.clear();
+                self.window_state.clear();
                 self.epoch.epoch = self
                     .epoch
                     .epoch
@@ -312,6 +318,7 @@ impl Runtime {
             }
             self.languages.clear();
             self.partial_schedule.clear();
+            self.window_state.clear();
             self.live_segment = None;
             self.last_live_final = None;
             self.continuations.clear();
@@ -384,6 +391,7 @@ impl Runtime {
             }
             self.languages.clear();
             self.partial_schedule.clear();
+            self.window_state.clear();
             self.live_segment = None;
             self.last_live_final = None;
             self.continuations.clear();
@@ -464,6 +472,9 @@ impl Runtime {
                     timed_token_count,
                     input_samples,
                     nonzero_samples,
+                    segments,
+                    window_attempted,
+                    window_fallback,
                 } => {
                     self.flight = None;
                     if key.audio == self.epoch {
@@ -482,6 +493,31 @@ impl Runtime {
                         .core
                         .complete_asr(key, outcome, self.now())
                         .map_err(|_| std::io::Error::other("ASR completion rejected"))?;
+                    self.window_state.attempts += u64::from(window_attempted);
+                    self.window_state.fallbacks += u64::from(window_fallback);
+                    if self.window_enabled && applied == echosub_pipeline_core::Apply::Applied {
+                        if let Some(record) = self
+                            .core
+                            .record(SegmentIdentity {
+                                audio: key.audio,
+                                segment_id: key.segment_id,
+                            })
+                            .filter(|r| {
+                                r.key == key
+                                    && r.source_state == echosub_pipeline_core::SourceState::Partial
+                                    && r.source_reason.is_none()
+                            })
+                        {
+                            self.window_state.observe(
+                                key,
+                                record.range,
+                                &record.stable_source,
+                                if window_attempted { None } else { segments },
+                            );
+                        } else {
+                            self.window_state.clear();
+                        }
+                    }
                     if self.fast_partials && applied == echosub_pipeline_core::Apply::Applied {
                         if let Some((vad, id)) = self.live_segment.filter(|(_, id)| {
                             id.audio == key.audio && id.segment_id == key.segment_id
@@ -508,7 +544,7 @@ impl Runtime {
                         self.partial_schedule.ignored += 1;
                     }
                     self.completed_jobs += 1;
-                    q.publish("asr.completed",json!({"worker_at_s":self.now() as f64/1e9,"session_id":key.audio.session_id,"epoch":key.audio.epoch,"segment_id":key.segment_id,"source_revision":key.source_revision,"decode_s":decode_s,"outcome_kind":outcome_kind,"applied":applied==echosub_pipeline_core::Apply::Applied,"abort_observed":abort_observed,"overlap_segments_removed":overlap_segments_removed,"overlap_tokens_removed":overlap_tokens_removed,"timed_token_count":timed_token_count,"input_samples":input_samples,"nonzero_samples":nonzero_samples}),None)?;
+                    q.publish("asr.completed",json!({"worker_at_s":self.now() as f64/1e9,"session_id":key.audio.session_id,"epoch":key.audio.epoch,"segment_id":key.segment_id,"source_revision":key.source_revision,"decode_s":decode_s,"outcome_kind":outcome_kind,"window_attempted":window_attempted,"window_fallback":window_fallback,"applied":applied==echosub_pipeline_core::Apply::Applied,"abort_observed":abort_observed,"overlap_segments_removed":overlap_segments_removed,"overlap_tokens_removed":overlap_tokens_removed,"timed_token_count":timed_token_count,"input_samples":input_samples,"nonzero_samples":nonzero_samples}),None)?;
                     if applied == echosub_pipeline_core::Apply::Applied {
                         let record = self
                             .core
@@ -641,6 +677,12 @@ impl Runtime {
                     .position(|(k, _)| *k == key)
                     .map(|i| self.continuations.remove(i).1);
                 let token = Cancellation::default();
+                let window =
+                    if self.window_enabled && self.fast_partials && job.kind == AsrKind::Partial {
+                        self.window_state.for_job(key, job.product_range)
+                    } else {
+                        None
+                    };
                 self.native
                     .as_ref()
                     .unwrap()
@@ -650,6 +692,7 @@ impl Runtime {
                         language,
                         continued_from,
                         cancellation: token.clone(),
+                        window,
                     })
                     .map_err(|_| std::io::Error::other("Native owner is unavailable"))?;
                 self.flight = Some((key, token));
@@ -691,6 +734,7 @@ impl Runtime {
     }
     pub fn interrupt(&mut self) {
         self.partial_schedule.clear();
+        self.window_state.clear();
         if let Some(owner) = &self.translator.owner {
             owner.cancel();
         }

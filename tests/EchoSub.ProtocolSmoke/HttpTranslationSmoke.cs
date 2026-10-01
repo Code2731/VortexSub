@@ -74,7 +74,7 @@ internal static class HttpTranslationSmoke
             var state = await client.SendAsync("get_state");
             Require(!state.ToString().Contains("server-private-detail"), "server body excluded from IPC state");
             await client.SendAsync("disable_translation");
-            using (var metadata = JsonDocument.Parse("""{"worker_at_s":1,"stable_chars":15,"preview_hold_reason":"IncompleteNumber","adaptive_policy":"ConfirmSoon","adaptive_growth_s":0.256,"outcome_kind":"Text","record":{"session_id":1,"epoch":1,"segment_id":99,"source_revision":1,"source":"private transcript"}}"""))
+            using (var metadata = JsonDocument.Parse("""{"worker_at_s":1,"stable_chars":15,"preview_hold_reason":"IncompleteNumber","adaptive_policy":"ConfirmSoon","adaptive_growth_s":0.256,"outcome_kind":"Text","window_attempted":true,"window_fallback":true,"record":{"session_id":1,"epoch":1,"segment_id":99,"source_revision":1,"source":"private transcript"}}"""))
                 CaptionDiagnostics.Received(client.ProcessId, "source.partial", metadata.RootElement);
             using (var metadata = JsonDocument.Parse("""{"worker_at_s":1,"preview_hold_reason":"private hold detail","adaptive_policy":"private policy","outcome_kind":"private outcome","record":{"session_id":1,"epoch":1,"segment_id":99,"source_revision":1}}"""))
                 CaptionDiagnostics.Received(client.ProcessId, "source.partial", metadata.RootElement);
@@ -91,6 +91,7 @@ internal static class HttpTranslationSmoke
             Require(started.GetProperty("source_revision").GetUInt64() == first.SourceRevision, "timing source identity");
             Require(timingRows.Any(row => row.TryGetProperty("preview_hold_reason", out var reason) && reason.GetString() == "IncompleteNumber"), "known hold reason logged");
             Require(timingRows.Any(row => row.TryGetProperty("adaptive_policy", out var policy) && policy.GetString() == "ConfirmSoon"), "adaptive policy metadata logged");
+            Require(timingRows.Any(row => row.TryGetProperty("window_attempted", out var attempted) && attempted.ValueKind == JsonValueKind.True && row.GetProperty("window_fallback").ValueKind == JsonValueKind.True), "window fallback flags logged without text");
             Require(!string.Join("\n", timingLines).Contains("private"), "hold reason whitelist excludes unrecognized text");
             Require(!string.Join("\n", timingLines).Contains("Don't move") && !string.Join("\n", timingLines).Contains("번역 완료"), "timing excludes transcript and translation text");
             await using var previewClient = WorkerClient.Start(worker, arguments: new[] { "--mock-pipeline", "--mock-session-control", "--diagnostic-translation" });

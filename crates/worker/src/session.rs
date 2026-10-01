@@ -253,6 +253,7 @@ impl Runtime {
     fn session_start(&mut self, q: &Outbox) -> Reply {
         if self.session.mock {
             self.partial_schedule.clear();
+            self.window_state.clear();
             self.live_segment = None;
             self.last_live_final = None;
             self.continuations.clear();
@@ -286,6 +287,7 @@ impl Runtime {
     fn session_stop_input(&mut self, q: &Outbox) -> Reply {
         if self.session.mock {
             self.partial_schedule.clear();
+            self.window_state.clear();
             self.live_segment = None;
             self.last_live_final = None;
             self.continuations.clear();

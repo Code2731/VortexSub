@@ -109,3 +109,9 @@ Rust 91개·포맷·빌드·C# 빌드(경고/오류 0)·IPC smoke가 통과했�
 ## T02-03b UUID history 표시
 
 원문 표시에서 현재 UUID까지 확인한다. history는 UUID와 세션 시작 기준 초를 표시하며 이전 세션 record의 UUID도 보존한다. 원래 worker 시간 필드는 IPC 호환용으로 남긴다. 이전 worker가 UUID history capability를 제공하지 않으면 재빌드를 안내한다. [제어·필드 계약](SESSION_CONTROL.md)과 [성공/시작 실패 근거](evidence/T02-03b-windows-session-history.md)를 따른다. 화면 조작 수용은 미검증이다.
+### 실험적 전사 입력 축소
+
+`run-live-cuda-fast.bat -DecodeWindow -CaptionTiming`은 DTW/window 비교용이다.
+세션 시작 전에 부분 전사/번역도 켠다. 파일 비교에서는 전체 전사 대비 속도
+개선이 없어 기본으로 켜지 않는다. 재결합 실패 시 전체 입력 fallback을 수행하고
+확정 전사는 전체 입력이다. [동작·측정](DECODE_WINDOWS.md).

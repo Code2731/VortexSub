@@ -81,6 +81,9 @@ await using (var client = WorkerClient.Start(workerPath))
     var state = await client.SendAsync("get_state");
     Require(state.GetProperty("session").GetProperty("state").GetString() == "Idle", "initial state");
     Require(!state.GetProperty("diagnostic_asr").GetProperty("adaptive_partials").GetBoolean(), "adaptive ASR requires explicit fast mode");
+    Require(!state.GetProperty("diagnostic_asr").GetProperty("decode_window_enabled").GetBoolean()
+        && state.GetProperty("diagnostic_asr").GetProperty("window_attempts").GetUInt64() == 0
+        && state.GetProperty("diagnostic_asr").GetProperty("window_fallbacks").GetUInt64() == 0, "decode windows require explicit opt-in");
     var schedule = state.GetProperty("diagnostic_asr").GetProperty("partial_scheduler");
     Require(schedule.GetProperty("adaptive_growth_s").GetDouble() == 0.512 && schedule.GetProperty("adaptive_deferred").GetUInt64() == 0, "initial adaptive state is bounded and uses seconds");
     Require(!schedule.GetProperty("pending").GetBoolean(), "initial deferred partial is empty");

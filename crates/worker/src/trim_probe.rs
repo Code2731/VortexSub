@@ -86,3 +86,104 @@ fn native_timed_trim_probe() {
         full_s
     );
 }
+
+#[test]
+#[ignore = "explicit existing-model file probe; forces an invalid overlap on the real owner"]
+fn native_window_fallback_probe() {
+    use crate::native_owner::{Completion, Decode, ModelConfig, NativeOwner};
+    use echosub_audio_core::*;
+    use echosub_pipeline_core::{AsrKind, Outcome, Pipeline};
+    let model = std::env::var("ECHOSUB_SCHEDULE_MODEL").unwrap();
+    let wav = std::env::var("ECHOSUB_SCHEDULE_WAV").unwrap();
+    let hash = |p: &str| format!("{:x}", Sha256::digest(std::fs::read(p).unwrap()));
+    let pcm = crate::native_owner::load_wav(&wav, &hash(&wav)).unwrap();
+    let gpu = std::env::var("ECHOSUB_SCHEDULE_BACKEND").as_deref() == Ok("cuda");
+    let mut engine = AsrEngine::load_dtw_base(&model, gpu, 8).unwrap();
+    let (segments, _) = decode(&mut engine, &pcm[..64000]);
+    let prefix = crate::decode_window::prefix_dtw(
+        &segments,
+        SampleRange {
+            start: 0,
+            end: 64000,
+        },
+        "We should take the left path.",
+    )
+    .unwrap();
+    drop(engine);
+    let owner = NativeOwner::start(ModelConfig {
+        path: model.clone(),
+        hash: hash(&model),
+        gpu,
+        threads: 8,
+        vad: None,
+        decode_window: true,
+    });
+    assert!(matches!(
+        owner
+            .completed
+            .recv_timeout(std::time::Duration::from_secs(30))
+            .unwrap(),
+        Completion::Ready { .. }
+    ));
+    let audio = AudioIdentity {
+        session_id: 1,
+        epoch: 1,
+    };
+    let mut ring = RollingAudio::new(MAX_ROLLING_SAMPLES, audio, 0).unwrap();
+    ring.append(audio, 0, &pcm).unwrap();
+    let mut pool = SnapshotPool::new(4, MAX_SNAPSHOT_SAMPLES).unwrap();
+    let mut core = Pipeline::new_asr_only(audio, 1000).unwrap();
+    core.submit_asr(
+        SegmentIdentity {
+            audio,
+            segment_id: 1,
+        },
+        SampleRange {
+            start: 0,
+            end: pcm.len() as u64,
+        },
+        AsrKind::Partial,
+        &ring,
+        &mut pool,
+        0,
+    )
+    .unwrap();
+    let job = core.next_asr().unwrap();
+    let key = job.key();
+    // Cut after the matching words: the real merge must fail, then full PCM must survive.
+    owner
+        .jobs
+        .send(Decode {
+            job,
+            language: "en".into(),
+            cancellation: Cancellation::default(),
+            continued_from: None,
+            window: Some(crate::window_state::Plan {
+                prefix,
+                start: 32000,
+            }),
+        })
+        .unwrap();
+    let completion = owner
+        .completed
+        .recv_timeout(std::time::Duration::from_secs(30))
+        .unwrap();
+    if let Completion::Decoded {
+        outcome,
+        window_attempted,
+        window_fallback,
+        ..
+    } = completion
+    {
+        assert!(window_attempted && window_fallback);
+        let Outcome::Text(text) = outcome else {
+            panic!("fallback did not return full text")
+        };
+        assert_eq!(text,"We should take the left path. There are three enemies near the gate. Do not open the door until I return.");
+        core.complete_asr(key, Outcome::Text(text), 1).unwrap();
+        std::fs::write(std::env::var("ECHOSUB_SCHEDULE_REPORT").unwrap(),serde_json::to_vec_pretty(&json!({"window_attempted":true,"window_fallback":true,"complete_source_matches_fixture":true,"backend":if gpu {"cuda"} else {"cpu"},"capture":false})).unwrap()).unwrap();
+    } else {
+        panic!("missing owner completion")
+    }
+    owner.finish();
+}

@@ -1,5 +1,17 @@
 # 구현 상태
 
+## 실제 부분 전사 window/fallback 연결 (2026-10-02)
+
+적용된 revision에만 정렬 mapping을 만들고 owner에서 축소 재결합 실패 시
+전체 snapshot으로 재전사한다. 취소/단일 예약과 확정 전체 입력을 유지한다.
+실험 옵션 `run-live-cuda-fast.bat -DecodeWindow`는 기본 off다.
+실제 paced CUDA/HTTP 각 3회에서 첫 번역 1.830→1.841초, 누적 decode
+1.296→1.477초로 속도 개선은 없었다. 축소 2회 중 fallback 1회/실행이며
+최종 원문은 6회 같았다. 강제 fallback의 실제 완전한 원문 복원도 확인했다.
+Windows check Rust 163개·C# 표시 39 assertion/HTTP/IPC와 빌드, Python 6개 PASS.
+실제 게임/캡처/화면·자연/일본어 음성·macOS는 미검증이다.
+다음은 합의한 ASR 후보 비교다. [연결·측정 근거](evidence/window-owner-windows-20261002.md).
+
 ## DTW 단어 정렬 파일 경로 (2026-10-02)
 
 기존 interval과 별도로 DTW 발화점을 추출하고 검증·재결합하는 파일 경로를 추가했다.

@@ -3,6 +3,7 @@ param(
     [ValidateRange(1, 10)] [int] $Rounds = 3,
     [string] $ServerPath,
     [switch] $Adaptive,
+    [switch] $DecodeWindow,
     [string] $PythonPath
 )
 $ErrorActionPreference = 'Stop'
@@ -17,6 +18,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'HTTP warmup probe build failed' }
     $arguments = @((Join-Path $repo 'scripts/probe-paced-translation.py'), '--backend', $Backend, '--rounds', "$Rounds")
     if ($Adaptive) { $arguments += '--adaptive' }
+    if ($DecodeWindow) { $arguments += '--decode-window' }
     if ($ServerPath) { $arguments += @('--server', $ServerPath) }
     & $PythonPath @arguments
     if ($LASTEXITCODE -ne 0) { throw 'Paced translation measurement failed; completed reports/logs retained.' }

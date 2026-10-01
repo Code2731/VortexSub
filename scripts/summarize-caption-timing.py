@@ -38,6 +38,7 @@ stage_samples = {}
 hold_observations = {}
 adaptive_observations = {}
 asr_outcomes = {}
+window_counts = {'attempted': 0, 'fallback': 0}
 first_translation_hold_observations = {}
 stage_missing_pairs = {}
 stage_events = stage_invalid = ignored_asr = unapplied_translation = 0
@@ -85,6 +86,8 @@ def pipeline(row):
         rev.setdefault('asr_started', at)
         measure('asr_admission_to_owner_dispatch_s', at, rev.get('admitted'))
     elif event == 'asr.completed':
+        window_counts['attempted'] += int(row.get('window_attempted') is True)
+        window_counts['fallback'] += int(row.get('window_fallback') is True)
         kind = row.get('outcome_kind')
         kind = kind if isinstance(kind, str) and kind in {'Text', 'NoSpeech', 'OverlapOnly', 'Cancelled', 'Failed'} else 'Unreported'
         asr_outcomes[kind] = asr_outcomes.get(kind, 0) + 1
@@ -183,6 +186,7 @@ print(json.dumps({'matched_first_visible_deck_applications': len(samples),
                                'ignored_asr': ignored_asr, 'unapplied_translation': unapplied_translation,
                                'adaptive_policy_observations': adaptive_observations,
                                'asr_completion_outcomes': asr_outcomes,
+                               'decode_window_completions': window_counts,
                                'preview_decision_observations': hold_observations,
                                'before_first_translation_decisions': first_translation_hold_observations,
                                'durations_s': {name: stats(values) for name, values in stage_samples.items()},

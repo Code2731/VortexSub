@@ -20,6 +20,7 @@ pub struct ModelConfig {
     pub gpu: bool,
     pub threads: i32,
     pub vad: Option<VadConfig>,
+    pub decode_window: bool,
 }
 #[cfg_attr(not(feature = "native-vad"), allow(dead_code))]
 #[derive(Clone)]
@@ -51,6 +52,7 @@ pub struct Decode {
     pub language: String,
     pub cancellation: Cancellation,
     pub continued_from: Option<SegmentIdentity>,
+    pub window: Option<crate::window_state::Plan>,
 }
 pub enum Completion {
     Ready {
@@ -68,6 +70,9 @@ pub enum Completion {
         timed_token_count: usize,
         input_samples: usize,
         nonzero_samples: usize,
+        segments: Option<Vec<echosub_asr_whisper::Segment>>,
+        window_attempted: bool,
+        window_fallback: bool,
     },
 }
 pub struct NativeOwner {
@@ -144,6 +149,7 @@ pub fn config_from_args(args: &[String]) -> Result<Option<ModelConfig>, &'static
         gpu,
         threads,
         vad,
+        decode_window: args.iter().any(|a| a == "--experimental-decode-window"),
     }))
 }
 pub fn valid_hash(hash: &str) -> bool {
@@ -286,7 +292,17 @@ impl NativeOwner {
                 if format!("{:x}", digest.finalize()) != config.hash {
                     return None;
                 }
-                echosub_asr_whisper::AsrEngine::load(&config.path, config.gpu, config.threads).ok()
+                if config.decode_window {
+                    echosub_asr_whisper::AsrEngine::load_dtw_base(
+                        &config.path,
+                        config.gpu,
+                        config.threads,
+                    )
+                    .ok()
+                } else {
+                    echosub_asr_whisper::AsrEngine::load(&config.path, config.gpu, config.threads)
+                        .ok()
+                }
             })();
             let Some(mut engine) = verified else {
                 let _ = done_tx.send(Completion::Failed);
@@ -313,37 +329,93 @@ impl NativeOwner {
                 let mut overlap_segments_removed = 0;
                 let mut overlap_tokens_removed = 0;
                 let mut timed_token_count = 0;
+                let mut aligned_segments = None;
+                let mut window_attempted = false;
+                let mut window_fallback = false;
                 let input_samples = task.job.pcm.samples().len();
                 let nonzero_samples = task.job.pcm.samples().iter().filter(|s| **s != 0.0).count();
                 let outcome = if task.cancellation.snapshot().requested {
                     Outcome::Cancelled
                 } else if task.job.product_range != task.job.pcm.range() {
-                    // Window jobs require complete-source reconstruction. Never publish a tail
-                    // as the complete caption while that owner integration is not enabled.
+                    // Keep the full snapshot available for fallback; select native input by
+                    // Plan instead of accepting an incomplete snapshot as a full caption.
                     Outcome::Failed
                 } else if nonzero_samples == 0 {
                     Outcome::NoSpeech
                 } else {
-                    match engine.transcribe_cancellable_timed(
-                        task.job.pcm.samples(),
+                    let range = task.job.pcm.range();
+                    let window = task.window.as_ref().filter(|p| {
+                        task.job.kind == echosub_pipeline_core::AsrKind::Partial
+                            && p.start > range.start
+                            && p.start < range.end
+                            && range.end - p.start >= 16000
+                    });
+                    window_attempted = window.is_some();
+                    let offset = window.map_or(0, |p| (p.start - range.start) as usize);
+                    let mut decoded = engine.transcribe_cancellable_timed(
+                        &task.job.pcm.samples()[offset..],
                         &task.language,
                         &task.cancellation,
-                    ) {
-                        Ok(echosub_asr_whisper::DecodeOutcome::Completed(segments)) => {
-                            let (outcome, removed) = reconcile.finish(
-                                SegmentIdentity {
-                                    audio: key.audio,
-                                    segment_id: key.segment_id,
-                                },
-                                task.job.pcm.range(),
-                                task.job.kind,
-                                task.continued_from,
+                    );
+                    let mut merged = None;
+                    if let Some(plan) = window {
+                        if let Ok(echosub_asr_whisper::DecodeOutcome::Completed(ref segments)) =
+                            decoded
+                        {
+                            merged = crate::decode_window::merge(
+                                &plan.prefix,
                                 segments,
+                                echosub_audio_core::SampleRange {
+                                    start: plan.start,
+                                    end: range.end,
+                                },
+                            )
+                            .ok();
+                        }
+                        if merged.is_none()
+                            && !task.cancellation.snapshot().requested
+                            && !matches!(
+                                decoded,
+                                Ok(echosub_asr_whisper::DecodeOutcome::Cancelled { .. })
+                            )
+                        {
+                            window_fallback = true;
+                            decoded = engine.transcribe_cancellable_timed(
+                                task.job.pcm.samples(),
+                                &task.language,
+                                &task.cancellation.next_attempt(),
                             );
-                            overlap_segments_removed = removed;
-                            overlap_tokens_removed = reconcile.tokens_removed;
-                            timed_token_count = reconcile.timed_tokens;
-                            outcome
+                        }
+                    }
+                    match decoded {
+                        Ok(echosub_asr_whisper::DecodeOutcome::Completed(segments)) => {
+                            if let Some(text) = merged {
+                                Outcome::Text(text)
+                            } else {
+                                if config.decode_window
+                                    && task.job.kind == echosub_pipeline_core::AsrKind::Partial
+                                    && segments.len() <= 4096
+                                    && segments.iter().map(|s| s.text.len()).sum::<usize>() <= 4096
+                                    && segments.iter().map(|s| s.tokens.len()).sum::<usize>()
+                                        <= 4096
+                                {
+                                    aligned_segments = Some(segments.clone());
+                                }
+                                let (outcome, removed) = reconcile.finish(
+                                    SegmentIdentity {
+                                        audio: key.audio,
+                                        segment_id: key.segment_id,
+                                    },
+                                    task.job.pcm.range(),
+                                    task.job.kind,
+                                    task.continued_from,
+                                    segments,
+                                );
+                                overlap_segments_removed = removed;
+                                overlap_tokens_removed = reconcile.tokens_removed;
+                                timed_token_count = reconcile.timed_tokens;
+                                outcome
+                            }
                         }
                         Ok(echosub_asr_whisper::DecodeOutcome::Cancelled { .. }) => {
                             Outcome::Cancelled
@@ -367,6 +439,9 @@ impl NativeOwner {
                         timed_token_count,
                         input_samples,
                         nonzero_samples,
+                        segments: aligned_segments,
+                        window_attempted,
+                        window_fallback,
                     })
                     .is_err()
                 {

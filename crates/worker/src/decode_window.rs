@@ -6,7 +6,7 @@ const MAX_BYTES: usize = 4096;
 const TOLERANCE: u64 = 2560; // 0.16 seconds
 const CONTEXT: u64 = 9728; // 0.608 seconds, 19 VAD frames
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Prefix {
     pub text: String,
     pub end: u64,
@@ -16,6 +16,7 @@ pub struct Prefix {
 }
 
 /// Keep native byte offsets until all text and absolute sample bounds are checked.
+#[allow(dead_code)]
 pub fn prefix(
     segments: &[Segment],
     range: SampleRange,
@@ -218,6 +219,7 @@ pub fn window(first: &Prefix, second: &Prefix, product: SampleRange) -> Option<S
 }
 
 /// Exact timed anchor must be the start of the new decode; never fuzzy-delete words.
+#[cfg_attr(not(feature = "native-asr"), allow(dead_code))]
 pub fn merge(
     old: &Prefix,
     segments: &[Segment],

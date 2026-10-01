@@ -10,12 +10,33 @@ pub struct Cancellation(pub(crate) Arc<Control>);
 #[derive(Default)]
 #[cfg_attr(not(feature = "native"), allow(dead_code))]
 pub(crate) struct Control {
-    pub requested: AtomicBool,
+    pub requested: Arc<AtomicBool>,
     pub claimed: AtomicBool,
-    pub running: AtomicBool,
-    pub checks: AtomicUsize,
-    pub encoder_entries: AtomicUsize,
-    pub observed: AtomicBool,
+    pub running: Arc<AtomicBool>,
+    pub checks: Arc<AtomicUsize>,
+    pub encoder_entries: Arc<AtomicUsize>,
+    pub observed: Arc<AtomicBool>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn fallback_attempt_shares_cancellation_and_reservation_but_not_claim() {
+        let first = Cancellation::default();
+        first.0.claimed.store(true, Ordering::Release);
+        let next = first.next_attempt();
+        assert!(!next.0.claimed.load(Ordering::Acquire));
+        next.0.running.store(true, Ordering::Release);
+        assert!(first.snapshot().running);
+        first.request();
+        assert!(next.snapshot().requested);
+        next.0.observed.store(true, Ordering::Release);
+        assert!(first.snapshot().abort_observed);
+        next.0.running.store(false, Ordering::Release);
+        assert!(!first.snapshot().running);
+        assert!(first.0.claimed.load(Ordering::Acquire));
+    }
 }
 
 pub struct CancellationSnapshot {
@@ -27,6 +48,18 @@ pub struct CancellationSnapshot {
 }
 
 impl Cancellation {
+    /// Fresh single-use attempt for the same serialized job; cancellation and
+    /// reservation diagnostics remain shared. Never dispatch attempts concurrently.
+    pub fn next_attempt(&self) -> Self {
+        Self(Arc::new(Control {
+            requested: self.0.requested.clone(),
+            claimed: AtomicBool::new(false),
+            running: self.0.running.clone(),
+            checks: self.0.checks.clone(),
+            encoder_entries: self.0.encoder_entries.clone(),
+            observed: self.0.observed.clone(),
+        }))
+    }
     pub fn request(&self) {
         self.0.requested.store(true, Ordering::Release);
     }

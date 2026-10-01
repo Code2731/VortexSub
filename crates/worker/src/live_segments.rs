@@ -71,6 +71,7 @@ impl Runtime {
                     return Ok(());
                 }
                 self.partial_schedule.clear();
+                self.window_state.clear();
                 self.live_asr_segment(segment, AsrKind::Final, &format!("{reason:?}"), q)?;
             }
             SpeechEvent::Discarded { segment, reason } => {
@@ -78,6 +79,7 @@ impl Runtime {
                     return Ok(());
                 }
                 self.partial_schedule.clear();
+                self.window_state.clear();
                 if let Some((vad, id)) = self.live_segment.filter(|(vad, _)| *vad == segment.id) {
                     self.core
                         .discard_segment(id, self.now())
@@ -435,6 +437,7 @@ mod tests {
                             gpu,
                             threads: 8,
                             vad: None,
+                            decode_window: false,
                         }),
                         false,
                     );

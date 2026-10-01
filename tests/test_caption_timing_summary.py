@@ -85,6 +85,12 @@ class TimingSummary(unittest.TestCase):
         self.assertAlmostEqual(result['event_receipt_to_deck_s']['median'], 0.04)
         self.assertEqual(result['pipeline']['events'], 0)
 
+    def test_window_flags_count_only_boolean_metadata(self):
+        result = summarize([row('asr.completed', 1, window_attempted=True, window_fallback=True),
+                            row('asr.completed', 2, window_attempted=True, window_fallback=False),
+                            row('asr.completed', 3, window_attempted='private text', window_fallback=1)])['pipeline']
+        self.assertEqual(result['decode_window_completions'], {'attempted': 2, 'fallback': 1})
+
 
 if __name__ == '__main__':
     unittest.main()

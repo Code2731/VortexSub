@@ -9,7 +9,8 @@ param(
     [string] $TranslationEndpoint,
     [string] $TranslationModel,
     [switch] $Trim,
-    [switch] $Dtw
+    [switch] $Dtw,
+    [switch] $WindowFallback
 )
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
@@ -27,6 +28,7 @@ $oldProbeEnv = @{}
 foreach ($probeEnvName in $probeEnvNames) { $oldProbeEnv[$probeEnvName] = [Environment]::GetEnvironmentVariable($probeEnvName) }
 if ($TranslationEndpoint -and ($Trim -or -not $TranslationModel)) { throw 'Translation comparison requires -TranslationModel and cannot use -Trim' }
 if ($Dtw -and -not $Trim) { throw '-Dtw requires -Trim' }
+if ($WindowFallback -and -not $Trim) { throw '-WindowFallback requires -Trim' }
 Push-Location $repo
 try {
     $env:ECHOSUB_SCHEDULE_MODEL = (Resolve-Path -LiteralPath $ModelPath).Path
@@ -42,7 +44,7 @@ try {
     & "$PSScriptRoot/build-model-probe.ps1" -Backend $Backend -Package echosub-worker -Vad -Offline
     if ($LASTEXITCODE -ne 0) { throw 'Native worker build failed' }
     # Only this explicit, ignored measurement runs. It installs/downloads nothing.
-    $probeName = if ($TranslationEndpoint) { 'native_paced_translation_probe' } elseif ($Trim) { 'native_timed_trim_probe' } else { 'native_paced_partial_probe' }
+    $probeName = if ($WindowFallback) { 'native_window_fallback_probe' } elseif ($TranslationEndpoint) { 'native_paced_translation_probe' } elseif ($Trim) { 'native_timed_trim_probe' } else { 'native_paced_partial_probe' }
     $probeFeatures = if ($Backend -eq 'cuda') { 'cuda,native-vad' } else { 'native-asr,native-vad' }
     & cargo test -p echosub-worker --release --locked --offline --features $probeFeatures --target-dir (Join-Path $repo "target/model-probe-$Backend") $probeName -- --ignored --nocapture --test-threads=1
     if ($LASTEXITCODE -ne 0) { throw "Native file probe failed: $probeName" }

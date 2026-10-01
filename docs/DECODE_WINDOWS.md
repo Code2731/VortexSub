@@ -1,5 +1,38 @@
 # 전사 입력 구간 분리
 
+## 현재 상태: owner 연결, 기본 꺼짐
+
+2026-10-02 실제 부분 전사 owner에 연결했다. 실험 실행은
+`run-live-cuda-fast.bat -DecodeWindow -CaptionTiming`이다. UI의 부분 전사/번역도
+세션 시작 전에 켠다. 기존 실행은 DTW/window를 끈다. 아직 실시간 속도 개선이
+확인되지 않아 이 옵션은 비교용이다.
+
+적용된 같은 세션·epoch·segment의 인접 revision 두 개에서만 정렬을 만든다.
+다음 revision의 부분 작업만 이를 사용할 수 있다. Pause/Stop/최종/폐기/epoch
+전환에서 mapping을 비운다. 원문/metadata 최대 4096 bytes/tokens와 prefix
+1024 bytes를 제한하며 callback에는 정렬/추론 작업을 넣지 않는다.
+
+owner는 전체 snapshot을 보관하고 native 입력 slice만 줄인다. 재결합이 실패하면
+같은 job identity와 예약으로 전체 PCM을 다시 전사한다. 새 단일 사용 attempt는
+기존 취소 요청·running/abort 상태를 공유한다. 취소된 작업은 재시도하지 않는다.
+축소 시도 후 캐시를 비우므로 다음 후보에 새 전체 관측 두 개가 필요하다.
+확정 작업은 전체 입력이다(DTW 엔진 설정은 실험 세션 내 유지).
+
+`asr.completed`의 `window_attempted`/`window_fallback`은 텍스트 없는 boolean이다.
+state의 `decode_window_enabled`, `window_attempts`, `window_fallbacks`도 확인할 수 있다.
+`decode_s`는 fallback 비용까지 포함하며 `input_samples`는 보관한 전체 snapshot
+크기다. 로그 요약의 `decode_window_completions`는 수신된 완료 이벤트 횟수다.
+
+실제 paced ASR→Qwen 비교 각 3회: 첫 번역 중앙값 **1.830→1.841초**,
+누적 decode **1.296→1.477초**, 확정 번역 **8.033→8.063초**다.
+각 window 실행에서 축소 2회/전체 fallback 1회였고 최종 원문은 6회 같았다.
+속도 개선을 확인하지 못했으며 VAD/캡처/화면·게임/자연 음성은 미검증이다.
+[owner 비교와 강제 fallback 근거](evidence/window-owner-windows-20261002.md).
+
+아래는 기반/파일 정렬을 구현할 당시의 기록이다. 다음 구현 우선순위는
+합의한 세 번째 단계인 ASR 후보 비교다. 현재 Whisper/DTW 조합의 이득은
+확인되지 않았으므로 기본 속도 개선으로 채택하지 않는다.
+
 ## 이번 구현
 
 `Pipeline::submit_asr_window`는 자막 전체 `product_range`와 실제 PCM suffix
@@ -24,7 +57,7 @@ coverage, PCM 범위, 발화점 순서와 두 단어 anchor를 검증한다. 경
 라이브 owner는 계속 DTW를 끈다. 시작·끝 길이 0의 기존 interval은 여전히
 거부되며 DTW 점을 임의의 단어 시작·끝 시간으로 바꾸지 않는다.
 
-worker의 `decode_window`는 현재 **fixture/파일 probe에만 연결**되어 있다.
+기반 구현 당시 `decode_window`는 **fixture/파일 probe에만 연결**되어 있었다.
 native 텍스트의 byte offset과 입력 기준 밀리초를 보존해 절대 sample로 변환한다.
 연속 token coverage, UTF-8/단어 경계, 시간 순서, PCM 범위를 검사한다.
 단어의 길이 0, 누락된 시간, prefix 변경은 잘라낼 근거로 인정하지 않는다.
@@ -37,9 +70,8 @@ native 텍스트의 byte offset과 입력 기준 밀리초를 보존해 절대 s
 
 ## 적용 상태와 근거
 
-라이브는 계속 전체 PCM을 입력한다. native owner는 아직 재결합이 연결되지
-않은 window job을 `Failed`로 거부해 suffix가 전체 원문으로 발행되는 것을 막는다.
-이는 live trim 완료가 아니라 그 구현을 위한 범위/정렬 계약이다.
+기반 구현에서는 재결합 없는 window job을 거부했다. 현재 owner도 짧은 snapshot은
+거부하고 전체 snapshot과 Plan을 사용하므로 fallback 입력이 항상 남는다.
 
 Windows·RTX 3080·Whisper base CUDA·기존 7.605초 영어 파일에서 3초/4초
 입력 모두 `path`가 2.00→2.00초로 나와 후보를 거부했다. 잘린 전사는 실행하지
@@ -51,7 +83,7 @@ CPU도 선택할 수 있다. [측정 기록](evidence/decode-window-windows-2026
 다음은 신뢰할 수 있는 단어 시간 정렬의 확보와 동일 입력 검증이다. 그다음
 적용된 revision에만 alignment를 보관하고 owner에서 재결합 실패 시 전체 PCM을
 재전사하도록 연결한다. 확정 작업은 전체 PCM으로 유지한 채 지연·오역·수정 빈도를
-비교한다. 검증 전에는 live trim 옵션을 노출하지 않는다.
+비교한다는 초기 계획이었다. 현재 연결/비교 결과와 실험 옵션은 위에 기록했다.
 
 ## DTW 파일 비교
 

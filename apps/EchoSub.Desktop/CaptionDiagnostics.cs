@@ -70,6 +70,7 @@ internal static class CaptionDiagnostics
                 preview_hold_reason = HoldReason(payload), stable_chars = Number(payload, "stable_chars"), decode_s = Seconds(payload, "decode_s"),
                 partial_deferred_wait_s = Seconds(payload, "partial_deferred_wait_s"),
                 elapsed_s = Seconds(payload, "elapsed_s"), applied = Flag(payload, "applied"),
+                window_attempted = Flag(payload, "window_attempted"), window_fallback = Flag(payload, "window_fallback"),
                 queued = Flag(payload, "queued"), preview = Flag(payload, "preview") });
         }
         if (name != "translation.updated" || !payload.TryGetProperty("record", out var record) ||
