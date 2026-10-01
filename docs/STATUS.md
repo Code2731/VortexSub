@@ -1,5 +1,13 @@
 # 구현 상태
 
+## 실시간 번역 OSS 검토 (2026-10-01)
+
+SimulStreaming, Sublume, LiveTranslate, LiveCaptions-Translator의 고정 커밋
+소스에서 partial 처리·번역 commit·자막 표시 정책을 검토했다.
+다음 순서는 실행 중 partial 추월 방지/계측, 읽기 카드와 draft 분리,
+의미 단위 번역, 모델 비교다. 모델/runtime 설치나 외부 앱 실행은 하지 않았다.
+현재 지연의 실제 원인 판정과 개선 구현은 후속이다. [검토 문서](REALTIME_OSS_REVIEW.md).
+
 ## 임시 자막 읽기 시간 보완 (2026-10-01)
 
 새 부분 전사 요청마다 표시가 비는 문제를 보완했다. UI에서 같은 segment의
