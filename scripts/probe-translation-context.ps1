@@ -1,9 +1,12 @@
 param(
     [ValidateRange(1, 10)] [int] $Rounds = 3,
-    [ValidateSet('baseline', 'strict', 'isolated', 'readable', 'examples', 'korean', 'production', 'plain')]
+    [ValidateSet('baseline', 'strict', 'isolated', 'readable', 'examples', 'korean', 'production', 'plain', 'gemma')]
     [string[]] $Profiles = @('baseline', 'production'),
     [switch] $NoBuild,
     [string] $Fixtures,
+    [string] $Catalog,
+    [string] $ModelId,
+    [string[]] $ContextConditions,
     [switch] $OwnerCheck
 )
 $ErrorActionPreference = 'Stop'
@@ -21,6 +24,9 @@ try {
     if (-not (Test-Path -LiteralPath $python)) { throw 'Existing local Python runtime is required' }
     $probeArgs = @('--rounds', "$Rounds", '--profiles') + $Profiles
     if ($Fixtures) { $probeArgs += @('--fixtures', $Fixtures) }
+    if ($Catalog) { $probeArgs += @('--catalog', $Catalog) }
+    if ($ModelId) { $probeArgs += @('--model-id', $ModelId) }
+    if ($ContextConditions) { $probeArgs += @('--context-conditions') + $ContextConditions }
     if ($OwnerCheck) { $probeArgs += '--owner-check' }
     & $python -X utf8 "$PSScriptRoot/probe-translation-context.py" @probeArgs
     if ($LASTEXITCODE -ne 0) { throw 'Prompt/context comparison failed; inspect retained results' }

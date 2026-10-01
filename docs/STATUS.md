@@ -1,5 +1,15 @@
 # 구현 상태
 
+## 별도 번역 모델 후보 준비 (2026-10-02)
+
+공식 Qwen3 1.7B Q8_0와 커뮤니티 GGUF TranslateGemma 4B Q4_K_M을 선정하고
+revision/크기/해시·라이선스를 별도 manifest에 고정했다. 합계 약 4.32 GB,
+다운로드 동의 대기이며 실제 후보 추론은 미실행이다. 기존 비교 도구에 manifest/
+모델/문맥 조건 선택과 Gemma 공식 user 입력, Qwen thinking off를 준비했다.
+HY-MT는 배포 라이선스의 한국 지역 제외로 이번 후보에서 제외했다.
+Gemma의 현재 llama.cpp 입력 템플릿 호환은 파일 준비 뒤 확인해야 한다.
+[선정·명령·수용 조건](TRANSLATION_MODEL_CANDIDATES.md).
+
 ## 번역 의미·문맥 통제 비교 (2026-10-02)
 
 6개 완전한 작성 원문 × 세 문맥 조건 × 기존/문맥 분리/일반 텍스트 × 3회,

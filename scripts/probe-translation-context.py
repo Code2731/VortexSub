@@ -31,6 +31,13 @@ def candidate(body, profile, config):
                         {'role': 'user', 'content': json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(',', ':'))}]
     if profile == 'baseline':
         body['messages'][0]['content'] = config['baseline_system']
+    elif profile == 'gemma':
+        if payload['context']:
+            raise ValueError('TranslateGemma official template comparison requires context_condition=none')
+        body['messages'] = [{'role': 'user', 'content': [{'type': 'text',
+            'source_lang_code': payload['source_language'], 'target_lang_code': payload['target_language'],
+            'text': payload['source_text']}]}]
+        return body
     elif profile == 'plain':
         names = {'en': 'English', 'ja': 'Japanese', 'ko': 'Korean'}
         body['messages'] = [{'role': 'system', 'content':
@@ -68,8 +75,11 @@ def main():
     parser.add_argument('--rounds', type=int, default=3)
     parser.add_argument('--server')
     parser.add_argument('--fixtures', type=Path, help='Authored full-source fixture JSON; defaults to the prompt/context comparison set')
+    parser.add_argument('--catalog', type=Path, help='Model manifest; defaults to model-downloads.json')
+    parser.add_argument('--model-id', help='Exact ID from the selected manifest')
+    parser.add_argument('--context-conditions', nargs='+', help='Select authored context conditions, for example none')
     parser.add_argument('--owner-check', action='store_true', help='Also call the real Rust HTTP owner once per fixture/policy')
-    parser.add_argument('--profiles', nargs='+', choices=['baseline', 'strict', 'isolated', 'readable', 'examples', 'korean', 'production', 'plain'])
+    parser.add_argument('--profiles', nargs='+', choices=['baseline', 'strict', 'isolated', 'readable', 'examples', 'korean', 'production', 'plain', 'gemma'])
     args = parser.parse_args()
     if not 1 <= args.rounds <= 10:
         parser.error('rounds must be 1..10')
@@ -77,9 +87,15 @@ def main():
     out = repo / 'benchmarks/results' / (time.strftime('translation-context-%Y%m%d-%H%M%S') + '-' + secrets.token_hex(3))
     out.mkdir(parents=True)
     print('Checking existing assets and exporting bounded requests:', out, flush=True)
-    catalog = json.loads((repo / 'benchmarks/model-downloads.json').read_text(encoding='utf-8'))
-    model = next(m for m in catalog['models'] if m['role'] == 'translation')
-    model_path = (repo / 'benchmarks' / model['path']).resolve()
+    catalog_path = (args.catalog or repo / 'benchmarks/model-downloads.json').resolve(strict=True)
+    catalog = json.loads(catalog_path.read_text(encoding='utf-8'))
+    matches = [m for m in catalog['models'] if m['role'] == 'translation' and (not args.model_id or m['id'] == args.model_id)]
+    if not matches or args.model_id and len(matches) != 1:
+        parser.error('Select an existing unique translation model ID from the manifest')
+    model = matches[0]
+    if args.owner_check and model.get('disable_thinking'):
+        parser.error('OwnerCheck does not implement this candidate model thinking configuration')
+    model_path = (catalog_path.parent / model['path']).resolve()
     if sha(model_path) != model['sha256']:
         raise RuntimeError('Existing translation model hash mismatch')
     server_path = Path(args.server or shutil.which('llama-server.exe') or
@@ -90,7 +106,13 @@ def main():
     selected_profiles = args.profiles or profiles['profiles']
     if len(set(selected_profiles)) != len(selected_profiles):
         parser.error('duplicate profiles')
+    if args.owner_check and (args.catalog or 'gemma' in selected_profiles):
+        parser.error('OwnerCheck is limited to the existing production manifest and policies')
     cases = json.loads(fixtures.read_text(encoding='utf-8'))['cases']
+    if args.context_conditions:
+        cases = [case for case in cases if case.get('context_condition') in args.context_conditions]
+        if not cases:
+            parser.error('No cases matched context conditions')
     probe = repo / 'target/debug/translation-probe.exe'
     export_args = [str(probe), '--prepare', model['id'], str(fixtures), str(out / 'requests.json')]
     if 'production' in selected_profiles:
@@ -98,8 +120,13 @@ def main():
     subprocess.run(export_args, check=True, cwd=repo)
     exported = json.loads((out / 'requests.json').read_text(encoding='utf-8'))
     requests = {r['id']: r['body'] for r in exported['requests']}
-    bodies = {name: {id: candidate(body, name, profiles) for id, body in requests.items()}
+    selected_ids = {case['id'] for case in cases}
+    bodies = {name: {id: candidate(body, name, profiles) for id, body in requests.items() if id in selected_ids}
               for name in selected_profiles}
+    if model.get('disable_thinking'):
+        for requests_by_id in bodies.values():
+            for body in requests_by_id.values():
+                body['chat_template_kwargs'] = {'enable_thinking': False}
     if exported['fixture_sha256'] != sha(fixtures):
         raise RuntimeError('Exported fixture hash mismatch')
     def save(name, data):
@@ -108,6 +135,8 @@ def main():
     save('fixtures.json', json.loads(fixtures.read_text(encoding='utf-8')))
     save('profiles.json', profiles)
     save('runtime.json', {'model_id': model['id'], 'model_sha256': sha(model_path),
+                         'catalog_sha256': sha(catalog_path), 'disable_thinking': model.get('disable_thinking', False),
+                         'context_conditions': args.context_conditions,
                          'server_sha256': sha(server_path), 'probe_sha256': sha(probe),
                          'fixtures_sha256': sha(fixtures), 'profiles_sha256': sha(profiles_path),
                          'sampling': {'temperature': .2, 'max_tokens': 256, 'top_k': 40, 'top_p': .9, 'min_p': .1},
@@ -135,13 +164,18 @@ def main():
         choice = value['choices'][0]
         text = choice['message'].get('content', '').strip()
         error = None if choice['finish_reason'] == 'stop' and text else 'IncompleteResponse'
+        if model.get('disable_thinking') and (choice['message'].get('reasoning_content') or '<think>' in text):
+            error = 'UnexpectedReasoning'
         return text if error is None else None, time.monotonic() - start, value.get('usage'), error
     try:
         with (out / 'server.log').open('w', encoding='utf-8') as log:
-            server = subprocess.Popen([str(server_path), '-m', str(model_path), '--alias', model['id'],
+            server_args = [str(server_path), '-m', str(model_path), '--alias', model['id'],
                          '-c', '4096', '-ngl', '99', '--parallel', '1', '--top-k', '40', '--top-p', '.9',
                          '--min-p', '.1', '--repeat-penalty', '1', '--host', '127.0.0.1', '--port', str(port),
-                         '--api-key-file', str(key_file)], cwd=repo, stdout=log, stderr=subprocess.STDOUT,
+                         '--api-key-file', str(key_file)]
+            if model.get('disable_thinking') or 'gemma' in selected_profiles:
+                server_args.append('--jinja')
+            server = subprocess.Popen(server_args, cwd=repo, stdout=log, stderr=subprocess.STDOUT,
                          creationflags=subprocess.CREATE_NO_WINDOW)
             start = time.monotonic()
             while True:
