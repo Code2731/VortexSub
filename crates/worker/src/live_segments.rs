@@ -6,19 +6,65 @@ use echosub_pipeline_core::AsrKind;
 use serde_json::json;
 use std::io;
 
+#[derive(Default)]
+pub(super) struct PartialSchedule {
+    pending: Option<(SegmentInfo, u64)>,
+    requested: u64,
+    deferred: u64,
+    replaced: u64,
+    dropped: u64,
+    pub(super) applied: u64,
+    pub(super) ignored: u64,
+    pub(super) decode_s: f64,
+    wait_s: f64,
+}
+impl PartialSchedule {
+    pub(super) fn clear(&mut self) {
+        self.pending = None;
+    }
+    pub(super) fn value(&self) -> serde_json::Value {
+        json!({"pending":self.pending.is_some(),"requested":self.requested,
+            "deferred":self.deferred,"replaced":self.replaced,"dropped":self.dropped,
+            "asr_applied":self.applied,"asr_ignored":self.ignored,
+            "asr_decode_total_s":self.decode_s,"last_deferred_wait_s":self.wait_s})
+    }
+}
+
 impl Runtime {
     pub(super) fn live_event(&mut self, event: SpeechEvent, q: &Outbox) -> io::Result<()> {
         match event {
             SpeechEvent::Partial(segment) if self.partial_enabled => {
-                self.live_asr_segment(segment, AsrKind::Partial, "Partial", q)?;
+                if segment.id.audio != self.epoch {
+                    return Ok(());
+                }
+                self.partial_schedule.requested += 1;
+                if self.partial_busy() {
+                    self.partial_schedule.deferred += 1;
+                    if self
+                        .partial_schedule
+                        .pending
+                        .replace((segment, self.now()))
+                        .is_some()
+                    {
+                        self.partial_schedule.replaced += 1;
+                    }
+                } else {
+                    self.partial_schedule.clear();
+                    self.live_asr_segment(segment, AsrKind::Partial, "Partial", q)?;
+                }
             }
             SpeechEvent::Final { segment, reason } => {
+                if segment.id.audio != self.epoch {
+                    return Ok(());
+                }
+                self.partial_schedule.clear();
                 self.live_asr_segment(segment, AsrKind::Final, &format!("{reason:?}"), q)?;
             }
             SpeechEvent::Discarded { segment, reason } => {
                 if segment.id.audio != self.epoch {
                     return Ok(());
                 }
+                self.partial_schedule.clear();
                 if let Some((vad, id)) = self.live_segment.filter(|(vad, _)| *vad == segment.id) {
                     self.core
                         .discard_segment(id, self.now())
@@ -35,6 +81,30 @@ impl Runtime {
             _ => {}
         }
         Ok(())
+    }
+    fn partial_busy(&self) -> bool {
+        // Do not change the active ASR key, or cancel a preview before its HTTP
+        // result can return. Final requests still bypass this gate.
+        self.flight.is_some() || self.core.queue_lengths().0 > 0 || self.core.preview_pending()
+    }
+    pub(super) fn flush_partial(&mut self, q: &Outbox) -> io::Result<()> {
+        if self.partial_busy() {
+            return Ok(());
+        }
+        let Some((segment, requested)) = self.partial_schedule.pending.take() else {
+            return Ok(());
+        };
+        let retained = self.ring.retained_range();
+        if segment.id.audio != self.epoch
+            || !self.partial_enabled
+            || segment.pcm_range.start < retained.start
+            || segment.pcm_range.end > retained.end
+        {
+            self.partial_schedule.dropped += 1;
+            return Ok(());
+        }
+        self.partial_schedule.wait_s = self.now().saturating_sub(requested) as f64 / 1e9;
+        self.live_asr_segment(segment, AsrKind::Partial, "DeferredLatest", q)
     }
     fn live_asr_segment(
         &mut self,
@@ -141,9 +211,225 @@ mod tests {
         }
     }
     #[test]
+    fn slow_partial_applies_before_latest_deferred_request_changes_revision() {
+        let mut r = Runtime::new(false, None, false);
+        r.core = echosub_pipeline_core::Pipeline::new_asr_only(r.epoch, 1000).unwrap();
+        r.partial_enabled = true;
+        r.ring.append(r.epoch, 0, &vec![0.2; 64000]).unwrap();
+        let q = Outbox::default();
+        r.live_event(SpeechEvent::Partial(segment(&r, 1, 16000)), &q)
+            .unwrap();
+        let first = r.core.next_asr().unwrap();
+        let token = Cancellation::default();
+        r.flight = Some((first.key(), token.clone()));
+        for end in [24000, 32000, 40000] {
+            r.live_event(SpeechEvent::Partial(segment(&r, 1, end)), &q)
+                .unwrap();
+            r.flush_partial(&q).unwrap();
+        }
+        assert!(!token.snapshot().requested);
+        assert_eq!(r.partial_schedule.pending.unwrap().0.pcm_range.end, 40000);
+        assert_eq!(r.partial_schedule.deferred, 3);
+        assert_eq!(r.partial_schedule.replaced, 2);
+        assert_eq!(
+            r.core
+                .complete_asr(
+                    first.key(),
+                    Outcome::Text("read this result".into()),
+                    r.now()
+                )
+                .unwrap(),
+            Apply::Applied
+        );
+        r.flight = None;
+        drop(first);
+        r.flush_partial(&q).unwrap();
+        let latest = r.core.next_asr().unwrap();
+        assert_eq!(latest.key().source_revision, 2);
+        assert_eq!(latest.pcm.range().end, 40000);
+        assert!(r.partial_schedule.pending.is_none());
+    }
+    #[test]
+    fn deferred_partial_waits_for_preview_http_return_even_after_cancellation() {
+        let mut r = Runtime::new(false, None, false);
+        r.core.set_partial_translation_enabled(true);
+        r.partial_enabled = true;
+        r.ring.append(r.epoch, 0, &vec![0.2; 64000]).unwrap();
+        let q = Outbox::default();
+        for end in [16000, 24000] {
+            r.live_event(SpeechEvent::Partial(segment(&r, 1, end)), &q)
+                .unwrap();
+            let job = r.core.next_asr().unwrap();
+            r.core
+                .complete_asr(
+                    job.key(),
+                    Outcome::Text("please cross the bridge now".into()),
+                    r.now(),
+                )
+                .unwrap();
+        }
+        assert!(r.core.preview_pending());
+        let preview = r.core.next_translation(r.now()).unwrap().unwrap();
+        r.live_event(SpeechEvent::Partial(segment(&r, 1, 32000)), &q)
+            .unwrap();
+        r.flush_partial(&q).unwrap();
+        assert!(r.core.next_asr().is_none());
+        r.core.poll(preview.deadline_ns).unwrap();
+        assert!(r.core.preview_pending());
+        assert_eq!(
+            r.core
+                .complete_translation(
+                    preview.key,
+                    Outcome::Text("late preview".into()),
+                    preview.deadline_ns
+                )
+                .unwrap(),
+            Apply::Ignored
+        );
+        // Use no further core mutation with the real clock after this synthetic deadline.
+        assert!(!r.core.preview_pending());
+    }
+    #[test]
+    fn overwritten_deferred_audio_is_dropped_without_admitting_a_job() {
+        let mut r = Runtime::new(false, None, false);
+        r.partial_enabled = true;
+        r.ring.append(r.epoch, 0, &vec![0.2; 16000]).unwrap();
+        r.partial_schedule.pending = Some((segment(&r, 1, 16000), r.now()));
+        r.ring.append(r.epoch, 16000, &vec![0.2; 320000]).unwrap();
+        r.flush_partial(&Outbox::default()).unwrap();
+        assert_eq!(r.partial_schedule.dropped, 1);
+        assert!(r.core.next_asr().is_none());
+        assert!(r.partial_schedule.pending.is_none());
+    }
+    /// Explicit local diagnostic: real native owner, paced PCM, known file end.
+    /// VAD, HTTP, overlay and capture are intentionally outside this measurement.
+    #[cfg(feature = "native-asr")]
+    #[test]
+    #[ignore = "requires consented model/WAV paths via ECHOSUB_SCHEDULE_*"]
+    fn native_paced_partial_probe() {
+        use crate::native_owner::{load_wav, ModelConfig};
+        use sha2::{Digest, Sha256};
+        use std::time::{Duration, Instant};
+        let model = std::env::var("ECHOSUB_SCHEDULE_MODEL").unwrap();
+        let wav = std::env::var("ECHOSUB_SCHEDULE_WAV").unwrap();
+        let output = std::env::var("ECHOSUB_SCHEDULE_REPORT").unwrap();
+        let model_hash = format!("{:x}", Sha256::digest(std::fs::read(&model).unwrap()));
+        let wav_hash = format!("{:x}", Sha256::digest(std::fs::read(&wav).unwrap()));
+        let pcm = load_wav(&wav, &wav_hash).unwrap();
+        assert!(
+            pcm.len() >= 16000 && pcm.len() <= 128000,
+            "use a 1–8 second fixture"
+        );
+        let mut reports = Vec::new();
+        for interval_s in [1.0, 0.25] {
+            for legacy in [true, false] {
+                let mut r = Runtime::new(
+                    false,
+                    Some(ModelConfig {
+                        path: model.clone(),
+                        hash: model_hash.clone(),
+                        gpu: false,
+                        threads: 8,
+                        vad: None,
+                    }),
+                    false,
+                );
+                r.partial_enabled = true;
+                let q = Outbox::default();
+                let load_start = Instant::now();
+                while r.model_state != "Ready" {
+                    r.poll_native(&q).unwrap();
+                    assert!(load_start.elapsed().as_secs_f64() < 30. && r.model_state != "Failed");
+                    std::thread::sleep(Duration::from_millis(5));
+                }
+                let start = Instant::now();
+                let mut cursor = 0;
+                let mut next_partial_s = 0.8;
+                let mut final_sent = false;
+                let mut first_partial_s = None;
+                let mut admitted = 0;
+                let mut updates = Vec::new();
+                let mut last_revision = None;
+                let final_s = loop {
+                    let elapsed = start.elapsed().as_secs_f64();
+                    assert!(
+                        elapsed < pcm.len() as f64 / 16000. + 30.,
+                        "native replay did not drain"
+                    );
+                    let available = ((elapsed * 16000.) as usize).min(pcm.len());
+                    if available > cursor {
+                        r.ring
+                            .append(r.epoch, cursor as u64, &pcm[cursor..available])
+                            .unwrap();
+                        cursor = available;
+                    }
+                    if cursor == pcm.len() && !final_sent {
+                        r.live_event(
+                            SpeechEvent::Final {
+                                segment: segment(&r, 1, cursor as u64),
+                                reason: FinalReason::Silence,
+                            },
+                            &q,
+                        )
+                        .unwrap();
+                        final_sent = true;
+                    } else if !final_sent && elapsed >= next_partial_s {
+                        admitted += 1;
+                        if legacy {
+                            r.live_asr_segment(
+                                segment(&r, 1, cursor as u64),
+                                AsrKind::Partial,
+                                "LegacyProbe",
+                                &q,
+                            )
+                            .unwrap();
+                        } else {
+                            r.live_event(SpeechEvent::Partial(segment(&r, 1, cursor as u64)), &q)
+                                .unwrap();
+                        }
+                        next_partial_s += interval_s;
+                    }
+                    r.poll_native(&q).unwrap();
+                    if let Some(record) = r.core.record(SegmentIdentity {
+                        audio: r.epoch,
+                        segment_id: 1,
+                    }) {
+                        if record.applied_source_revision != last_revision {
+                            last_revision = record.applied_source_revision;
+                            if last_revision.is_some() {
+                                updates.push(json!({"at_s":elapsed,"revision":last_revision,"state":format!("{:?}",record.source_state),"source":record.source}));
+                                if record.source_state == SourceState::Partial
+                                    && first_partial_s.is_none()
+                                {
+                                    first_partial_s = Some(elapsed);
+                                }
+                            }
+                        }
+                        if record.source_state == SourceState::Final {
+                            break elapsed;
+                        }
+                        assert!(
+                            !matches!(
+                                record.source_state,
+                                SourceState::Failed | SourceState::Skipped
+                            ),
+                            "native source failed"
+                        );
+                    }
+                    std::thread::sleep(Duration::from_millis(5));
+                };
+                let report = json!({"legacy_admission":legacy,"interval_s":interval_s,"partial_events":admitted,"audio_s":pcm.len() as f64/16000.,"first_partial_s":first_partial_s,"final_s":final_s,"scheduler":r.partial_schedule.value(),"updates":updates});
+                println!("{}", report);
+                reports.push(report);
+                r.finish();
+            }
+        }
+        std::fs::write(output, serde_json::to_vec_pretty(&json!({"model":model,"model_sha256":model_hash,"wav":wav,"wav_sha256":wav_hash,"backend":"cpu","threads":8,"note":"Known file end; ASR-only, no VAD/HTTP/capture/overlay. 0.25 s is stress, not the production default.","runs":reports})).unwrap()).unwrap();
+    }
+    #[test]
     fn continuation_context_is_product_identity_and_pending_metadata_stays_bounded() {
         let mut r = Runtime::new(false, None, false);
-        r.ring.append(r.epoch, 0, &vec![0.2; 246400]).unwrap();
+        r.ring.append(r.epoch, 0, &vec![0.2; 128000]).unwrap();
         let q = Outbox::default();
         r.live_event(
             SpeechEvent::Final {
@@ -153,16 +439,18 @@ mod tests {
             &q,
         )
         .unwrap();
+        r.ring.append(r.epoch, 128000, &vec![0.2; 38400]).unwrap();
         r.partial_enabled = true;
         for end in [134400, 150400, 166400] {
             let mut next = segment(&r, 2, end);
             next.pcm_range.start = 118400;
             next.continued_from = Some(segment(&r, 1, 128000).id);
             r.live_event(SpeechEvent::Partial(next), &q).unwrap();
-            assert_eq!(r.continuations.len(), 1);
-            assert_eq!(r.continuations[0].1.segment_id, 1);
+            assert_eq!(r.continuations.len(), 0);
+            assert!(r.partial_schedule.pending.is_some());
             assert!(r.languages.len() <= 3);
         }
+        r.ring.append(r.epoch, 166400, &vec![0.2; 80000]).unwrap();
         let mut final_segment = segment(&r, 2, 246400);
         final_segment.pcm_range.start = 118400;
         final_segment.continued_from = Some(segment(&r, 1, 128000).id);
@@ -216,7 +504,7 @@ mod tests {
         let final_job = r.core.next_asr().unwrap();
         assert_eq!(final_job.kind, AsrKind::Final);
         assert_eq!(final_job.key().segment_id, 1);
-        assert_eq!(final_job.key().source_revision, 5);
+        assert_eq!(final_job.key().source_revision, 2);
         r.core
             .complete_asr(final_job.key(), Outcome::Text("confirmed".into()), r.now())
             .unwrap();

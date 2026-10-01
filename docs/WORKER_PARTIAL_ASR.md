@@ -20,8 +20,22 @@ IPC는 `start_session`의 `config.partial_enabled: true`로 켠다.
 확정 FIFO 2개, 최신 대기 부분 요청 1개, native 실행 1개, PCM pool 4개를
 유지한다. 확정 요청은 진행 중인 부분 추론에 취소를 요청한다. native 반환
 전에는 실행 예약을 해제하지 않는다. 교체된 요청의 언어 메타데이터도 제거해
-대기 언어 항목을 최대 3개로 제한한다. 번역 요청은 확정 원문만 대상으로 한다.
+대기 언어 항목을 최대 3개로 제한한다. 번역은 기본 확정 전용이며
+[임시 번역 옵션](STREAMING_TRANSLATION.md)을 별도로 켤 수 있다.
 후속 [token 시간 정합](ASR_TOKEN_ALIGNMENT.md)은 partial을 이전 확정 context로 저장하지 않는다.
+
+실행 중 ASR·대기 확정 ASR·반환 전 임시 HTTP가 있으면 새 부분 요청은
+revision을 바꾸지 않고 최신 메타데이터 하나로 대기한다. 완료 결과를 적용한
+뒤 대기 요청의 PCM을 snapshot으로 복사한다. 임시 HTTP가 끝나야 다음
+부분 요청을 admission하므로 새 요청이 표시 전 번역을 계속 취소하지 않는다.
+확정 요청은 이 대기를 우회하고 대기 부분 요청을 지운다. 대기 오디오가
+rolling buffer에서 덮어써졌으면 폐기한다. Pause/Stop/epoch 변경도 대기를 지운다.
+
+`get_state.diagnostic_asr.partial_scheduler`는 worker 실행 동안 누적한
+`requested/deferred/replaced/dropped`, 모든 native 완료의 `asr_applied/asr_ignored`,
+`asr_decode_total_s`와 마지막 최신 대기 요청의 `last_deferred_wait_s`를 제공한다.
+`pending`은 메타데이터 대기 여부다. 적용 완료 수에는 NoSpeech도 포함되므로
+화면에 표시한 부분 자막 개수와 같지 않다. 모든 시간 단위는 초다.
 
 Pause/Stop/epoch 변경은 진행 중 구간을 폐기하며 늦은 결과를 거부한다.
 VAD의 로컬 구간 번호가 재시작해도 제품 구간 번호는 세션에서 증가한다.
@@ -37,6 +51,10 @@ TXT는 상태가 포함된 기록을, SRT는 유효한 확정 원문만 저장�
 
 `scripts/check.ps1`은 기본 꺼짐·동일 구간 revision·Pause/Resume와
 확정 우선 취소/실행 예약·VAD 부분 요청을 검사한다.
+`scripts/probe-partial-scheduling.ps1 -WavPath <1~8초 WAV>`는 실제 CPU
+Whisper owner에 PCM을 실제 속도로 공급해 기존/new admission을 비교한다.
+기본 1초와 스트레스 0.25초를 분리한다. VAD·HTTP·화면을 포함한 지연은 아니다.
+[측정 결과](evidence/partial-scheduling-windows-20261001.md)를 참고한다.
 `scripts/probe-worker-live-asr.ps1 -NoBuild -Offline -Partials`는 기존 영어
 TTS `en-10.wav`를 loopback으로 재생해 실제 부분→확정 및 세션 제어를 검사한다.
 전체 원문/보고서/WAV는 Git에 넣지 않는다. 실제 화면 조작, 자연 음성/게임 품질,

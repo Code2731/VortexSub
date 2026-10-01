@@ -286,6 +286,11 @@ impl Pipeline {
             self.translation_queue.len() + usize::from(self.preview_queue.is_some()),
         )
     }
+    /// Preview work retains its reservation until the HTTP owner actually returns.
+    /// Live partial admission can wait here without scanning or copying history.
+    pub fn preview_pending(&self) -> bool {
+        self.preview_queue.is_some() || self.translation.is_some_and(|f| f.preview)
+    }
     /// At most two finals and one latest partial. Adapters can prune job metadata.
     pub fn pending_asr_keys(&self) -> impl Iterator<Item = JobIdentity> + '_ {
         self.final_queue

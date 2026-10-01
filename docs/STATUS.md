@@ -1,12 +1,23 @@
 # 구현 상태
 
+## 부분 전사 스케줄러·계측 (2026-10-01)
+
+실행 중 partial을 추월하지 않고 최신 대기 범위 하나로 병합한다. 임시 HTTP의
+반환까지 다음 partial을 보류하고 확정은 우선 처리한다. 완료 적용/무시·누적
+decode 초·최신 대기 초를 상태에 추가했다. 전체 check(Rust 149개, C# 표시
+21개 assertion·IPC/HTTP), native CPU/VAD 빌드와 실제 속도 파일 재생 PASS.
+0.25초 스트레스에서 부분 갱신 0→9; 기본 1초의 첫 원문 지연은 거의 동일했다.
+기본 간격은 유지한다. VAD→HTTP 전체 지연/화면/게임/macOS는 미실행이다.
+[근거](evidence/partial-scheduling-windows-20261001.md). 다음은 두 카드 읽기 정책이다.
+
 ## 실시간 번역 OSS 검토 (2026-10-01)
 
 SimulStreaming, Sublume, LiveTranslate, LiveCaptions-Translator의 고정 커밋
 소스에서 partial 처리·번역 commit·자막 표시 정책을 검토했다.
 다음 순서는 실행 중 partial 추월 방지/계측, 읽기 카드와 draft 분리,
 의미 단위 번역, 모델 비교다. 모델/runtime 설치나 외부 앱 실행은 하지 않았다.
-현재 지연의 실제 원인 판정과 개선 구현은 후속이다. [검토 문서](REALTIME_OSS_REVIEW.md).
+현재 지연의 실제 원인 판정은 후속이다. 첫 스케줄러 구현은 위 항목에 기록했다.
+[검토 문서](REALTIME_OSS_REVIEW.md).
 
 ## 임시 자막 읽기 시간 보완 (2026-10-01)
 

@@ -221,3 +221,13 @@ Use `-Boundaries` for digital silence and a long utterance built from four copie
 ## Translation engine comparison
 
 Use scripts/probe-translation-engines.ps1 -Warmup 1 -Rounds 3 after installing the consented Tabby environment. Both configurations receive paired plain/context cases through the Rust HTTP owner. See [conditions and limits](../docs/TRANSLATION_ENGINES.md).
+
+## Paced partial ASR scheduling
+
+`scripts/probe-partial-scheduling.ps1 -WavPath <absolute mono 16 kHz WAV>`
+uses an existing Whisper base model (override `-ModelPath`) and a 1–8 second file.
+It compares legacy/current admission through the real CPU native owner at 1.0 s
+and 0.25 s intervals. JSON includes applied/ignored completions, source updates,
+decode time, first partial and final time in seconds. Results/transcripts stay
+under ignored `benchmarks/results/`; no models or runtimes are downloaded.
+Known file end replaces VAD; HTTP, capture and UI are outside this measurement.
