@@ -5,7 +5,11 @@ public sealed class CaptionPresentation
 {
     private (string? Product, ulong Session, ulong Epoch, ulong Segment, ulong Revision)? key;
     private double since;
-    public bool IsExpired(double nowSeconds) => key is not null && nowSeconds - since >= 5;
+    private HistoryRecord? preview;
+    private double previewSince;
+    public bool IsExpired(double nowSeconds) => preview is not null
+        ? nowSeconds - previewSince >= 5 : key is not null && nowSeconds - since >= 5;
+    public void Clear() { key = null; preview = null; }
 
     public (string? Source, string? Translation) Update(IEnumerable<HistoryRecord> records,
         string? productSession, ulong internalSession, ulong epoch, bool running, double nowSeconds)
@@ -15,10 +19,13 @@ public sealed class CaptionPresentation
             r.SourceState is "Partial" or "FinalPending" or "Final" &&
             r.AppliedSourceRevision is > 0 && r.AppliedSourceRevision <= r.SourceRevision &&
             !string.IsNullOrWhiteSpace(r.Source)) : null;
-        if (record is null) return (null, null);
+        if (record is null) { Clear(); return (null, null); }
+        if (preview is not null && (preview.ProductSessionId != record.ProductSessionId ||
+            preview.SessionId != record.SessionId || preview.Epoch != record.Epoch ||
+            preview.SegmentId != record.SegmentId ||
+            !record.Source.StartsWith(preview.StableSource, StringComparison.Ordinal))) preview = null;
         var next = (record.ProductSessionId, record.SessionId, record.Epoch, record.SegmentId, record.AppliedSourceRevision!.Value);
         if (key != next) { key = next; since = nowSeconds; }
-        if (nowSeconds - since >= 5) return (null, null);
         var prefix = record.SourceState == "Partial" ? "[인식 중] " : record.SourceState == "FinalPending" ? "[확정 처리 중] " : "";
         var eligible = record.SourceState == "Final" && !record.TranslationIsPreview ||
             record.SourceState == "Partial" && record.TranslationIsPreview && record.StableSource.Length > 0 &&
@@ -26,7 +33,26 @@ public sealed class CaptionPresentation
         var translation = eligible && record.AppliedSourceRevision == record.SourceRevision &&
             record.TranslationState == "Done" && record.TranslationRequestId is > 0 &&
             !string.IsNullOrWhiteSpace(record.Translation) ? record.Translation : null;
-        if (translation is not null && record.TranslationIsPreview) translation = "[임시 번역] " + translation;
+        if (translation is not null && record.TranslationIsPreview)
+        {
+            if (preview is null || preview.TranslationRequestId != record.TranslationRequestId ||
+                preview.SourceRevision != record.SourceRevision)
+            { preview = record; previewSince = nowSeconds; }
+            if (nowSeconds - previewSince >= 5) return (null, null);
+            translation = "[임시 번역] " + translation;
+        }
+        else if (preview is not null && record.TranslationState is "None" or "Pending" &&
+            nowSeconds - previewSince < 5)
+        {
+            // Keep an already displayed, matching caption while the next revision
+            // is decoded/translated. This never accepts a stale worker response.
+            return ("[인식 중] " + preview.Source, "[임시 번역] " + preview.Translation);
+        }
+        else
+        {
+            preview = null;
+            if (nowSeconds - since >= 5) return (null, null);
+        }
         return (prefix + record.Source, translation);
     }
 

@@ -19,8 +19,11 @@
 - 새 전사 admission은 이전 임시 번역을 취소한다. 실제 HTTP 반환 전까지
   실행 예약을 유지한다. 전체 source key와 request ID가 다른 응답은 적용하지 않는다.
   확정 요청을 우선하며 최종 원문 전체를 새로 번역한다. 번역 조각을 이어 붙이지 않는다.
-- 새 revision에서 이전 임시 표시를 지운다. 잦은 갱신 시 깜빡일 수 있다.
-  Pause/Stop/epoch 변경은 이전 결과를 무효화한다. 기존 5초 표시 만료를 유지한다.
+- worker는 새 revision에서 이전 임시 결과를 무효화한다. UI는 이미 표시한
+  임시 자막을 같은 segment의 다음 전사/번역 대기 동안 유지한다. 기존 안정
+  prefix와 수정된 원문이 일치하지 않으면 즉시 지운다. 새 유효 번역으로 교체하며
+  임시 자막의 만료는 첫 표시부터 5초다. 같은 결과의 반복 조회는 만료를 늘리지 않는다.
+  Pause/Stop/epoch·segment 변경은 표시를 지운다. 확정 자막의 기존 만료는 유지한다.
 - IPC의 `stable_source`, `translation_is_preview`와 session config의
   `partial_translation_enabled`는 추가 필드다. 이전 기록은 빈 문자열/false로 읽는다.
 

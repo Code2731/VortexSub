@@ -544,13 +544,19 @@ public sealed class MainWindow : Window
 
     private void ClearSource()
     {
+        captions.Clear();
         latestSource = latestTranslation = null;
         if (live) overlay?.SetCaptions(null, null);
     }
 
     private void ExpireSource()
     {
-        if (latestSource is not null && captions.IsExpired(captionClock.Elapsed.TotalSeconds)) ClearSource();
+        if (latestSource is not null && captions.IsExpired(captionClock.Elapsed.TotalSeconds))
+        {
+            // Keep the expired identity so polling cannot resurrect the same caption.
+            latestSource = latestTranslation = null;
+            if (live) overlay?.SetCaptions(null, null);
+        }
     }
 
     private async Task DisconnectCoreAsync()

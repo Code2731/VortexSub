@@ -56,8 +56,11 @@ records rather than merging asynchronous event text.
 
 Current UUID/internal session/epoch and applied source revision filter the latest
 eligible source. Pending, failed, skipped and bypassed translations keep the source
-visible. Each applied source revision has a five-second lifetime; HTTP completion
-does not extend it or resurrect an expired card. Pause/Stop clears both lines.
+visible. Final/source-only revisions retain their five-second source lifetime.
+Displayed provisional captions have five seconds from their first presentation;
+they remain visible while the next revision waits if its source still matches the
+previous stable prefix. Repeated snapshots do not extend that lifetime. A corrected
+prefix, new segment, or Pause/Stop clears the provisional card.
 The diagnostic overlay still displays one latest card; two-card layout, display
 presets, clipping/font/DPI acceptance and localization resources remain pending.
 
