@@ -4,6 +4,175 @@ const ID: AudioIdentity = AudioIdentity {
     session_id: 1,
     epoch: 1,
 };
+fn partial(f: &mut Fixture, end: u64, text: &str, now: u64) {
+    f.submit(1, AsrKind::Partial, end, now);
+    let job = f.core.next_asr().unwrap();
+    assert_eq!(
+        f.core
+            .complete_asr(job.key(), Outcome::Text(text.into()), now)
+            .unwrap(),
+        Apply::Applied
+    );
+}
+#[test]
+fn local_agreement_is_provisional_and_default_does_not_translate_partials() {
+    let mut f = Fixture::new(1000, "ko");
+    partial(&mut f, 512, "We should take the left", 0);
+    assert!(f.records()[0].stable_source.is_empty());
+    partial(&mut f, 1024, "We should take the left path.", 500_000_000);
+    assert_eq!(f.records()[0].stable_source, "We should take the left");
+    assert!(f.core.next_translation(500_000_000).unwrap().is_none());
+    partial(
+        &mut f,
+        1536,
+        "We should avoid the left path.",
+        1_000_000_000,
+    );
+    assert!(f.records()[0].stable_source.is_empty());
+}
+#[test]
+fn preview_is_bounded_and_final_supersedes_it_without_releasing_http_early() {
+    let mut f = Fixture::new(1000, "ko");
+    f.core.set_partial_translation_enabled(true);
+    partial(&mut f, 512, "Do not open the door", 0);
+    partial(&mut f, 1024, "Do not open the door until", 500_000_000);
+    let preview = f.core.next_translation(500_000_000).unwrap().unwrap();
+    assert_eq!(preview.source, "Do not open the door");
+    assert_eq!(preview.deadline_ns, 500_000_000 + PREVIEW_DEADLINE_NS);
+    assert!(f.records()[0].translation_is_preview);
+    f.submit(1, AsrKind::Final, 1536, 600_000_000);
+    assert_eq!(f.core.cancellation().translation, Some(preview.key));
+    assert!(f.core.next_translation(600_000_000).unwrap().is_none());
+    let final_job = f.core.next_asr().unwrap();
+    f.core
+        .complete_asr(
+            final_job.key(),
+            Outcome::Text("Do not open the door until I return.".into()),
+            700_000_000,
+        )
+        .unwrap();
+    assert_eq!(
+        f.core
+            .complete_translation(
+                preview.key,
+                Outcome::Text("late preview".into()),
+                800_000_000
+            )
+            .unwrap(),
+        Apply::Ignored
+    );
+    let final_translation = f.core.next_translation(800_000_000).unwrap().unwrap();
+    assert_eq!(
+        final_translation.source,
+        "Do not open the door until I return."
+    );
+    assert_eq!(
+        final_translation.deadline_ns,
+        700_000_000 + TRANSLATION_DEADLINE_NS
+    );
+    assert!(final_translation.key.request_id > preview.key.request_id);
+    f.core
+        .complete_translation(
+            final_translation.key,
+            Outcome::Text("돌아올 때까지 문을 열지 마라.".into()),
+            900_000_000,
+        )
+        .unwrap();
+    assert!(!f.records()[0].translation_is_preview);
+    assert_eq!(f.records()[0].translation_state, TranslationState::Done);
+}
+#[test]
+fn preview_revision_deadline_and_epoch_reject_stale_results() {
+    let mut f = Fixture::new(1000, "ko");
+    f.core.set_partial_translation_enabled(true);
+    partial(&mut f, 512, "We should take the left", 0);
+    partial(&mut f, 1024, "We should take the left path.", 500_000_000);
+    let old = f.core.next_translation(500_000_000).unwrap().unwrap();
+    partial(&mut f, 1536, "We should avoid the left path.", 600_000_000);
+    assert_eq!(
+        f.core
+            .complete_translation(old.key, Outcome::Text("old".into()), 600_000_000)
+            .unwrap(),
+        Apply::Ignored
+    );
+    assert!(f.records()[0].translation.is_empty());
+    partial(
+        &mut f,
+        2048,
+        "We should avoid the left path.",
+        1_000_000_000,
+    );
+    let timed = f.core.next_translation(1_000_000_000).unwrap().unwrap();
+    assert_eq!(
+        f.core.poll(timed.deadline_ns).unwrap().translation,
+        Some(timed.key)
+    );
+    assert_eq!(f.records()[0].translation_reason, Some(Reason::Deadline));
+    assert_eq!(
+        f.core
+            .complete_translation(timed.key, Outcome::Text("late".into()), timed.deadline_ns)
+            .unwrap(),
+        Apply::Ignored
+    );
+    partial(
+        &mut f,
+        2560,
+        "We should avoid the left path.",
+        3_000_000_000,
+    );
+    let interrupted = f.core.next_translation(3_000_000_000).unwrap().unwrap();
+    f.core
+        .restart(
+            AudioIdentity {
+                session_id: 1,
+                epoch: 2,
+            },
+            false,
+            3_100_000_000,
+        )
+        .unwrap();
+    assert_eq!(
+        f.core
+            .complete_translation(
+                interrupted.key,
+                Outcome::Text("old epoch".into()),
+                3_200_000_000
+            )
+            .unwrap(),
+        Apply::Ignored
+    );
+    assert_eq!(f.records()[0].source_state, SourceState::Discarded);
+}
+#[test]
+fn stable_prefix_caps_unicode_and_retreats_from_an_unfinished_english_word() {
+    let mut f = Fixture::new(1000, "ko");
+    partial(&mut f, 512, "We should take the lef", 0);
+    partial(&mut f, 1024, "We should take the left path.", 1);
+    assert_eq!(f.records()[0].stable_source, "We should take the");
+    f.core.set_translation_languages("ja", "ko").unwrap();
+    let text = "日本語".repeat(400);
+    partial(&mut f, 1536, &text, 2);
+    partial(&mut f, 2048, &text, 3);
+    let stable = &f.records()[0].stable_source;
+    assert!(!stable.is_empty());
+    assert!(stable.len() <= MAX_STABLE_BYTES);
+    assert!(text.starts_with(stable));
+}
+#[test]
+fn japanese_prefix_is_utf8_safe_and_failures_break_agreement() {
+    let mut f = Fixture::new(1000, "ko");
+    f.core.set_translation_languages("ja", "ko").unwrap();
+    partial(&mut f, 512, "左の道へ進もう。", 0);
+    partial(&mut f, 1024, "左の道へ進もう。敵がいる。", 1);
+    assert_eq!(f.records()[0].stable_source, "左の道へ進もう。");
+    f.submit(1, AsrKind::Partial, 1536, 2);
+    let failed = f.core.next_asr().unwrap();
+    f.core
+        .complete_asr(failed.key(), Outcome::NoSpeech, 2)
+        .unwrap();
+    partial(&mut f, 2048, "左の道へ進もう。敵がいる。", 3);
+    assert!(f.records()[0].stable_source.is_empty());
+}
 #[test]
 fn no_speech_and_overlap_only_skip_final_without_translation_and_preserve_partial_text() {
     for (outcome, reason) in [

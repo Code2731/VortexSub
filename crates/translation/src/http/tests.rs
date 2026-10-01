@@ -384,6 +384,69 @@ async fn second_server_error_is_terminal_and_zero_budget_sends_nothing() {
 }
 
 #[test]
+fn owner_uses_fresh_http_connections_between_jobs() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let endpoint = Endpoint::parse(&format!("http://{}", listener.local_addr().unwrap())).unwrap();
+    let server = thread::spawn(move || {
+        let mut sockets = Vec::new();
+        for _ in 0..2 {
+            let start = Instant::now();
+            let mut socket = loop {
+                match listener.accept() {
+                    Ok((socket, _)) => break socket,
+                    Err(e)
+                        if e.kind() == std::io::ErrorKind::WouldBlock
+                            && start.elapsed() < Duration::from_secs(3) =>
+                    {
+                        thread::sleep(Duration::from_millis(1))
+                    }
+                    Err(e) => panic!("fresh connection fixture accept: {e}"),
+                }
+            };
+            socket.set_nonblocking(false).unwrap();
+            socket
+                .set_read_timeout(Some(Duration::from_secs(2)))
+                .unwrap();
+            let mut buffer = [0; 4096];
+            let mut bytes = Vec::new();
+            while !bytes.windows(4).any(|b| b == b"\r\n\r\n") {
+                let count = socket.read(&mut buffer).unwrap();
+                assert!(count > 0 && bytes.len() < 8192);
+                bytes.extend_from_slice(&buffer[..count]);
+            }
+            let body = r#"{"data":[{"id":"actual/model"}]}"#;
+            socket
+                .write_all(
+                    format!(
+                        "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{body}",
+                        body.len()
+                    )
+                    .as_bytes(),
+                )
+                .unwrap();
+            // No Connection: close header, and keep the first socket open. The next
+            // owner job must use a fresh connection instead of reusing this one.
+            sockets.push(socket);
+        }
+    });
+    let mut owner = Owner::new(endpoint, None).unwrap();
+    for _ in 0..2 {
+        owner.models(Duration::from_secs(1)).unwrap();
+        let started = Instant::now();
+        loop {
+            if let Some(result) = owner.poll() {
+                assert!(matches!(result.result, Ok(Output::Models(_))));
+                break;
+            }
+            assert!(started.elapsed() < Duration::from_secs(2));
+            thread::sleep(Duration::from_millis(1));
+        }
+    }
+    drop(owner);
+    server.join().unwrap();
+}
+#[test]
 fn dropping_active_owner_cancels_and_joins() {
     let (endpoint, thread, observed) =
         server_observed(vec![(Duration::from_millis(150), success())]);

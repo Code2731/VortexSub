@@ -35,6 +35,8 @@ Run `./run.cmd -Live -Offline`, wait for model Ready, select an output device an
 
 Use `run-tabby.bat` for the separate TabbyAPI/ExLlama translation candidate with the consented EXL3 model/runtime installed. Do not run it alongside `run-live.bat`. See [engine comparison and measurement conditions](docs/TRANSLATION_ENGINES.md).
 
+To try partial translation, select **안정된 부분 먼저 번역 · 임시 결과 / 기본 끔** before starting a session. It also enables partial ASR and labels provisional captions **[임시 번역]**. Later context can reverse their meaning, so this remains off by default. See [contracts and offline comparison](docs/STREAMING_TRANSLATION.md). SenseVoice/Fun-ASR and Qwen3 1.7B are [research candidates](docs/MODEL_CANDIDATES.md), not installed or measured replacements.
+
 ## Windows system-audio capture probe
 
 ```powershell

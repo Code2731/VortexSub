@@ -71,6 +71,24 @@ internal static class HttpTranslationSmoke
             var state = await client.SendAsync("get_state");
             Require(!state.ToString().Contains("server-private-detail"), "server body excluded from IPC state");
             await client.SendAsync("disable_translation");
+            await using var previewClient = WorkerClient.Start(worker, arguments: new[] { "--mock-pipeline", "--mock-session-control", "--diagnostic-translation" });
+            var previewHello = await previewClient.SendAsync("hello", new { client = "HttpPreviewSmoke", protocol_major = 1 });
+            Require(previewHello.GetProperty("capabilities").GetProperty("partial_translation").GetBoolean(), "preview capability");
+            await previewClient.SendAsync("configure_translation", new { endpoint, model_id = "fixture/model" });
+            clock.Restart();
+            while ((await previewClient.SendAsync("get_state")).GetProperty("translator").GetProperty("state").GetString() != "Ready")
+            {
+                Require(clock.Elapsed.TotalSeconds < 4, "Preview catalog Ready"); await Task.Delay(10);
+            }
+            await previewClient.SendAsync("start_session", new { history_policy = "retain", config = new { source_language = "en", partial_enabled = true, partial_translation_enabled = true } });
+            await previewClient.SendAsync("mock_segment", new { source = "We should take the left", kind = "partial" });
+            Require((await previewClient.ReadHistoryAsync()).Records[0].StableSource.Length == 0, "first partial is unconfirmed");
+            await previewClient.SendAsync("mock_segment", new { source = "We should take the left path.", kind = "partial" });
+            var previewRecord = await Terminal(previewClient, 1);
+            Require(previewRecord is { SourceState: "Partial", TranslationIsPreview: true, TranslationState: "Done", StableSource: "We should take the left" }, "typed stable preview");
+            await previewClient.SendAsync("mock_segment", new { source = "We should take the left path after sunset.", kind = "final" });
+            var replaced = await Terminal(previewClient, 1);
+            Require(replaced is { SourceState: "Final", TranslationIsPreview: false, SourceRevision: 3, TranslationState: "Done" }, "final replaces preview with current revision");
         }
         finally { stop.Cancel(); listener.Stop(); await server; }
     }

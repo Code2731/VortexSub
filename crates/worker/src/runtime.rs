@@ -256,6 +256,23 @@ impl Runtime {
                 }
             };
             self.partial_enabled = partial_enabled;
+            let preview = match p.get("partial_translation_enabled") {
+                None => false,
+                Some(v) => v.as_bool().ok_or((
+                    "INVALID_REQUEST",
+                    "partial_translation_enabled must be boolean",
+                ))?,
+            };
+            if preview && (!partial_enabled || !self.translator.enabled) {
+                return Err((
+                    "INVALID_REQUEST",
+                    "Partial translation requires partial ASR and HTTP capability",
+                ));
+            }
+            self.core.set_partial_translation_enabled(preview);
+            self.core
+                .set_translation_languages(&self.live_language, "ko")
+                .map_err(core_error)?;
         }
         // Validate before changing identity; the adapter also checks this parameter.
         if method == "start_capture"
@@ -438,7 +455,7 @@ impl Runtime {
                     nonzero_samples,
                 } => {
                     self.flight = None;
-                    if self.translator.enabled && key.audio == self.epoch {
+                    if key.audio == self.epoch {
                         self.core
                             .set_translation_languages(&language, "ko")
                             .map_err(|_| std::io::Error::other("Translation language rejected"))?;
@@ -870,7 +887,7 @@ fn core_error(error: CoreError) -> (&'static str, &'static str) {
     }
 }
 pub fn record(r: &Record) -> Value {
-    json!({"session_id":r.key.audio.session_id,"epoch":r.key.audio.epoch,"segment_id":r.key.segment_id,"source_revision":r.key.source_revision,"applied_source_revision":r.applied_source_revision,"audio_start_sample":r.range.start,"audio_end_sample":r.range.end,"audio_start_s":r.range.start_s(),"audio_end_s":r.range.end_s(),"source_state":format!("{:?}",r.source_state),"source":r.source,"source_reason":r.source_reason.map(|s|format!("{s:?}")),"translation_state":format!("{:?}",r.translation_state),"translation":r.translation,"translation_reason":r.translation_reason.map(|s|format!("{s:?}")),"translation_request_id":r.translation_request_id})
+    json!({"session_id":r.key.audio.session_id,"epoch":r.key.audio.epoch,"segment_id":r.key.segment_id,"source_revision":r.key.source_revision,"applied_source_revision":r.applied_source_revision,"audio_start_sample":r.range.start,"audio_end_sample":r.range.end,"audio_start_s":r.range.start_s(),"audio_end_s":r.range.end_s(),"source_state":format!("{:?}",r.source_state),"source":r.source,"source_reason":r.source_reason.map(|s|format!("{s:?}")),"translation_state":format!("{:?}",r.translation_state),"translation":r.translation,"translation_reason":r.translation_reason.map(|s|format!("{s:?}")),"translation_request_id":r.translation_request_id,"stable_source":r.stable_source,"translation_is_preview":r.translation_is_preview})
 }
 
 impl Drop for Runtime {

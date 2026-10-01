@@ -1,5 +1,13 @@
 # EchoSub 단계별 구현 계획
 
+2026-10-01 사용자 요청의 안정 prefix/임시 번역 실험을 opt-in으로 구현했다.
+오프라인 비교는 첫 표시를 앞당길 가능성과 의미 반전을 함께 확인했다.
+기본 꺼짐·품질 gate 보류를 유지한다. [결과와 범위](STREAMING_TRANSLATION.md).
+후속 비교 후보는 SenseVoiceSmall, Fun-ASR MLT Nano, 비사고 모드의 Qwen3 1.7B다.
+[동일 조건·품질·다운로드 선행 조건](MODEL_CANDIDATES.md)을 따르고 ASR 교체,
+번역 모델 축소, 임시 번역 활성화를 각각 비교한다. 기존 live E2E·게임 경합·
+자연 음성·UI·Mac 수용 작업은 남아 있다.
+
 2026-10-01 번역 엔진 비교: 동의받은 Tabby 설치와 실제 HTTP/파일 worker 비교를
 완료했다. 현재 설정 두 실행 순서에서 llama.cpp 평균 0.118728~0.130975초,
 Tabby 0.157779~0.160002초로 기본 llama 구성을 유지한다. Tabby 별도 런처는

@@ -35,6 +35,8 @@ macOS에서는 고정 SDK 설치 후 `bash scripts/check.sh`를 실행합니다.
 
 TabbyAPI/ExLlama 번역 후보는 `run-tabby.bat`으로 별도 실행합니다. 동의받아 설치한 EXL3 모델·런타임이 필요하며, `run-live.bat`과 동시에 실행하지 마세요. [엔진 비교·설치·측정 조건](docs/TRANSLATION_ENGINES.md).
 
+부분 번역을 실험하려면 세션 시작 전에 **안정된 부분 먼저 번역 · 임시 결과 / 기본 끔**을 선택하세요. 부분 전사도 함께 켜지고 오버레이에 **[임시 번역]**으로 표시합니다. 뒤의 문맥에 따라 뜻이 바뀔 수 있어 기본 꺼짐을 유지합니다. [처리 계약·오프라인 비교](docs/STREAMING_TRANSLATION.md). SenseVoice/Fun-ASR 및 Qwen3 1.7B는 [비교 후보](docs/MODEL_CANDIDATES.md)로 조사했으며 아직 설치·실측하지 않았습니다.
+
 ## Windows 시스템 오디오 캡처 probe
 
 ```powershell

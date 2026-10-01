@@ -4,10 +4,13 @@ use echosub_audio_core::{
     SegmentIdentity, SnapshotPool,
 };
 use std::collections::VecDeque;
+mod agreement;
 
 pub const MAX_HISTORY: usize = 1000;
 pub const MAX_TEXT_BYTES: usize = 4096;
+pub const MAX_STABLE_BYTES: usize = 1024;
 pub const TRANSLATION_DEADLINE_NS: u64 = 8_000_000_000;
+pub const PREVIEW_DEADLINE_NS: u64 = 1_500_000_000;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CoreError {
     StaleIdentity,
@@ -66,6 +69,8 @@ pub struct Record {
     pub translation: String,
     pub translation_reason: Option<Reason>,
     pub translation_request_id: Option<u64>,
+    pub stable_source: String,
+    pub translation_is_preview: bool,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AsrKind {
@@ -135,6 +140,7 @@ struct TranslationFlight {
     key: TranslationKey,
     deadline: u64,
     cancelled: bool,
+    preview: bool,
 }
 
 /// Single owner. Leased PCM belongs to dispatched jobs until actual native return.
@@ -156,6 +162,10 @@ pub struct Pipeline {
     source_language: String,
     target_language: String,
     translation_enabled: bool,
+    partial_translation_enabled: bool,
+    preview_queue: Option<TranslationJob>,
+    agreement: agreement::Agreement,
+    last_preview_ns: Option<u64>,
 }
 impl Pipeline {
     pub fn new(
@@ -193,6 +203,10 @@ impl Pipeline {
             source_language: source_language.to_ascii_lowercase(),
             target_language: target_language.to_ascii_lowercase(),
             translation_enabled: true,
+            partial_translation_enabled: false,
+            preview_queue: None,
+            agreement: agreement::Agreement::default(),
+            last_preview_ns: None,
         })
     }
     pub fn new_asr_only(
@@ -205,11 +219,18 @@ impl Pipeline {
     }
     /// Change admission policy only after existing translation reservations drain.
     pub fn set_translation_enabled(&mut self, enabled: bool) -> Result<(), CoreError> {
-        if self.translation.is_some() || !self.translation_queue.is_empty() {
+        if self.translation.is_some()
+            || !self.translation_queue.is_empty()
+            || self.preview_queue.is_some()
+        {
             return Err(CoreError::InvalidConfig);
         }
         self.translation_enabled = enabled;
         Ok(())
+    }
+    /// Session option; callers change it with an epoch transition, never mid-session.
+    pub fn set_partial_translation_enabled(&mut self, enabled: bool) {
+        self.partial_translation_enabled = enabled;
     }
     /// Language is captured into each final job, not read again at HTTP completion.
     pub fn set_translation_languages(
@@ -262,7 +283,7 @@ impl Pipeline {
         (
             self.final_queue.len(),
             usize::from(self.partial.is_some()),
-            self.translation_queue.len(),
+            self.translation_queue.len() + usize::from(self.preview_queue.is_some()),
         )
     }
     /// At most two finals and one latest partial. Adapters can prune job metadata.
@@ -315,6 +336,7 @@ impl Pipeline {
             || !self.final_queue.is_empty()
             || self.partial.is_some()
             || !self.translation_queue.is_empty()
+            || self.preview_queue.is_some()
         {
             return Err(CoreError::Closed);
         }
@@ -391,6 +413,8 @@ impl Pipeline {
             self.room()?;
         }
         self.time(now)?;
+        // Every admission supersedes previews. Cancellation retains the HTTP reservation.
+        self.cancel_preview(Reason::Superseded);
         let key = JobIdentity {
             audio: id.audio,
             segment_id: id.segment_id,
@@ -426,12 +450,22 @@ impl Pipeline {
                 translation: String::new(),
                 translation_reason: None,
                 translation_request_id: None,
+                stable_source: String::new(),
+                translation_is_preview: false,
             });
             self.records.len() - 1
         });
         self.records[i].key = key;
         self.records[i].range = range;
         self.records[i].source_reason = None;
+        self.records[i].stable_source.clear();
+        if self.records[i].translation_is_preview {
+            self.records[i].translation_state = TranslationState::None;
+            self.records[i].translation.clear();
+            self.records[i].translation_reason = None;
+            self.records[i].translation_request_id = None;
+            self.records[i].translation_is_preview = false;
+        }
         let full = kind == AsrKind::Final && self.final_queue.len() == 2;
         let snapshot = if full {
             Err(AudioError::ResourceExhausted)
@@ -519,11 +553,34 @@ impl Pipeline {
                 self.records[i].applied_source_revision = Some(key.source_revision);
                 self.records[i].source_reason = None;
                 if flight.kind == AsrKind::Final {
+                    self.agreement.reset();
                     self.records[i].source_state = SourceState::Final;
                     self.enqueue_translation(i, now);
+                } else {
+                    self.records[i].stable_source = self.agreement.observe(
+                        SegmentIdentity {
+                            audio: key.audio,
+                            segment_id: key.segment_id,
+                        },
+                        &self.records[i].source,
+                        &self.source_language,
+                    );
+                    if self.partial_translation_enabled
+                        && !self.records[i].stable_source.is_empty()
+                        && self.translation_queue.is_empty()
+                        && self.final_queue.is_empty()
+                        && self.translation.is_none_or(|f| f.preview)
+                        && self
+                            .last_preview_ns
+                            .is_none_or(|last| now.saturating_sub(last) >= 500_000_000)
+                    {
+                        self.enqueue_translation(i, now);
+                    }
                 }
             }
             other => {
+                self.agreement.reset();
+                self.records[i].stable_source.clear();
                 let reason = match other {
                     Outcome::NoSpeech => Reason::NoSpeech,
                     Outcome::OverlapOnly => Reason::OverlapOnly,
@@ -555,12 +612,17 @@ impl Pipeline {
             self.records[i].translation_state = TranslationState::Bypassed;
             return;
         }
-        if self.translation_queue.len() == 2 {
+        let preview = self.records[i].source_state == SourceState::Partial;
+        if !preview && self.translation_queue.len() == 2 {
             self.records[i].translation_state = TranslationState::Skipped;
             self.records[i].translation_reason = Some(Reason::QueueFull);
             return;
         }
-        let Some(deadline_ns) = now.checked_add(TRANSLATION_DEADLINE_NS) else {
+        let Some(deadline_ns) = now.checked_add(if preview {
+            PREVIEW_DEADLINE_NS
+        } else {
+            TRANSLATION_DEADLINE_NS
+        }) else {
             self.records[i].translation_state = TranslationState::Failed;
             self.records[i].translation_reason = Some(Reason::Deadline);
             return;
@@ -587,14 +649,25 @@ impl Pipeline {
             .into_iter()
             .rev()
             .collect();
-        self.translation_queue.push_back(TranslationJob {
+        let job = TranslationJob {
             key,
-            source: self.records[i].source.clone(),
+            source: if preview {
+                self.records[i].stable_source.clone()
+            } else {
+                self.records[i].source.clone()
+            },
             context,
             source_language: self.source_language.clone(),
             target_language: self.target_language.clone(),
             deadline_ns,
-        });
+        };
+        if preview {
+            self.preview_queue = Some(job);
+            self.last_preview_ns = Some(now);
+        } else {
+            self.translation_queue.push_back(job);
+        }
+        self.records[i].translation_is_preview = preview;
         self.records[i].translation_state = TranslationState::Pending;
         self.records[i].translation_request_id = Some(key.request_id);
     }
@@ -611,8 +684,25 @@ impl Pipeline {
             self.changed();
         }
     }
+    fn cancel_preview(&mut self, reason: Reason) {
+        if let Some(job) = self.preview_queue.take() {
+            self.skip_translation(job.key, reason);
+        }
+        if let Some(f) = self.translation.filter(|f| f.preview && !f.cancelled) {
+            self.skip_translation(f.key, reason);
+            self.translation.as_mut().unwrap().cancelled = true;
+        }
+    }
     pub fn poll(&mut self, now: u64) -> Result<Cancellation, CoreError> {
         self.time(now)?;
+        if self
+            .preview_queue
+            .as_ref()
+            .is_some_and(|j| now >= j.deadline_ns)
+        {
+            let job = self.preview_queue.take().unwrap();
+            self.skip_translation(job.key, Reason::Deadline);
+        }
         while self
             .translation_queue
             .front()
@@ -635,13 +725,20 @@ impl Pipeline {
         if !self.running || self.translation.is_some() {
             return Ok(None);
         }
-        let Some(job) = self.translation_queue.pop_front() else {
+        let Some(job) = self
+            .translation_queue
+            .pop_front()
+            .or_else(|| self.preview_queue.take())
+        else {
             return Ok(None);
         };
         self.translation = Some(TranslationFlight {
             key: job.key,
             deadline: job.deadline_ns,
             cancelled: false,
+            preview: self
+                .key_index(job.key.source)
+                .is_some_and(|i| self.records[i].translation_is_preview),
         });
         Ok(Some(job))
     }
@@ -694,6 +791,8 @@ impl Pipeline {
             return Err(CoreError::Frozen);
         }
         self.time(now)?;
+        self.cancel_preview(Reason::Interrupted);
+        self.agreement.reset();
         if let Some(i) = self.index(id) {
             self.records[i].source_state = SourceState::Discarded;
             self.records[i].source_reason = Some(Reason::Interrupted);
@@ -713,6 +812,9 @@ impl Pipeline {
         Ok(())
     }
     fn invalidate(&mut self, reason: Reason) {
+        self.preview_queue = None;
+        self.agreement.reset();
+        self.last_preview_ns = None;
         self.final_queue.clear();
         self.partial = None;
         self.translation_queue.clear();

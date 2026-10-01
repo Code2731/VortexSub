@@ -2,6 +2,13 @@ using System.Diagnostics;
 using System.Text.Json;
 using EchoSub.Desktop;
 
+if (args.Length == 6 && args[0] is "--streaming-source" or "--streaming-translation")
+{
+    if (args[0] == "--streaming-source") await StreamingTranslationProbe.Sources(args);
+    else await StreamingTranslationProbe.Replay(args);
+    return;
+}
+
 if (args.Length == 8 && args[0] == "--translation")
 {
     try { await WorkerTranslationSmoke.Run(args); }

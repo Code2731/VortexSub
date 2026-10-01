@@ -32,6 +32,8 @@ public sealed class MainWindow : Window
     private readonly TextBlock exportResult = new() { TextWrapping = TextWrapping.Wrap };
     private readonly ComboBox language = new() { ItemsSource = new[] { "en", "ja", "ko" }, SelectedIndex = 0, Width = 80 };
     private readonly CheckBox partialEnabled = new() { Content = "부분 전사 켜기 · 실험 기능 / 기본 끔", IsChecked = false };
+    private readonly CheckBox partialTranslationEnabled = new() { Content = "안정된 부분 먼저 번역 · 임시 결과 / 기본 끔", IsChecked = false };
+    private bool partialTranslationSupported;
     private readonly ComboBox endpoint = new() { Width = 450 };
     private readonly ListBox history = new() { Height = 190 };
     private readonly SemaphoreSlim operationGate = new(1, 1);
@@ -101,6 +103,7 @@ public sealed class MainWindow : Window
                             new TextBlock { Text = "출력 장치 / 원문 언어 · 변경하려면 세션을 종료하세요. 이전 history는 유지됩니다." },
                             new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { endpoint, language } },
                             partialEnabled,
+                            partialTranslationEnabled,
                             new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { startCaptureButton, pauseButton, resumeButton, stopCaptureButton } }
                         }
                     },
@@ -163,6 +166,7 @@ public sealed class MainWindow : Window
             ClearSource();
             var config = new Dictionary<string, object?> { ["source_language"] = language.SelectedItem as string, ["device_id"] = (endpoint.SelectedItem as EndpointChoice)?.Id };
             if (partialSupported) config["partial_enabled"] = partialEnabled.IsChecked == true;
+            if (partialTranslationSupported) config["partial_translation_enabled"] = partialTranslationEnabled.IsChecked == true && partialEnabled.IsChecked == true;
             var accepted = await client.SendAsync("start_session", new
             {
                 history_policy = "retain",
@@ -225,6 +229,14 @@ public sealed class MainWindow : Window
         };
         resetOverlay.Click += (_, _) => overlay?.ResetPlacement(this);
         overlaySourceEnabled.IsCheckedChanged += (_, _) => overlay?.SetSourceVisible(overlaySourceEnabled.IsChecked == true);
+        partialTranslationEnabled.IsCheckedChanged += (_, _) =>
+        {
+            if (partialTranslationEnabled.IsChecked == true) partialEnabled.IsChecked = true;
+        };
+        partialEnabled.IsCheckedChanged += (_, _) =>
+        {
+            if (partialEnabled.IsChecked != true) partialTranslationEnabled.IsChecked = false;
+        };
         overlayWidth.ValueChanged += (_, _) => { if (overlay is not null) overlay.Width = overlayWidth.Value; };
         cardOpacity.ValueChanged += (_, _) => overlay?.SetCardOpacity(cardOpacity.Value);
         timer.Tick += async (_, _) =>
@@ -418,6 +430,7 @@ public sealed class MainWindow : Window
             exportSupported = hello.GetProperty("capabilities").TryGetProperty("history_export", out var exportCapability) && exportCapability.GetBoolean();
             clearSupported = hello.GetProperty("capabilities").TryGetProperty("history_clear", out var clearCapability) && clearCapability.GetBoolean();
             partialSupported = hello.GetProperty("capabilities").TryGetProperty("source_partial", out var partialCapability) && partialCapability.GetBoolean();
+            partialTranslationSupported = hello.GetProperty("capabilities").TryGetProperty("partial_translation", out var previewCapability) && previewCapability.GetBoolean();
             translationSupported = hello.GetProperty("capabilities").TryGetProperty("translation", out var translationCapability) && translationCapability.GetBoolean();
             StartupDiagnostics.Write($"Worker connected; live={live}");
             snapshot = null;
@@ -563,6 +576,7 @@ public sealed class MainWindow : Window
         resumeReady = false;
         exportReady = exportSupported = false;
         clearSupported = historyReady = partialSupported = false;
+        partialTranslationSupported = false;
         exportSession.ItemsSource = null;
         exportResult.Text = "";
         if (oldClient is not null)
@@ -594,6 +608,7 @@ public sealed class MainWindow : Window
         catalogButton.IsEnabled = disableTranslationButton.IsEnabled = translationEndpoint.IsEnabled = translationModel.IsEnabled = translationEditable;
         applyTranslationButton.IsEnabled = translationEditable && translationModel.SelectedItem is string;
         partialEnabled.IsEnabled = available && captureStartable && partialSupported;
+        partialTranslationEnabled.IsEnabled = available && captureStartable && partialTranslationSupported;
     }
 
     public sealed record EndpointChoice(string? Id, string Name)

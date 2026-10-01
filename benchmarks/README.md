@@ -1,5 +1,10 @@
 # Model baseline probes (T00-04.1)
 
+For the growing-prefix CPU Whisper and actual HTTP partial-translation experiment,
+run `scripts/probe-streaming-translation.ps1`. It uses existing assets and Python 3.12
+without downloads, capture, playback, or UI rendering. Source admission is a
+precomputed MOCK replay; see [scope and results](../docs/STREAMING_TRANSLATION.md).
+
 These are standalone diagnostics. The desktop still displays MOCK captions;
 neither probe is connected to capture, worker IPC, or the overlay.
 

@@ -39,6 +39,7 @@
           "properties": {
         "source_language": {"enum": ["en", "ja", "ko"]},
         "partial_enabled": {"type": "boolean", "default": false},
+        "partial_translation_enabled": {"type": "boolean", "default": false, "description": "Experimental LocalAgreement preview; requires partial_enabled and HTTP translation capability."},
             "device_id": {"type": ["string", "null"], "minLength": 1, "maxLength": 2048}
           }, "additionalProperties": false
         }
@@ -290,6 +291,8 @@
     },
     "historyRecord": {
       "properties": {
+        "stable_source": {"type": "string", "maxLength": 1024, "description": "Provisional LocalAgreement-2 prefix; bounded to 1024 UTF-8 bytes, may retract."},
+        "translation_is_preview": {"type": "boolean", "description": "Translation is provisional and is superseded on the next source admission/final."},
         "product_session_id": {"type": "string", "format": "uuid"},
         "session_started_at_utc": {"type": "string", "format": "date-time"},
         "session_audio_start_s": {"type": "number", "minimum": 0},

@@ -21,6 +21,8 @@ pub struct Translator {
     started: Option<Instant>,
     completed: u64,
     error: Option<String>,
+    started_preview: bool,
+    preview_completed: u64,
 }
 impl Default for Translator {
     fn default() -> Self {
@@ -35,6 +37,8 @@ impl Default for Translator {
             started: None,
             completed: 0,
             error: None,
+            started_preview: false,
+            preview_completed: 0,
         }
     }
 }
@@ -42,7 +46,7 @@ impl Translator {
     pub fn value(&self, decoding: bool) -> Value {
         json!({"state":self.state,"enabled":self.enabled,"model_id":self.selected,
             "models":self.models,"in_flight":decoding,"catalog_pending":self.catalog_pending,
-            "completed_jobs":self.completed,"last_error":self.error})
+            "completed_jobs":self.completed,"preview_completed_jobs":self.preview_completed,"last_error":self.error})
     }
 }
 impl Runtime {
@@ -188,6 +192,13 @@ impl Runtime {
                 .map_err(|_| std::io::Error::other("Translation dispatch rejected"))?
             {
                 self.translator.started = Some(Instant::now());
+                self.translator.started_preview = self
+                    .core
+                    .record(SegmentIdentity {
+                        audio: job.key.source.audio,
+                        segment_id: job.key.source.segment_id,
+                    })
+                    .is_some_and(|r| r.translation_is_preview);
                 let submitted = match (&mut self.translator.owner, &self.translator.selected) {
                     (Some(owner), Some(model)) if self.translator.state == "Ready" => owner
                         .translate(
@@ -220,6 +231,9 @@ impl Runtime {
             .complete_translation(key, outcome, self.now())
             .map_err(|_| std::io::Error::other("Translation completion rejected"))?;
         self.translator.completed += 1;
+        if self.translator.started_preview {
+            self.translator.preview_completed += 1;
+        }
         self.translator.error = error.clone();
         let elapsed_s = self
             .translator
@@ -228,7 +242,7 @@ impl Runtime {
             .map(|s| s.elapsed().as_secs_f64());
         q.publish("translation.completed", json!({"session_id":key.source.audio.session_id,
             "epoch":key.source.audio.epoch,"segment_id":key.source.segment_id,"source_revision":key.source.source_revision,
-            "translation_request_id":key.request_id,"elapsed_s":elapsed_s,"applied":applied==Apply::Applied,"error":error}), None)?;
+            "translation_request_id":key.request_id,"elapsed_s":elapsed_s,"preview":self.translator.started_preview,"applied":applied==Apply::Applied,"error":error}), None)?;
         if applied == Apply::Applied {
             let record = self
                 .core

@@ -20,14 +20,18 @@ public sealed class CaptionPresentation
         if (key != next) { key = next; since = nowSeconds; }
         if (nowSeconds - since >= 5) return (null, null);
         var prefix = record.SourceState == "Partial" ? "[인식 중] " : record.SourceState == "FinalPending" ? "[확정 처리 중] " : "";
-        var translation = record.SourceState == "Final" && record.AppliedSourceRevision == record.SourceRevision &&
+        var eligible = record.SourceState == "Final" && !record.TranslationIsPreview ||
+            record.SourceState == "Partial" && record.TranslationIsPreview && record.StableSource.Length > 0 &&
+            record.Source.StartsWith(record.StableSource, StringComparison.Ordinal);
+        var translation = eligible && record.AppliedSourceRevision == record.SourceRevision &&
             record.TranslationState == "Done" && record.TranslationRequestId is > 0 &&
             !string.IsNullOrWhiteSpace(record.Translation) ? record.Translation : null;
+        if (translation is not null && record.TranslationIsPreview) translation = "[임시 번역] " + translation;
         return (prefix + record.Source, translation);
     }
 
     public static string HistoryText(HistoryRecord record) =>
         $"[{record.ProductSessionId ?? record.SessionId.ToString()}/{record.Epoch}/{record.SegmentId} · {record.SessionAudioStartSeconds ?? record.AudioStartSeconds:F3}~{record.SessionAudioEndSeconds ?? record.AudioEndSeconds:F3}초 · {record.SourceState}] {record.SourceReason}\n{record.Source}\n" +
-        $"번역 {record.TranslationState}{(record.TranslationReason is null ? "" : " · " + record.TranslationReason)}" +
+        $"{(record.TranslationIsPreview ? "임시 번역" : "번역")} {record.TranslationState}{(record.TranslationReason is null ? "" : " · " + record.TranslationReason)}" +
         (record.TranslationState == "Done" ? "\n" + record.Translation : "");
 }

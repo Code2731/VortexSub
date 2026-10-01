@@ -68,6 +68,9 @@ impl HttpClient {
         let client = Client::builder()
             .no_proxy()
             .redirect(redirect::Policy::none())
+            // The owner's current-thread runtime sleeps between jobs. Avoid reusing
+            // idle sockets whose server-side closure could not be observed then.
+            .pool_max_idle_per_host(0)
             .connect_timeout(CONNECT_TIMEOUT)
             .default_headers(headers)
             .build()

@@ -196,6 +196,7 @@ fn serve() -> io::Result<()> {
                             "capture_pcm": runtime.capture.enabled,
                             "live_asr": runtime.is_live(),
                             "source_partial": runtime.is_live() || runtime.session.mock,
+                            "partial_translation": runtime.translator.enabled && (runtime.is_live() || runtime.session.mock),
                             "source_token_alignment": runtime.has_native(),
                             "session_control": runtime.session.enabled,
                             "session_history_uuid": runtime.session.enabled,

@@ -208,6 +208,73 @@ fn translation_requires_opt_in_and_rejects_nonlocal_configuration() {
     shutdown(w);
 }
 #[test]
+fn stable_preview_is_opt_in_and_replaced_by_full_final_http() {
+    let s = Server::new();
+    let mut w = start();
+    configure(&mut w, &s);
+    for value in [json!("yes"), json!(true)] {
+        let partial = value != json!(true);
+        assert_eq!(w.send(command("invalid-preview", "start_session", json!({"history_policy":"retain","config":{"source_language":"en","partial_enabled":partial,"partial_translation_enabled":value}})))["error"]["code"], "INVALID_REQUEST");
+    }
+    assert_eq!(w.send(command("start-preview", "start_session", json!({"history_policy":"retain","config":{"source_language":"en","partial_enabled":true,"partial_translation_enabled":true}})))["ok"], true);
+    until(&mut w, |v| v["session"]["state"] == "Running");
+    source(&mut w, "We should take the left", "partial");
+    assert!(history(&mut w)[0]["stable_source"]
+        .as_str()
+        .unwrap()
+        .is_empty());
+    assert!(s.bodies.lock().unwrap().is_empty());
+    source(&mut w, "We should take the left path.", "partial");
+    until(&mut w, |v| v["translator"]["completed_jobs"] == 1);
+    let preview = history(&mut w);
+    assert_eq!(preview[0]["source_state"], "Partial");
+    assert_eq!(preview[0]["translation_is_preview"], true);
+    assert_eq!(preview[0]["translation_state"], "Done");
+    assert_eq!(
+        s.bodies.lock().unwrap()[0]["source_text"],
+        "We should take the left"
+    );
+    source(
+        &mut w,
+        "We should take the left path after sunset.",
+        "final",
+    );
+    until(&mut w, |v| v["translator"]["completed_jobs"] == 2);
+    let final_record = history(&mut w);
+    assert_eq!(final_record[0]["translation_is_preview"], false);
+    assert_eq!(final_record[0]["source_state"], "Final");
+    assert_eq!(final_record[0]["source_revision"], 3);
+    assert_eq!(
+        s.bodies.lock().unwrap()[1]["source_text"],
+        "We should take the left path after sunset."
+    );
+    shutdown(w);
+}
+#[test]
+fn final_admission_cancels_slow_preview_and_ignores_its_late_response() {
+    let s = Server::new();
+    let mut w = start();
+    configure(&mut w, &s);
+    w.send(command("start-preview", "start_session", json!({"history_policy":"retain","config":{"source_language":"en","partial_enabled":true,"partial_translation_enabled":true}})));
+    until(&mut w, |v| v["session"]["state"] == "Running");
+    source(&mut w, "slow old partial text", "partial");
+    source(&mut w, "slow old partial text changed", "partial");
+    s.wait_posts(1);
+    source(&mut w, "final complete condition", "final");
+    until(&mut w, |v| v["translator"]["completed_jobs"] == 2);
+    let rows = history(&mut w);
+    assert_eq!(rows[0]["source"], "final complete condition");
+    assert_eq!(rows[0]["translation_is_preview"], false);
+    assert_eq!(rows[0]["translation_state"], "Done");
+    assert!(w
+        .events
+        .iter()
+        .any(|e| e["event"] == "translation.completed"
+            && e["payload"]["preview"] == true
+            && e["payload"]["applied"] == false));
+    shutdown(w);
+}
+#[test]
 fn http_final_only_context_history_and_failure_preserve_source() {
     let s = Server::new();
     let mut w = start();

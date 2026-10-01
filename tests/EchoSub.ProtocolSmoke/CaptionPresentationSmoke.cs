@@ -29,6 +29,14 @@ internal static class CaptionPresentationSmoke
         Check(Show(revised with { Epoch = 1 }, 8) == (null, null), "old epoch rejected");
         Check(Show(revised, 8, false) == (null, null), "pause hides both lines");
         Check(CaptionPresentation.HistoryText(done).Contains("번역 Done\n번역"), "history translation text");
-        Console.WriteLine("Caption presentation: 14 fixture assertions PASS (no rendered UI)");
+        var preview = revised with { SourceState = "Partial", StableSource = "Source", TranslationIsPreview = true };
+        Check(Show(preview, 8).Translation == "[임시 번역] 번역", "preview explicitly provisional");
+        Check(Show(preview with { StableSource = "different" }, 8).Translation is null, "preview must match source prefix");
+        Check(Show(preview with { SourceRevision = 6 }, 8).Translation is null, "superseded preview rejected");
+        Check(Show(preview with { SourceState = "FinalPending" }, 8).Translation is null, "preview hidden during final decode");
+        Check(Show(preview with { SourceState = "Final" }, 8).Translation is null, "preview cannot become final implicitly");
+        Check(Show(preview, 12).Translation is null, "preview does not renew caption lifetime");
+        Check(CaptionPresentation.HistoryText(preview).Contains("임시 번역 Done"), "history distinguishes preview");
+        Console.WriteLine("Caption presentation: 21 fixture assertions PASS (no rendered UI)");
     }
 }

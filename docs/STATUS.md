@@ -1,5 +1,17 @@
 # 구현 상태
 
+## 안정 prefix·임시 번역 갱신 (2026-10-01)
+
+연속 두 전사의 공통 앞부분과 기본 꺼짐인 임시 번역 옵션을 연결했다.
+확정 우선·revision/epoch 무효화·1.5초 deadline·최신 대기 1개와 표시 라벨을
+구현했다. Rust 146개/C# HTTP·IPC·표시 21개 assertion, native CPU/VAD 빌드 PASS.
+기존 CPU Whisper prefix + 실제 HTTP 오프라인 비교 10회 PASS; 긴 합성 음원에서
+첫 번역 5.753초 개선, 짧은 문장에서는 이득 없음. live/UI 수용은 미검증이고
+의미 반전/조건 오역으로 품질 채택 보류다. [계약](STREAMING_TRANSLATION.md) ·
+[근거](evidence/streaming-translation-windows-20261001.md).
+SenseVoice/Fun-ASR와 Qwen3 1.7B의 [후보 검토](MODEL_CANDIDATES.md)는 조사 단계다.
+현재 4B-Instruct-2507은 비사고 전용이며 새 모델 다운로드/실측은 하지 않았다.
+
 ## 번역 엔진 비교 갱신 (2026-10-01)
 
 동의받은 TabbyAPI/ExLlamaV3 모델·격리 런타임 설치, production HTTP 비교 도구와

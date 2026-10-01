@@ -327,6 +327,8 @@ mod tests {
             translation: String::new(),
             translation_reason: None,
             translation_request_id: None,
+            stable_source: String::new(),
+            translation_is_preview: false,
         };
         let mut ignored = final_record.clone();
         ignored.source_state = SourceState::FinalPending;

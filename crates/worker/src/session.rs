@@ -127,10 +127,12 @@ impl Runtime {
                 .get("config")
                 .and_then(Value::as_object)
                 .ok_or(("INVALID_REQUEST", "Session config required"))?;
-            if config
-                .keys()
-                .any(|k| k != "source_language" && k != "device_id" && k != "partial_enabled")
-            {
+            if config.keys().any(|k| {
+                k != "source_language"
+                    && k != "device_id"
+                    && k != "partial_enabled"
+                    && k != "partial_translation_enabled"
+            }) {
                 return Err(("INVALID_REQUEST", "Unsupported session config field"));
             }
             let language = config
@@ -145,6 +147,19 @@ impl Runtime {
                     .as_bool()
                     .ok_or(("INVALID_REQUEST", "partial_enabled must be boolean"))?,
             };
+            let partial_translation_enabled = match config.get("partial_translation_enabled") {
+                None => false,
+                Some(v) => v.as_bool().ok_or((
+                    "INVALID_REQUEST",
+                    "partial_translation_enabled must be boolean",
+                ))?,
+            };
+            if partial_translation_enabled && (!partial_enabled || !self.translator.enabled) {
+                return Err((
+                    "INVALID_REQUEST",
+                    "Partial translation requires partial ASR and HTTP capability",
+                ));
+            }
             if !device.is_null()
                 && !device
                     .as_str()
@@ -180,13 +195,12 @@ impl Runtime {
             self.session.started_ns = started_ns;
             self.session.ended_ns = None;
             self.partial_enabled = partial_enabled;
-            if self.translator.enabled {
-                self.core
-                    .set_translation_languages(language, "ko")
-                    .map_err(super::core_error)?;
-            }
-            self.session.config =
-                json!({"language":language,"device_id":device,"partial_enabled":partial_enabled});
+            self.core
+                .set_partial_translation_enabled(partial_translation_enabled);
+            self.core
+                .set_translation_languages(language, "ko")
+                .map_err(super::core_error)?;
+            self.session.config = json!({"language":language,"device_id":device,"partial_enabled":partial_enabled,"partial_translation_enabled":partial_translation_enabled});
             self.epoch = AudioIdentity {
                 session_id: internal_id,
                 epoch: 0,

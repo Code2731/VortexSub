@@ -30,7 +30,9 @@ llama-server.exe -m ./models/Qwen3-4B-Instruct-2507-Q4_K_M.gguf -c 4096 -ngl 99 
    actual ID from the dropdown and click **선택 모델 적용**. Preparing/Ready/Failed
    and sanitized errors are shown. Catalog lookup prevents session start until done.
 3. Start a session. Final English/Japanese sources translate to Korean; Korean
-   sources bypass translation. Partial sources are never submitted for translation.
+   sources bypass translation. Partial translation is off by default. Select
+   **안정된 부분 먼저 번역 · 임시 결과 / 기본 끔** before session start to try it;
+   this also enables partial ASR. See [provisional translation contracts](STREAMING_TRANSLATION.md).
 4. End the session and wait for cleanup before changing configuration or selecting
    **번역 끄기**. Retained history is preserved.
 
@@ -47,8 +49,9 @@ alongside Korean translation. This setting changes immediately and applies only
 to the overlay; history retains the source. The setting lasts for the current app
 run. Translation remains visible when source display is disabled; no source
 fallback appears during translation wait/failure with this option off.
-The overlay shows a Korean line only for a current finalized
-revision with a nonzero translation request ID. It consumes validated snapshot
+The overlay shows a Korean line for a current finalized revision, or an explicitly
+marked provisional translation with a matching stable source prefix, with a nonzero
+translation request ID. Provisional lines carry **[임시 번역]**. It consumes validated snapshot
 records rather than merging asynchronous event text.
 
 Current UUID/internal session/epoch and applied source revision filter the latest
