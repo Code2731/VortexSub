@@ -22,15 +22,17 @@
   번역이 없으면 원문 길이를 사용한다. 위 자리로 이동해도 시간을 연장하지 않는다.
 - 동일 번역의 반복 조회와 원문 revision 변경은 읽기 만료를 연장하지 않는다.
   수정된 번역을 실제 표시하면 그 내용의 읽기 시간이 시작된다.
-- 같은 segment의 일반 갱신은 최소 1.25초 간격이다. 대기 갱신은 최신 하나로
-  교체한다. 첫 번역·임시→확정·원문 prefix 반박·번역 실패/무효화는 즉시 적용한다.
+- 현재 **갱신 중 draft**의 일반 수정은 최소 0.25초 간격이다. 이전 읽기 카드와
+  확정 카드의 일반 갱신은 1.25초 간격을 유지한다. 대기는 각 카드의 최신 하나다.
+  첫 번역·임시→확정·원문 prefix 반박·번역 실패/무효화는 즉시 적용한다.
   첫 자막을 이 제한 때문에 늦추지 않는다.
 - 이전 카드가 만료된 뒤 늦게 온 번역으로 다시 표시하지 않는다.
   현재 카드도 같은 내용으로 부활하지 않는다. 다른 유효 번역은 새 내용이다.
 - Pause/Stop/통신 오류/UUID·epoch 변경은 두 카드와 대기를 함께 지운다.
   history는 변경하지 않는다. identity와 revision 검증은 기존 presenter를 사용한다.
 
-0.5초 UI timer에서도 갱신/만료를 처리한다. IPC가 늦어도 timer는 독립적으로
+0.1초 표시 전용 timer에서도 갱신/만료를 처리한다. 0.5초 IPC 조회와 분리했다.
+같은 카드 상태는 오버레이에 다시 대입하지 않는다. IPC가 늦어도 timer는 독립적으로
 동작하며 UI thread가 정상일 때 표시 시점은 한 tick 정도 늦어질 수 있다.
 기본 오버레이 높이는 310이고 긴 내용은 스크롤할 수 있다.
 
@@ -41,3 +43,26 @@ Windows에서 Desktop과 ProtocolSmoke 프로젝트 빌드(경고/오류 0)를 �
 평가는 미실행이다. 4~10초와 1.25초는 초기 정책이며 읽기 보장을 실측한 수치가 아니다.
 후속 단위 번역 라운드에서 표시 fixture 29개 assertion을 실행했다. 실제
 렌더링/읽기 평가는 여전히 미실행이다.
+
+후속 draft 갱신 라운드에서 39개 assertion과 전체 check를 통과했다.
+0.1초에 도착한 수정은 fixture의 0.3초 tick에서 적용됐고, 반복 조회는
+대기 시점을 초기화하지 않았다. 이전 카드 보호·만료·즉시 확정도 확인했다.
+이는 pure 표시 상태 측정이며 실제 화면 지연 감소의 실측이 아니다.
+
+## 선택 진단
+
+`run-live-cuda-fast.bat -CaptionTiming`으로 실행하면
+`logs/caption-timing-*.jsonl`에 번역 이벤트 수신, Deck 반영과 오버레이 속성
+대입 시점을 기록한다. 기본 꺼짐이다. 원문/번역은 기록하지 않으며 worker PID,
+session/epoch/segment/revision/request ID, 초 단위 시점과 대기만 남긴다.
+로그는 Git 제외, background writer/128개 대기로 처리하며 고갈 시 drop을 기록한다.
+정상 창 종료에서 최대 0.5초 동안 writer를 drain한다. 강제 종료/파일 오류나
+고갈로 빠진 관측은 수용 근거로 쓰지 않는다.
+
+```powershell
+models/tabby/venv/Scripts/python.exe scripts/summarize-caption-timing.py logs/caption-timing-<run>.jsonl
+```
+
+동일 ID의 첫 visible Deck 반영을 수신 이벤트와 연결해 지연·Deck 대기를 요약한다.
+512개 ID 상한 밖/누락/숨겨진 오버레이는 완전한 관측으로 보지 않는다.
+`overlay_assigned`는 Avalonia 속성 대입이며 GPU 합성·물리 화면 표시 완료가 아니다.

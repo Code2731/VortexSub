@@ -1,5 +1,14 @@
 # 구현 상태
 
+## 현재 draft 갱신과 표시 계측 (2026-10-01)
+
+현재 draft 수정 간격 1.25→0.25초, 표시 timer 0.5→0.1초로 분리했다.
+이전 읽기 카드 보호·4~10초 만료·확정/반박 즉시 적용과 기본 IPC 주기는 유지한다.
+`-CaptionTiming`으로 metadata 수신→Deck/overlay 대입을 기록할 수 있다.
+check(Rust 153개, C# 표시 39개·HTTP/IPC·빌드) PASS. fixture의 수정 대기 0.2초
+확인이며 화면 지연 감소의 실측은 아니다. 실제 UI/log·게임·macOS는 미실행이다.
+[규칙·사용](CAPTION_READING.md) · [근거·다음](evidence/caption-display-windows-20261001.md).
+
 ## 실제 paced ASR→Qwen·빠른 모드 (2026-10-01)
 
 동일 GPU에서 실제 ASR/HTTP를 연결해 1초·0.5초 간격 각각 3회 측정했다.

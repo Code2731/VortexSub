@@ -7,6 +7,7 @@ public sealed class CaptionPresentation
     private double since;
     private HistoryRecord? preview;
     private double previewSince;
+    public HistoryRecord? DisplayedTranslationRecord { get; private set; }
     public string PreviewPrefix => preview is null ? "" : Guard(preview);
     public int PreviewUnitStart => preview is null || preview.TranslationSource.Length == 0 ? 0 :
         preview.TranslationPrefix.Length - preview.TranslationSource.Length;
@@ -14,12 +15,13 @@ public sealed class CaptionPresentation
         ? record.TranslationPrefix : record.StableSource;
     public bool IsExpired(double nowSeconds) => preview is not null
         ? nowSeconds - previewSince >= 5 : key is not null && nowSeconds - since >= 5;
-    public void Clear() { key = null; preview = null; }
+    public void Clear() { key = null; preview = null; DisplayedTranslationRecord = null; }
 
     public (string? Source, string? Translation) Update(IEnumerable<HistoryRecord> records,
         string? productSession, ulong internalSession, ulong epoch, bool running, double nowSeconds,
         bool expire = true)
     {
+        DisplayedTranslationRecord = null;
         var record = running ? records.LastOrDefault(r => r.ProductSessionId == productSession &&
             r.SessionId == internalSession && r.Epoch == epoch &&
             r.SourceState is "Partial" or "FinalPending" or "Final" &&
@@ -52,6 +54,7 @@ public sealed class CaptionPresentation
         {
             // Keep an already displayed, matching caption while the next revision
             // is decoded/translated. This never accepts a stale worker response.
+            DisplayedTranslationRecord = preview;
             return ("[인식 중] " + (preview.TranslationSource.Length > 0 ? preview.TranslationSource : preview.Source), "[임시 번역] " + preview.Translation);
         }
         else
@@ -59,6 +62,7 @@ public sealed class CaptionPresentation
             preview = null;
             if (expire && nowSeconds - since >= 5) return (null, null);
         }
+        if (translation is not null) DisplayedTranslationRecord = record;
         return (prefix + (record.TranslationIsPreview && translation is not null && record.TranslationSource.Length > 0
             ? record.TranslationSource : record.Source), translation);
     }

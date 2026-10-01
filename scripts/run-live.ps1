@@ -1,5 +1,5 @@
 param([string] $ServerPath, [switch] $NoBuild,
-    [ValidateSet('cpu', 'cuda')] [string] $AsrBackend = 'cpu', [switch] $FastPartials)
+    [ValidateSet('cpu', 'cuda')] [string] $AsrBackend = 'cpu', [switch] $FastPartials, [switch] $CaptionTiming)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
 $server = $null
@@ -72,6 +72,7 @@ try {
     $launcherArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $repo 'scripts/run.ps1'), '-Live', '-Offline', '-NoPause', '-AsrBackend', $AsrBackend)
     if ($NoBuild) { $launcherArgs += '-NoBuild' }
     if ($FastPartials) { $launcherArgs += '-FastPartials' }
+    if ($CaptionTiming) { $launcherArgs += '-CaptionTiming' }
     & (Join-Path $env:SystemRoot 'System32/WindowsPowerShell/v1.0/powershell.exe') @launcherArgs
     $exitCode = $LASTEXITCODE
 } catch {

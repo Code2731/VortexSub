@@ -38,6 +38,7 @@ public sealed class MainWindow : Window
     private readonly ListBox history = new() { Height = 190 };
     private readonly SemaphoreSlim operationGate = new(1, 1);
     private readonly DispatcherTimer timer = new() { Interval = TimeSpan.FromSeconds(0.5) };
+    private readonly DispatcherTimer captionTimer = new() { Interval = TimeSpan.FromSeconds(0.1) };
     private CancellationTokenSource? refreshCancellation;
     private CancellationTokenSource? eventRefreshCancellation;
     private Task? eventRefreshTask;
@@ -242,9 +243,10 @@ public sealed class MainWindow : Window
         };
         overlayWidth.ValueChanged += (_, _) => { if (overlay is not null) overlay.Width = overlayWidth.Value; };
         cardOpacity.ValueChanged += (_, _) => overlay?.SetCardOpacity(cardOpacity.Value);
+        captions.Applied += RecordCaptionApplied;
+        captionTimer.Tick += (_, _) => ExpireSource();
         timer.Tick += async (_, _) =>
         {
-            ExpireSource();
             if (pendingActions == 0 && !closing && client is not null) await PollAsync();
         };
         Opened += async (_, _) =>
@@ -259,9 +261,11 @@ public sealed class MainWindow : Window
             if (closing) return;
             closing = true;
             timer.Stop();
+            captionTimer.Stop();
             ClearSource();
             overlay?.Close();
             await ExecuteAsync(DisconnectCoreAsync);
+            await CaptionDiagnostics.DrainAsync();
             closeReady = true;
             Close();
         };
@@ -413,6 +417,7 @@ public sealed class MainWindow : Window
                 endpoint.SelectedIndex = 0;
             }
             var connected = WorkerClient.Start(path, arguments: arguments);
+            connected.EventReceived += (name, payload) => CaptionDiagnostics.Received(connected.ProcessId, name, payload);
             client = connected;
             disconnectedHandler = () => Dispatcher.UIThread.Post(async () => await ExecuteAsync(async () =>
             {
@@ -441,6 +446,7 @@ public sealed class MainWindow : Window
             if (live)
             {
                 timer.Start();
+                captionTimer.Start();
                 eventRefreshCancellation = new CancellationTokenSource();
                 eventRefreshTask = RefreshOnEventsAsync(connected, eventRefreshCancellation.Token);
             }
@@ -520,10 +526,9 @@ public sealed class MainWindow : Window
         while (client.Events.TryRead(out _)) { }
         var epoch = state.GetProperty("diagnostic_asr").GetProperty("epoch").GetUInt64();
         captions.ShowSource = overlaySourceEnabled.IsChecked == true;
-        latestCards = captions.Update(snapshot?.Records ?? [], sessionId,
+        SetCaptionCards(captions.Update(snapshot?.Records ?? [], sessionId,
             sessionId is not null ? session.GetProperty("internal_session_id").GetUInt64() : 0, epoch,
-            sessionState == "Running" && captureState == "Running", captionClock.Elapsed.TotalSeconds);
-        overlay?.SetCards(latestCards);
+            sessionState == "Running" && captureState == "Running", captionClock.Elapsed.TotalSeconds));
     }
 
     private async Task ConfigureTranslationAsync(bool selectedModel)
@@ -555,13 +560,23 @@ public sealed class MainWindow : Window
 
     private void ExpireSource()
     {
-        latestCards = captions.Tick(captionClock.Elapsed.TotalSeconds);
-        if (live) overlay?.SetCards(latestCards);
+        SetCaptionCards(captions.Tick(captionClock.Elapsed.TotalSeconds));
+    }
+
+    private void RecordCaptionApplied(CaptionUpdateTiming timing) =>
+        CaptionDiagnostics.Applied(timing, overlay?.IsVisible == true, client?.ProcessId);
+
+    private void SetCaptionCards(CaptionCards cards)
+    {
+        if (latestCards == cards) return;
+        latestCards = cards;
+        if (live) overlay?.SetCards(cards);
     }
 
     private async Task DisconnectCoreAsync()
     {
         timer.Stop();
+        captionTimer.Stop();
         eventRefreshCancellation?.Cancel();
         if (eventRefreshTask is not null) await eventRefreshTask;
         eventRefreshTask = null;
@@ -572,6 +587,7 @@ public sealed class MainWindow : Window
         ClearSource();
         snapshot = null;
         captions = new CaptionDeck();
+        captions.Applied += RecordCaptionApplied;
         translationSupported = translationBusy = false;
         translationModels = [];
         translationModel.ItemsSource = null;

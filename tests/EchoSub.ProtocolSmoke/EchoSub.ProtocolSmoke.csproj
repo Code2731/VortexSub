@@ -10,6 +10,7 @@
     <Compile Include="../../apps/EchoSub.Desktop/WorkerHistory.cs" Link="WorkerHistory.cs" />
     <Compile Include="../../apps/EchoSub.Desktop/CaptionPresentation.cs" Link="CaptionPresentation.cs" />
     <Compile Include="../../apps/EchoSub.Desktop/CaptionDeck.cs" Link="CaptionDeck.cs" />
+    <Compile Include="../../apps/EchoSub.Desktop/CaptionDiagnostics.cs" Link="CaptionDiagnostics.cs" />
   </ItemGroup>
 </Project>
 

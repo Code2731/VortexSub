@@ -28,6 +28,11 @@ token 시간 검토는 단어 길이 0으로 trim을 거부했다. 라이브 tri
 카드 교체 계측과 읽기/current draft 제한 검토다.
 [조건과 한계](evidence/paced-translation-windows-20261001.md).
 
+현재 draft 교체 0.25초·독립 표시 timer 0.1초와 선택 metadata 계측을 구현했다.
+이전 읽기 보호와 기본 IPC 조회는 유지한다. fixture 확인이며 실제 화면/log 수용은
+별도다. 다음은 수신→Deck 로그 확인과 미완성 조건/숫자 조각의 번역 기준 검토다.
+[근거](evidence/caption-display-windows-20261001.md).
+
 2026-10-01 사용자 요청의 안정 prefix/임시 번역 실험을 opt-in으로 구현했다.
 오프라인 비교는 첫 표시를 앞당길 가능성과 의미 반전을 함께 확인했다.
 기본 꺼짐·품질 gate 보류를 유지한다. [결과와 범위](STREAMING_TRANSLATION.md).

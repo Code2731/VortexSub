@@ -147,6 +147,7 @@ public sealed class OverlayWindow : Window
         SetSourceVisible(sourceVisible);
         currentLabel.Text = cards.Current?.IsDraft == true ? "갱신 중" : "현재 자막";
         currentLabel.IsVisible = sourceCaption.IsVisible || translationCaption.IsVisible;
+        if (IsVisible) CaptionDiagnostics.OverlayAssigned(cards);
     }
 
     public void SetCardOpacity(double opacity)

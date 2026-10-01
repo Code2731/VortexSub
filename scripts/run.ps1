@@ -1,5 +1,5 @@
 param([switch] $NoBuild, [switch] $Offline, [switch] $NoPause, [switch] $Live,
-    [ValidateSet('cpu', 'cuda')] [string] $AsrBackend = 'cpu', [switch] $FastPartials)
+    [ValidateSet('cpu', 'cuda')] [string] $AsrBackend = 'cpu', [switch] $FastPartials, [switch] $CaptionTiming)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
 $env:AVALONIA_TELEMETRY_OPTOUT = '1'
@@ -14,6 +14,7 @@ New-Item -ItemType Directory -Force -Path $logDirectory | Out-Null
 $runId = '{0}-{1}' -f (Get-Date -Format 'yyyyMMdd-HHmmss'), $PID
 $launcherLog = Join-Path $logDirectory "run-$runId.log"
 $env:ECHOSUB_STARTUP_LOG = Join-Path $logDirectory "desktop-$runId.log"
+$env:ECHOSUB_CAPTION_TIMING_LOG = if ($CaptionTiming) { Join-Path $logDirectory "caption-timing-$runId.jsonl" } else { $null }
 $desktopProject = Join-Path $repo 'apps/EchoSub.Desktop/EchoSub.Desktop.csproj'
 $desktopExe = Join-Path $repo 'apps/EchoSub.Desktop/bin/Debug/net10.0/EchoSub.Desktop.exe'
 $transcribing = $false
@@ -36,6 +37,7 @@ try {
     $transcribing = $true
     Write-Host "EchoSub launcher: $repo"
     Write-Host "Launcher log: $launcherLog"
+    if ($CaptionTiming) { Write-Host "Caption timing log: $env:ECHOSUB_CAPTION_TIMING_LOG" }
     if (-not $Live -and $AsrBackend -ne 'cpu') { throw '-AsrBackend cuda requires -Live' }
     if ($FastPartials -and (-not $Live -or $AsrBackend -ne 'cuda')) { throw '-FastPartials requires -Live -AsrBackend cuda' }
     if ($Live) {

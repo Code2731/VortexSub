@@ -60,6 +60,35 @@ internal static class CaptionPresentationSmoke
         Check(deck.Update([done], "uuid", 1, 2, true, 1.1).Current?.Translation == "번역", "first translation bypasses replacement delay");
         Check(deck.Update([done], "uuid", 1, 2, true, 5.2).Current is null, "unchanged final caption does not resurrect");
         Check(CaptionDeck.ReadingSeconds("짧음") == 4 && CaptionDeck.ReadingSeconds(new string('가', 100)) == 10, "reading duration has both bounds");
+        var responsive = new CaptionDeck();
+        var timings = new List<CaptionUpdateTiming>();
+        responsive.Applied += timings.Add;
+        responsive.Update([unit], "uuid", 1, 2, true, 0);
+        var draftRevision = unit with { TranslationRequestId = 10, Translation = "왼쪽 길로 가자." };
+        Check(responsive.Update([draftRevision], "uuid", 1, 2, true, 0.1).Current?.Translation == "[임시 번역] 왼쪽으로 가자.", "draft has a bounded short replacement delay");
+        responsive.Update([draftRevision], "uuid", 1, 2, true, 0.15);
+        Check(responsive.Tick(0.2).Current?.Translation == "[임시 번역] 왼쪽으로 가자.", "draft not replaced before short deadline");
+        Check(responsive.Tick(0.3).Current?.Translation == "[임시 번역] 왼쪽 길로 가자.", "draft updated on 0.1 second display tick");
+        Check(Math.Abs(timings[^1].DeferredSeconds - 0.2) < 0.000001 && timings[^1].TranslationRecord?.TranslationRequestId == 10,
+            "repeated snapshot preserves candidate receipt time and request identity");
+        var otherSegment = unit with { SegmentId = 4, TranslationRequestId = 11, Translation = "다음 자막" };
+        responsive.Update([draftRevision, otherSegment], "uuid", 1, 2, true, 0.4);
+        var readingRevision = draftRevision with { TranslationRequestId = 12, Translation = "읽는 중인 이전 자막 수정" };
+        responsive.Update([readingRevision, otherSegment], "uuid", 1, 2, true, 0.5);
+        Check(responsive.Tick(0.8).Previous?.Translation == "[임시 번역] 왼쪽 길로 가자.", "previous reading slot retains 1.25 second replacement protection");
+        Check(responsive.Tick(1.6).Previous?.Translation == "[임시 번역] 읽는 중인 이전 자막 수정", "previous pending update eventually applies");
+        Check(responsive.Tick(4).Current?.Translation == "[임시 번역] 다음 자막", "newest card retains minimum reading duration");
+        Check(responsive.Tick(4.5).Current is null, "display ticks do not renew expiry");
+        var immediate = new CaptionDeck();
+        immediate.Update([unit], "uuid", 1, 2, true, 0);
+        var authoritative = unit with { SourceState = "Final", TranslationIsPreview = false,
+            StableSource = "", TranslationSource = "", TranslationPrefix = "", Translation = "확정 번역", TranslationRequestId = 13 };
+        Check(immediate.Update([authoritative], "uuid", 1, 2, true, 0.01).Current?.Translation == "확정 번역", "final still bypasses short draft delay");
+        presentation.Clear();
+        Show(preview, 0);
+        Show(preview with { SourceRevision = 6, StableSource = "", TranslationState = "Pending", Translation = "", TranslationIsPreview = false }, 0.1);
+        Check(presentation.DisplayedTranslationRecord?.SourceRevision == preview.SourceRevision,
+            "retained preview telemetry uses displayed revision rather than pending revision");
         Console.WriteLine($"Caption presentation: {assertions} fixture assertions PASS (no rendered UI)");
     }
 }

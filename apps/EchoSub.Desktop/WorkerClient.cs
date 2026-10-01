@@ -18,6 +18,7 @@ public sealed class WorkerClient : IAsyncDisposable
     public WorkerEventBuffer Events { get; } = new();
 
     public event Action? Disconnected;
+    public event Action<string, JsonElement>? EventReceived;
 
     private WorkerClient(Process process)
     {
@@ -127,7 +128,9 @@ public sealed class WorkerClient : IAsyncDisposable
                     var sequence = root.GetProperty("seq").GetUInt64();
                     var name = root.GetProperty("event").GetString() ?? throw new IOException("Missing event name");
                     if (name.Length == 0 || Encoding.UTF8.GetByteCount(name) > 128 || root.GetProperty("payload").ValueKind != JsonValueKind.Object) throw new IOException("Invalid worker event");
-                    Events.Publish(new WorkerEvent(sequence, name, root.GetProperty("payload").Clone()));
+                    var payload = root.GetProperty("payload").Clone();
+                    EventReceived?.Invoke(name, payload);
+                    Events.Publish(new WorkerEvent(sequence, name, payload));
                     continue;
                 }
                 if (root.GetProperty("kind").GetString() != "response") throw new IOException("Unexpected worker message kind");

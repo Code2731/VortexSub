@@ -4,11 +4,15 @@ namespace EchoSub.Desktop;
 
 public sealed record CaptionCard(string Source, string? Translation, bool IsDraft, string StableSource);
 public sealed record CaptionCards(CaptionCard? Previous, CaptionCard? Current);
+public sealed record CaptionUpdateTiming(HistoryRecord? TranslationRecord, string Slot, double ObservedAtSeconds,
+    double AppliedAtSeconds, double DeferredSeconds);
 
 // Two display slots, one latest deferred update. No transcript backlog in the UI.
 public sealed class CaptionDeck
 {
     public const double MinimumReplacementSeconds = 1.25;
+    public const double DraftReplacementSeconds = 0.25;
+    public event Action<CaptionUpdateTiming>? Applied;
     public bool ShowSource { get; set; }
     private (string? Product, ulong Session, ulong Epoch)? context;
     private Entry? previous;
@@ -21,6 +25,8 @@ public sealed class CaptionDeck
         public CaptionPresentation Presenter { get; } = new();
         public CaptionCard? Card;
         public CaptionCard? Pending;
+        public HistoryRecord? PendingRecord;
+        public double PendingSince;
         public double ShownAt;
         public double ExpiresAt;
     }
@@ -77,8 +83,8 @@ public sealed class CaptionDeck
         if (previous is not null && (nowSeconds >= previous.ExpiresAt ||
             !ShowSource && string.IsNullOrWhiteSpace(previous.Card?.Translation))) previous = null;
         foreach (var entry in new[] { previous, current })
-            if (entry?.Pending is { } pending && nowSeconds - entry.ShownAt >= MinimumReplacementSeconds)
-                Accept(entry, pending, nowSeconds);
+            if (entry?.Pending is { } pending && nowSeconds - entry.ShownAt >= ReplacementSeconds(entry, pending))
+                Accept(entry, pending, entry.PendingRecord, entry.PendingSince, nowSeconds);
         return new(Visible(previous, nowSeconds), Visible(current, nowSeconds));
     }
 
@@ -86,12 +92,12 @@ public sealed class CaptionDeck
     {
         var (source, translation) = entry.Presenter.Update([record], context!.Value.Product,
             context.Value.Session, context.Value.Epoch, true, nowSeconds, expire: false);
-        if (source is null) { entry.Card = entry.Pending = null; return; }
+        if (source is null) { entry.Card = entry.Pending = null; entry.PendingRecord = null; return; }
         var stable = translation?.StartsWith("[임시 번역] ", StringComparison.Ordinal) == true
             ? entry.Presenter.PreviewPrefix : "";
         var next = new CaptionCard(source, translation,
             record.SourceState != "Final" || record.TranslationIsPreview || stable.Length > 0, stable);
-        if (next == entry.Card) { entry.Pending = null; return; }
+        if (next == entry.Card) { entry.Pending = null; entry.PendingRecord = null; return; }
         // A contradicted prefix must disappear immediately, regardless of reading time.
         var corrected = entry.Card?.StableSource.Length > 0 &&
             !record.Source.StartsWith(entry.Card.StableSource, StringComparison.Ordinal);
@@ -99,12 +105,20 @@ public sealed class CaptionDeck
         var firstTranslation = entry.Card?.Translation is null && translation is not null;
         var finalized = entry.Card?.IsDraft == true && !next.IsDraft;
         if (entry.Card is not null && !corrected && !lostTranslation && !firstTranslation && !finalized &&
-            nowSeconds - entry.ShownAt < MinimumReplacementSeconds)
+            nowSeconds - entry.ShownAt < ReplacementSeconds(entry, next))
+        {
+            if (entry.Pending != next) entry.PendingSince = nowSeconds;
             entry.Pending = next;
-        else Accept(entry, next, nowSeconds);
+            entry.PendingRecord = entry.Presenter.DisplayedTranslationRecord;
+        }
+        else Accept(entry, next, entry.Presenter.DisplayedTranslationRecord,
+            entry.Pending == next ? entry.PendingSince : nowSeconds, nowSeconds);
     }
 
-    private static void Accept(Entry entry, CaptionCard card, double nowSeconds)
+    private double ReplacementSeconds(Entry entry, CaptionCard card) =>
+        ReferenceEquals(entry, current) && card.IsDraft ? DraftReplacementSeconds : MinimumReplacementSeconds;
+
+    private void Accept(Entry entry, CaptionCard card, HistoryRecord? translationRecord, double observedAt, double nowSeconds)
     {
         // Source revisions cannot keep an unchanged translation alive indefinitely.
         if (entry.Card is null || entry.Card.Translation != card.Translation ||
@@ -112,7 +126,10 @@ public sealed class CaptionDeck
             entry.ExpiresAt = nowSeconds + ReadingSeconds(ReadingText(card.Translation ?? card.Source));
         entry.Card = card;
         entry.Pending = null;
+        entry.PendingRecord = null;
         entry.ShownAt = nowSeconds;
+        Applied?.Invoke(new(translationRecord, ReferenceEquals(entry, current) ? "current" : "previous",
+            observedAt, nowSeconds, Math.Max(0, nowSeconds - observedAt)));
     }
 
     private static CaptionCard? Visible(Entry? entry, double nowSeconds) =>
