@@ -13,6 +13,10 @@ CUDA 전사 선택 실행은 `run-live-cuda.bat` 더블클릭 또는
 `./run-live.bat -AsrBackend cuda`다. 기본 `run-live.bat`은 CPU 전사다.
 CUDA worker는 별도 `target/model-probe-cuda/`에 빌드하며 설치된 NVIDIA
 GPU/CUDA Toolkit이 필요하다. 이미 빌드한 경우 `-NoBuild`로 재사용한다.
+CUDA 빌드는 `nvidia-smi`의 compute capability로 현재 GPU 대상을 선택한다.
+직접 지정한 `CMAKE_CUDA_ARCHITECTURES`는 유지한다(예: RTX 3080은 `86`).
+전체 빌드 출력은 `logs/native-build-날짜-프로세스ID.log`에 저장하며,
+빌드 실패 메시지에서 해당 로그 경로를 확인할 수 있다.
 선택한 backend 실패는 오류로 표시하며 CPU로 자동 전환하지 않는다.
 Whisper와 Qwen이 같은 GPU를 사용한다. ASR 단독 파일 속도 개선을
 게임·번역 동시 실행이나 화면 지연 개선으로 확대하지 않는다.

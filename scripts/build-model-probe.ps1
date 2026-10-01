@@ -35,7 +35,40 @@ if ($Backend -eq 'cuda') {
     # The binding sets a Unix-only -fPIC flag. Override it for MSVC.
     if (-not (Test-Path Env:CMAKE_CUDA_FLAGS)) { $env:CMAKE_CUDA_FLAGS = ' ' }
     # Avoid nvcc's default sm_52 target; compile for the GPU on this machine.
-    if (-not $env:CMAKE_CUDA_ARCHITECTURES) { $env:CMAKE_CUDA_ARCHITECTURES = 'native' }
+    if (-not $env:CMAKE_CUDA_ARCHITECTURES) {
+        # Avoid CMake's runtime GPU probe and resolve a stable numeric target
+        # directly from the driver, preserving an explicit override.
+        $smi = Get-Command nvidia-smi -ErrorAction SilentlyContinue
+        if (-not $smi) { throw 'Cannot detect CUDA architecture: nvidia-smi is missing. Set CMAKE_CUDA_ARCHITECTURES explicitly (for example, 86 for RTX 3080).' }
+        $query = New-Object System.Diagnostics.Process
+        $query.StartInfo.FileName = $smi.Source
+        $query.StartInfo.Arguments = '--query-gpu=compute_cap --format=csv,noheader'
+        $query.StartInfo.UseShellExecute = $false
+        $query.StartInfo.CreateNoWindow = $true
+        $query.StartInfo.RedirectStandardOutput = $true
+        $query.StartInfo.RedirectStandardError = $true
+        try {
+            [void]$query.Start()
+            $outputTask = $query.StandardOutput.ReadToEndAsync()
+            $errorTask = $query.StandardError.ReadToEndAsync()
+            if (-not $query.WaitForExit(10000)) {
+                $query.Kill()
+                throw 'CUDA architecture query timed out. Set CMAKE_CUDA_ARCHITECTURES explicitly.'
+            }
+            $output = $outputTask.GetAwaiter().GetResult()
+            $queryError = $errorTask.GetAwaiter().GetResult()
+            if ($query.ExitCode -ne 0) { throw "CUDA architecture query failed: $queryError Set CMAKE_CUDA_ARCHITECTURES explicitly." }
+            $architectures = @($output -split '\r?\n' | Where-Object { $_.Trim() } | ForEach-Object {
+                $capability = $_.Trim()
+                if ($capability -notmatch '^\d+\.\d+$') { throw "Invalid CUDA compute capability '$capability'. Set CMAKE_CUDA_ARCHITECTURES explicitly." }
+                $capability.Replace('.', '')
+            } | Sort-Object -Unique)
+            if ($architectures.Count -eq 0) { throw 'No CUDA GPU was detected. Set CMAKE_CUDA_ARCHITECTURES explicitly or use the CPU launcher.' }
+            $env:CMAKE_CUDA_ARCHITECTURES = $architectures -join ';'
+        }
+        finally { $query.Dispose() }
+    }
+    Write-Host "CUDA build architectures: $env:CMAKE_CUDA_ARCHITECTURES"
 }
 Push-Location $repo
 try {
@@ -58,8 +91,20 @@ try {
     }
     if ($Offline -or $env:ECHOSUB_OFFLINE -eq '1') { $arguments += '--offline' }
     $arguments += @('--target-dir', $targetRoot)
-    & cargo @arguments
-    if ($LASTEXITCODE -ne 0) { throw 'Native model probe build failed' }
+    $logDirectory = Join-Path $repo 'logs'
+    [void][IO.Directory]::CreateDirectory($logDirectory)
+    $buildLog = Join-Path $logDirectory ("native-build-{0}-{1}.log" -f (Get-Date -Format 'yyyyMMdd-HHmmss'), $PID)
+    Write-Host "Native build log: $buildLog"
+    # Windows PowerShell transcripts can omit native stderr. Merge and save it
+    # explicitly; use the process exit code instead of stderr as failure status.
+    $previousErrorAction = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        & cargo @arguments 2>&1 | ForEach-Object { $_.ToString() } | Tee-Object -FilePath $buildLog
+        $buildExitCode = $LASTEXITCODE
+    }
+    finally { $ErrorActionPreference = $previousErrorAction }
+    if ($buildExitCode -ne 0) { throw "Native model probe build failed (exit $buildExitCode). Full log: $buildLog" }
     [IO.File]::WriteAllText($stamp, $profileJson)
 }
 finally { Pop-Location }

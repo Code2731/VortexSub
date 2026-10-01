@@ -1,5 +1,18 @@
 # 구현 상태
 
+## CUDA 런처 빌드 설정·오류 로그 보완 (2026-10-02)
+
+사용자 런처 기록에서 CMake 실패와 `Native model probe build failed`를 확인했다.
+전체 stderr가 빠져 최초 직접 원인은 확정하지 못했으며, 기존 `native` 설정
+재빌드는 3분 10초에 성공했다. 이전 성공 설정 `86`과 런처 `native`의 차이가
+native 캐시 정리·재빌드를 유발하므로, 기본 대상을 `nvidia-smi`에서 감지하도록
+변경했다. 명시적 환경 변수는 유지하며 GPU 조회에는 10초 제한을 둔다.
+전체 Cargo 출력을 `logs/native-build-*.log`에 저장하고 실패 메시지에 경로를 넣었다.
+Windows/RTX 3080/CUDA 12.6에서 자동 감지 `86` CUDA/VAD worker release 빌드
+PASS(4분 16초), 배치파일과 같은 Windows PowerShell 5.1 재빌드 PASS(0.30초,
+캐시 정리 없음). 명령은 `scripts/build-model-probe.ps1 -Backend cuda
+-Package echosub-worker -Vad -Offline`. 앱 UI·실제 캡처·Mac·다중 GPU는 미검증.
+
 ## 문맥 분리 번역 앱 체크박스 (2026-10-02)
 
 로컬 번역 서버 설정에 **이전 문맥 분리 번역 · 실험 기능 / 기본 끔**을 추가했다.
