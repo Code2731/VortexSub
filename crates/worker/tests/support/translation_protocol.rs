@@ -204,6 +204,8 @@ fn translation_requires_opt_in_and_rejects_nonlocal_configuration() {
         json!({"endpoint":"http://192.168.1.1:1234"}),
         json!({"endpoint":"http://127.0.0.1:1234","token":"secret"}),
         json!({"endpoint":"http://127.0.0.1:1234","model_id":false}),
+        json!({"endpoint":"http://127.0.0.1:1234","isolated_context":"true"}),
+        json!({"endpoint":"http://127.0.0.1:1234","isolated_context":null}),
     ] {
         assert_eq!(
             w.send(command("invalid", "configure_translation", params))["error"]["code"],
@@ -211,6 +213,15 @@ fn translation_requires_opt_in_and_rejects_nonlocal_configuration() {
         );
     }
     assert_eq!(state(&mut w)["translator"]["state"], "Unavailable");
+    assert_eq!(state(&mut w)["translator"]["isolated_context"], false);
+    let server = Server::new();
+    for enabled in [true, false] {
+        assert_eq!(w.send(command("policy", "configure_translation", json!({"endpoint":server.endpoint,"model_id":"fixture/model","isolated_context":enabled})))["ok"], true);
+        until(&mut w, |state| state["translator"]["state"] == "Ready");
+        assert_eq!(state(&mut w)["translator"]["isolated_context"], enabled);
+        configure(&mut w, &server);
+        assert_eq!(state(&mut w)["translator"]["isolated_context"], enabled);
+    }
     shutdown(w);
 }
 #[test]

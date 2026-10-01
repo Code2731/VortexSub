@@ -250,6 +250,7 @@ fn serve() -> io::Result<()> {
                             "fixture_asr": runtime.has_native() && !runtime.is_live(),
                             "vad": runtime.has_vad(),
                             "translation": runtime.translator.enabled,
+                            "isolated_translation_context": runtime.translator.enabled,
                             "events": true,
                             "history_snapshot": true,
                             "mock_pipeline": runtime.enabled

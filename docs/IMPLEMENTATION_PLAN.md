@@ -1,5 +1,10 @@
 # EchoSub 단계별 구현 계획
 
+2026-10-02 문맥 분리 실험을 앱 체크박스로 연결했다. Idle 설정 요청에 boolean을
+전달하고 적용 상태/실패 복원/실행 중 잠금을 추가했다. Windows check script의
+Rust/C# IPC와 빌드를 확인했으며 기본 off·번역 의미 품질 gate false는 유지한다.
+[앱 설정 방법](TRANSLATION_PROMPT_CONTEXT.md).
+
 2026-10-02 번역 프롬프트·문맥 전달 비교와 실험 연결을 진행했다. 영어의 일부
 문맥 혼입/명령 반전은 줄었지만 until 오역과 일본어 정정 혼입, 새 부정 오류가
 남아 기본 전환을 보류했다. `-IsolatedTranslationContext`로 분리 후보를 선택한다.

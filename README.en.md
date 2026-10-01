@@ -40,6 +40,7 @@ For faster provisional translation, use **`run-live-cuda-fast.bat`** and enable 
 `-SupportedPreview` experimentally extends the first English preview sentence with a bounded observed tail. With the same padded baseline, translation of the complete first sentence arrived earlier, but later conditional fragments remain a quality issue. It defaults to off. See [policy and measurements](docs/SUPPORTED_PREVIEW.md).
 
 `-IsolatedTranslationContext` experimentally separates previous source dialogue from the current translation target. Some context leakage decreased, but conditional mistranslations and new semantic errors remain; it defaults to off. See [usage and comparison](docs/TRANSLATION_PROMPT_CONTEXT.md).
+You can also select **이전 문맥 분리 번역** in the app's local translation server settings. Changes apply immediately after the server is Ready; the checkbox is disabled during a session.
 
 Current draft replacement waits are also shorter. Enable **자막 지연 기록** (Caption timing log) in the app to record event receipt and card application timestamps without transcript text. Toggle it during a session; the output path appears below the option. Previous-caption reading time is retained. See [display rules and timing](docs/CAPTION_READING.md).
 

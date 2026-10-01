@@ -47,6 +47,13 @@ Laya의 의미 완결성 판단만으로 완전한 원문의 번역 오역이 �
 
 ## 실험 실행
 
+앱의 **로컬 번역 서버** 영역에서 **이전 문맥 분리 번역 · 실험 기능 / 기본 끔**을
+선택한다. 서버 Ready 상태면 기존 모델로 즉시 재설정하며, 연결 전 선택은
+**서버 연결 / 모델 조회** 또는 **선택 모델 적용** 시 반영된다.
+세션 종료와 작업 정리 뒤 변경할 수 있고 일시정지/실행 중에는 비활성화한다.
+적용 상태를 체크박스 아래에 표시한다. 요청 실패 시 즉시 변경은 이전 선택으로
+돌린다. 앱/worker를 다시 실행하거나 기록을 지울 필요는 없다.
+
 ```powershell
 run-live-cuda-fast.bat -IsolatedTranslationContext -CaptionTiming
 ./scripts/probe-preview-risks.ps1 -Rounds 3 -IsolatedTranslationContext
@@ -57,3 +64,6 @@ SupportedPreview를 켤 필요가 없다. worker의
 `--experimental-isolated-translation-context`는 `--diagnostic-translation`을 요구한다.
 정책은 owner 생성 시 고정하고 재설정/세션 간 같은 정책을 유지한다.
 기본 `prepare`/`Owner::new`는 원래 프롬프트와 합친 user JSON을 그대로 사용한다.
+IPC `configure_translation.isolated_context`는 선택 boolean이며 생략하면 현재
+정책을 유지한다. capability `isolated_translation_context`가 없는 이전 worker에는
+앱이 새 필드를 보내지 않고 체크박스를 비활성화한다.

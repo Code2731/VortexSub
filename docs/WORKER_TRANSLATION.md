@@ -16,6 +16,10 @@ After hello, send:
 as `configure_translation` parameters. Only numeric loopback endpoints are
 accepted. `model_id` may be omitted only when the server returns one model.
 Configuration is asynchronous: accepted→translator.state Preparing→Ready/Failed.
+Optional `isolated_context: true|false` selects the experimental separated prompt
+when configuring an idle owner; omission preserves the current policy.
+`translator.isolated_context` reports the applied policy, and the
+`isolated_translation_context` capability lets the desktop expose its checkbox.
 `get_state.translator` exposes model IDs, selection, catalog_pending, in_flight,
 completed_jobs and sanitized last_error. Tokens are read from process environment
 `ECHOSUB_TRANSLATION_TOKEN`, never configuration IPC; OS secret storage is pending.

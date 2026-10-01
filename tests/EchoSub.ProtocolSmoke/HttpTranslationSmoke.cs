@@ -14,6 +14,7 @@ internal static class HttpTranslationSmoke
         var endpoint = $"http://127.0.0.1:{((IPEndPoint)listener.LocalEndpoint).Port}/v1/";
         using var stop = new CancellationTokenSource();
         int posts = 0;
+        int isolatedPosts = 0;
         var server = Task.Run(async () =>
         {
             try
@@ -38,6 +39,12 @@ internal static class HttpTranslationSmoke
                         Interlocked.Increment(ref posts);
                         using var request = JsonDocument.Parse(new string(chars));
                         var messages = request.RootElement.GetProperty("messages");
+                        if (messages.GetArrayLength() == 3)
+                        {
+                            Interlocked.Increment(ref isolatedPosts);
+                            using var reference = JsonDocument.Parse(messages[1].GetProperty("content").GetString()!);
+                            Require(reference.RootElement.TryGetProperty("context", out _) && !reference.RootElement.TryGetProperty("source_text", out _), "reference message separated");
+                        }
                         using var payload = JsonDocument.Parse(messages[messages.GetArrayLength() - 1].GetProperty("content").GetString()!);
                         if (payload.RootElement.GetProperty("source_text").GetString() == "fail") { status = 401; body = "server-private-detail"; }
                         else body = "{\"choices\":[{\"finish_reason\":\"stop\",\"message\":{\"content\":\"번역 완료\",\"tool_calls\":null}}]}";
@@ -58,7 +65,9 @@ internal static class HttpTranslationSmoke
             client.EventReceived += (name, payload) => CaptionDiagnostics.Received(client.ProcessId, name, payload);
             var hello = await client.SendAsync("hello", new { client = "HttpTranslationSmoke", protocol_major = 1 });
             Require(hello.GetProperty("capabilities").GetProperty("translation").GetBoolean(), "HTTP capability");
-            await client.SendAsync("configure_translation", new { endpoint, model_id = "fixture/model" });
+            Require(hello.GetProperty("capabilities").GetProperty("isolated_translation_context").GetBoolean(), "context setting capability");
+            Require(!(await client.SendAsync("get_state")).GetProperty("translator").GetProperty("isolated_context").GetBoolean(), "context setting defaults off");
+            await client.SendAsync("configure_translation", new { endpoint, model_id = "fixture/model", isolated_context = true });
             var clock = Stopwatch.StartNew();
             while ((await client.SendAsync("get_state")).GetProperty("translator").GetProperty("state").GetString() != "Ready")
             {
@@ -68,10 +77,19 @@ internal static class HttpTranslationSmoke
             var first = await Terminal(client, 1);
             Require(first.SourceState == "Final" && first.Source == "Don't move: 42 enemies." && first.Translation == "번역 완료" && first.TranslationState == "Done", "typed final and translation");
             Require(first.TranslationRequestId is > 0 && first.AppliedSourceRevision == first.SourceRevision, "full applied source identity");
+            Require((await client.SendAsync("get_state")).GetProperty("translator").GetProperty("isolated_context").GetBoolean(), "context setting enabled");
+            await client.SendAsync("configure_translation", new { endpoint, model_id = "fixture/model", isolated_context = false });
+            clock.Restart();
+            while ((await client.SendAsync("get_state")).GetProperty("translator").GetProperty("state").GetString() != "Ready")
+            {
+                Require(clock.Elapsed.TotalSeconds < 4, "Restored catalog Ready"); await Task.Delay(10);
+            }
+            Require(!(await client.SendAsync("get_state")).GetProperty("translator").GetProperty("isolated_context").GetBoolean(), "context setting disabled");
             await client.SendAsync("mock_segment", new { source = "fail" });
             var failed = await Terminal(client, 2);
             Require(failed.Source == "fail" && failed.SourceState == "Final" && failed.TranslationState == "Failed" && failed.Translation.Length == 0, "HTTP failure preserves source");
             Require(Volatile.Read(ref posts) == 2, "401 is not retried");
+            Require(Volatile.Read(ref isolatedPosts) == 1, "only enabled setting separates HTTP messages");
             var state = await client.SendAsync("get_state");
             Require(!state.ToString().Contains("server-private-detail"), "server body excluded from IPC state");
             await client.SendAsync("disable_translation");

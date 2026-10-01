@@ -48,7 +48,8 @@ impl Translator {
     pub fn value(&self, decoding: bool) -> Value {
         json!({"state":self.state,"enabled":self.enabled,"model_id":self.selected,
             "models":self.models,"in_flight":decoding,"catalog_pending":self.catalog_pending,
-            "completed_jobs":self.completed,"preview_completed_jobs":self.preview_completed,"last_error":self.error})
+            "completed_jobs":self.completed,"preview_completed_jobs":self.preview_completed,"last_error":self.error,
+            "isolated_context":self.prompt_policy == PromptPolicy::IsolatedContext})
     }
 }
 impl Runtime {
@@ -92,7 +93,7 @@ impl Runtime {
         } else {
             if params
                 .keys()
-                .any(|k| !matches!(k.as_str(), "endpoint" | "model_id"))
+                .any(|k| !matches!(k.as_str(), "endpoint" | "model_id" | "isolated_context"))
             {
                 return Err(("INVALID_REQUEST", "Unknown translation configuration field"));
             }
@@ -115,9 +116,14 @@ impl Runtime {
                 _ => return Err(("INVALID_REQUEST", "Invalid model ID")),
             };
             let token = std::env::var("ECHOSUB_TRANSLATION_TOKEN").ok();
-            let mut owner =
-                Owner::new_with_policy(endpoint, token.as_deref(), self.translator.prompt_policy)
-                    .map_err(|_| ("INVALID_CONFIG", "HTTP client configuration rejected"))?;
+            let prompt_policy = match params.get("isolated_context") {
+                None => self.translator.prompt_policy,
+                Some(Value::Bool(true)) => PromptPolicy::IsolatedContext,
+                Some(Value::Bool(false)) => PromptPolicy::Original,
+                _ => return Err(("INVALID_REQUEST", "isolated_context must be boolean")),
+            };
+            let mut owner = Owner::new_with_policy(endpoint, token.as_deref(), prompt_policy)
+                .map_err(|_| ("INVALID_CONFIG", "HTTP client configuration rejected"))?;
             owner
                 .models(Duration::from_secs(8))
                 .map_err(|_| ("INTERNAL_ERROR", "HTTP owner unavailable"))?;
@@ -125,6 +131,7 @@ impl Runtime {
                 .set_translation_enabled(true)
                 .map_err(core_error)?;
             self.translator.owner = Some(owner);
+            self.translator.prompt_policy = prompt_policy;
             self.translator.state = "Preparing";
             self.translator.selected = None;
             self.translator.requested = requested;

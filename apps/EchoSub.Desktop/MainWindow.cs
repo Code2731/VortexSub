@@ -34,6 +34,10 @@ public sealed class MainWindow : Window
     private readonly CheckBox partialEnabled = new() { Content = "부분 전사 켜기 · 실험 기능 / 기본 끔", IsChecked = false };
     private readonly CheckBox partialTranslationEnabled = new() { Content = "안정된 부분 먼저 번역 · 임시 결과 / 기본 끔", IsChecked = false };
     private readonly CheckBox captionTimingEnabled = new() { Content = "자막 지연 기록 · 기본 끔", IsChecked = false };
+    private readonly CheckBox isolatedTranslationContext = new() { Content = "이전 문맥 분리 번역 · 실험 기능 / 기본 끔", IsChecked = false };
+    private readonly TextBlock isolatedContextStatus = new() { Text = "세션 종료 후 변경하세요. 일부 문맥 혼입은 줄지만 의미 오류가 남아 있습니다.", TextWrapping = TextWrapping.Wrap };
+    private bool isolatedContextSupported, isolatedContextInitialized, updatingIsolatedContext;
+    private bool appliedIsolatedContext, translationConfigured;
     private readonly TextBlock captionTimingStatus = new() { Text = "원문·번역 내용은 저장하지 않습니다. 실행 중에도 켜고 끌 수 있습니다.", TextWrapping = TextWrapping.Wrap };
     private bool updatingCaptionTiming;
     private readonly DispatcherTimer diagnosticsTimer = new() { Interval = TimeSpan.FromSeconds(0.5) };
@@ -116,7 +120,7 @@ public sealed class MainWindow : Window
                         new TextBlock { Text = "로컬 번역 서버 · 세션 종료 후 설정 · 모델/API 자격 정보는 저장하지 않습니다.", TextWrapping = TextWrapping.Wrap },
                         translationEndpoint,
                         new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { catalogButton, disableTranslationButton } },
-                        translationModel, applyTranslationButton, translationStatus
+                        translationModel, applyTranslationButton, isolatedTranslationContext, isolatedContextStatus, translationStatus
                     } },
                     new ScrollViewer { Height = live ? 90 : 80, Content = details },
                     new TextBlock { IsVisible = live, Text = "최근 100개 구간 · UUID별 세션 시작 기준 초 · 텍스트 자동 저장 없음" },
@@ -150,6 +154,14 @@ public sealed class MainWindow : Window
             catch (Exception error) { translationStatus.Text = "번역 설정 실패: " + error.Message; }
         });
         translationModel.SelectionChanged += (_, _) => UpdateButtons();
+        isolatedTranslationContext.IsCheckedChanged += async (_, _) =>
+        {
+            if (updatingIsolatedContext || closing) return;
+            isolatedContextStatus.Text = "서버 연결 / 모델 조회 또는 선택 모델 적용 시 반영됩니다.";
+            UpdateButtons();
+            if (translationConfigured && translationModel.SelectedItem is string)
+                await ConfigureTranslationAsync(true, restoreOptionOnFailure: true);
+        };
         exportTxtButton.Click += async (_, _) => await ExportAsync("txt");
         exportSrtButton.Click += async (_, _) => await ExportAsync("srt");
         clearHistoryButton.Click += async (_, _) => await ClearHistoryAsync();
@@ -487,6 +499,7 @@ public sealed class MainWindow : Window
             partialSupported = hello.GetProperty("capabilities").TryGetProperty("source_partial", out var partialCapability) && partialCapability.GetBoolean();
             partialTranslationSupported = hello.GetProperty("capabilities").TryGetProperty("partial_translation", out var previewCapability) && previewCapability.GetBoolean();
             translationSupported = hello.GetProperty("capabilities").TryGetProperty("translation", out var translationCapability) && translationCapability.GetBoolean();
+            isolatedContextSupported = hello.GetProperty("capabilities").TryGetProperty("isolated_translation_context", out var isolatedCapability) && isolatedCapability.GetBoolean();
             StartupDiagnostics.Write($"Worker connected; live={live}");
             snapshot = null;
             await RefreshCoreAsync();
@@ -544,6 +557,18 @@ public sealed class MainWindow : Window
         resumeReady = sessionState == "Paused" && joined && vadJoined && modelReady;
         historyReady = sessionState is "Idle" or "Paused" && joined && vadJoined && !state.GetProperty("diagnostic_asr").GetProperty("decoding").GetBoolean();
         var translator = state.GetProperty("translator");
+        translationConfigured = translator.GetProperty("state").GetString() == "Ready";
+        appliedIsolatedContext = translator.TryGetProperty("isolated_context", out var isolatedContext) && isolatedContext.GetBoolean();
+        if (isolatedContextSupported && !isolatedContextInitialized)
+        {
+            updatingIsolatedContext = true;
+            isolatedTranslationContext.IsChecked = appliedIsolatedContext;
+            updatingIsolatedContext = false;
+            isolatedContextInitialized = true;
+        }
+        isolatedContextStatus.Text = !isolatedContextSupported ? "이 옵션을 사용하려면 worker를 다시 빌드하세요." :
+            (isolatedTranslationContext.IsChecked == true) != appliedIsolatedContext ? "변경 대기 · 서버 연결 / 모델 조회 또는 선택 모델 적용으로 반영하세요." :
+            $"적용 상태: {(appliedIsolatedContext ? "켜짐" : "꺼짐")} · 세션 종료 후 변경 · 의미 오류가 남아 있는 실험 기능입니다.";
         translationBusy = translator.GetProperty("in_flight").GetBoolean() || translator.GetProperty("catalog_pending").GetBoolean();
         historyReady &= !translationBusy;
         var ids = translator.GetProperty("models").EnumerateArray().Select(id => id.GetString()!).ToArray();
@@ -578,23 +603,37 @@ public sealed class MainWindow : Window
             sessionState == "Running" && captureState == "Running", captionClock.Elapsed.TotalSeconds));
     }
 
-    private async Task ConfigureTranslationAsync(bool selectedModel)
+    private async Task ConfigureTranslationAsync(bool selectedModel, bool restoreOptionOnFailure = false)
     {
         await ExecuteAsync(async () =>
         {
             if (client is null) return;
+            var settingAccepted = false;
             try
             {
-                await client.SendAsync("configure_translation", new
+                var configuration = new Dictionary<string, object?>
                 {
-                    endpoint = translationEndpoint.Text?.Trim(),
-                    model_id = selectedModel ? translationModel.SelectedItem as string : null
-                });
+                    ["endpoint"] = translationEndpoint.Text?.Trim(),
+                    ["model_id"] = selectedModel ? translationModel.SelectedItem as string : null
+                };
+                if (isolatedContextSupported) configuration["isolated_context"] = isolatedTranslationContext.IsChecked == true;
+                await client.SendAsync("configure_translation", configuration);
+                settingAccepted = true;
                 translationBusy = true;
                 translationStatus.Text = "번역 Preparing · 모델 조회 중";
                 await RefreshCoreAsync();
             }
-            catch (Exception error) { translationStatus.Text = "번역 설정 실패: " + error.Message; }
+            catch (Exception error)
+            {
+                translationStatus.Text = (settingAccepted ? "번역 설정 수락 · 상태 확인 실패: " : "번역 설정 실패: ") + error.Message;
+                if (restoreOptionOnFailure && !settingAccepted)
+                {
+                    updatingIsolatedContext = true;
+                    isolatedTranslationContext.IsChecked = appliedIsolatedContext;
+                    updatingIsolatedContext = false;
+                    isolatedContextStatus.Text = "설정 실패 · 기존 문맥 분리 설정을 유지합니다.";
+                }
+            }
         });
     }
 
@@ -636,6 +675,7 @@ public sealed class MainWindow : Window
         captions = new CaptionDeck();
         captions.Applied += RecordCaptionApplied;
         translationSupported = translationBusy = false;
+        isolatedContextSupported = translationConfigured = false;
         translationModels = [];
         translationModel.ItemsSource = null;
         translationStatus.Text = "번역 끔 · 로컬 서버를 먼저 실행하세요.";
@@ -666,7 +706,8 @@ public sealed class MainWindow : Window
         var available = pendingActions == 0 && !closing;
         connectButton.IsEnabled = available && !connected;
         pingButton.IsEnabled = stateButton.IsEnabled = stopButton.IsEnabled = available && connected;
-        startCaptureButton.IsEnabled = available && connected && modelReady && captureStartable && !translationBusy;
+        startCaptureButton.IsEnabled = available && connected && modelReady && captureStartable && !translationBusy &&
+            (!isolatedContextSupported || !translationConfigured || (isolatedTranslationContext.IsChecked == true) == appliedIsolatedContext);
         stopCaptureButton.IsEnabled = available && connected && captureNeedsStop;
         pauseButton.IsEnabled = available && connected && sessionState is "Preparing" or "Running";
         resumeButton.IsEnabled = available && connected && resumeReady;
@@ -676,6 +717,7 @@ public sealed class MainWindow : Window
         var translationEditable = available && connected && captureStartable && historyReady && translationSupported && !translationBusy;
         catalogButton.IsEnabled = disableTranslationButton.IsEnabled = translationEndpoint.IsEnabled = translationModel.IsEnabled = translationEditable;
         applyTranslationButton.IsEnabled = translationEditable && translationModel.SelectedItem is string;
+        isolatedTranslationContext.IsEnabled = translationEditable && isolatedContextSupported;
         partialEnabled.IsEnabled = available && captureStartable && partialSupported;
         partialTranslationEnabled.IsEnabled = available && captureStartable && partialTranslationSupported;
     }
