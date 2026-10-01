@@ -24,8 +24,9 @@
 - worker는 새 revision에서 이전 임시 결과를 무효화한다. UI는 이미 표시한
   임시 자막을 같은 segment의 다음 전사/번역 대기 동안 유지한다. 기존 안정
   prefix와 수정된 원문이 일치하지 않으면 즉시 지운다. 새 유효 번역으로 교체하며
-  임시 자막의 만료는 첫 표시부터 5초다. 같은 결과의 반복 조회는 만료를 늘리지 않는다.
-  Pause/Stop/epoch·segment 변경은 표시를 지운다. 확정 자막의 기존 만료는 유지한다.
+  라이브 화면은 [두 카드 읽기 정책](CAPTION_READING.md)에 따라 새 번역의
+  실제 표시부터 4~10초를 제공한다. 같은 결과의 반복 조회는 만료를 늘리지 않는다.
+  segment 변경은 이전 읽기 카드로 이동하며 Pause/Stop/epoch 변경은 모두 지운다.
 - IPC의 `stable_source`, `translation_is_preview`와 session config의
   `partial_translation_enabled`는 추가 필드다. 이전 기록은 빈 문자열/false로 읽는다.
 

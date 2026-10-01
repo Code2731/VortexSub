@@ -11,14 +11,19 @@ public sealed class OverlayWindow : Window
     private readonly Border captionCard;
     private readonly TextBlock sourceCaption;
     private readonly TextBlock translationCaption;
+    private readonly TextBlock previousSource;
+    private readonly TextBlock previousTranslation;
+    private readonly StackPanel previousCard;
+    private readonly TextBlock currentLabel;
+    private bool sourceVisible;
 
     public OverlayWindow(bool live = false)
     {
         Title = live ? "EchoSub · 실제 원문 진단" : "EchoSub · MOCK overlay";
         Width = 760;
-        Height = 190;
+        Height = 310;
         MinWidth = 420;
-        MinHeight = 150;
+        MinHeight = 230;
         Topmost = true;
         ShowActivated = false;
         ShowInTaskbar = false;
@@ -72,12 +77,35 @@ public sealed class OverlayWindow : Window
             Foreground = new SolidColorBrush(Color.Parse("#F7DE92")),
             FontSize = 26, TextWrapping = TextWrapping.Wrap
         };
+        previousSource = new TextBlock
+        {
+            Foreground = Brushes.White, FontSize = 20, TextWrapping = TextWrapping.Wrap,
+            IsVisible = false
+        };
+        previousTranslation = new TextBlock
+        {
+            Foreground = new SolidColorBrush(Color.Parse("#F7DE92")), FontSize = 24,
+            TextWrapping = TextWrapping.Wrap
+        };
+        previousCard = new StackPanel
+        {
+            Spacing = 5, IsVisible = false,
+            Children =
+            {
+                new TextBlock { Text = "이전 자막", FontSize = 11, Foreground = Brushes.LightGray },
+                previousSource, previousTranslation,
+                new Border { Height = 1, Margin = new Thickness(0, 5), Background = Brushes.Gray }
+            }
+        };
+        currentLabel = new TextBlock { FontSize = 11, Foreground = Brushes.LightGray, IsVisible = false };
         var captions = new StackPanel
         {
             Spacing = 7,
             VerticalAlignment = VerticalAlignment.Center,
             Children =
             {
+                previousCard,
+                currentLabel,
                 sourceCaption,
                 translationCaption
             }
@@ -95,20 +123,30 @@ public sealed class OverlayWindow : Window
                 Children = { moveHandle, captions, resizeHandle }
             }
         };
-        Content = new Border { Padding = new Thickness(8), Child = captionCard };
+        // A resized window can still show both cards without clipping long captions.
+        Content = new Border { Padding = new Thickness(8), Child = new ScrollViewer { Content = captionCard } };
         Opened += (_, _) => WindowsOverlayPlatform.PreventActivation(this);
     }
 
-    public void SetSource(string? source) => sourceCaption.Text =
-        string.IsNullOrWhiteSpace(source) ? "원문 대기 중" : source;
-
-    public void SetSourceVisible(bool visible) => sourceCaption.IsVisible = visible;
-
-    public void SetCaptions(string? source, string? translation)
+    public void SetSourceVisible(bool visible)
     {
-        SetSource(source);
-        translationCaption.Text = translation ?? "";
-        translationCaption.IsVisible = !string.IsNullOrWhiteSpace(source) && !string.IsNullOrWhiteSpace(translation);
+        sourceVisible = visible;
+        sourceCaption.IsVisible = visible && !string.IsNullOrWhiteSpace(sourceCaption.Text);
+        previousSource.IsVisible = visible && !string.IsNullOrWhiteSpace(previousSource.Text);
+        previousCard.IsVisible = previousTranslation.IsVisible || previousSource.IsVisible;
+    }
+
+    public void SetCards(CaptionCards cards)
+    {
+        sourceCaption.Text = cards.Current?.Source ?? "";
+        translationCaption.Text = cards.Current?.Translation ?? "";
+        translationCaption.IsVisible = !string.IsNullOrWhiteSpace(translationCaption.Text);
+        previousSource.Text = cards.Previous?.Source ?? "";
+        previousTranslation.Text = cards.Previous?.Translation ?? "";
+        previousTranslation.IsVisible = !string.IsNullOrWhiteSpace(previousTranslation.Text);
+        SetSourceVisible(sourceVisible);
+        currentLabel.Text = cards.Current?.IsDraft == true ? "갱신 중" : "현재 자막";
+        currentLabel.IsVisible = sourceCaption.IsVisible || translationCaption.IsVisible;
     }
 
     public void SetCardOpacity(double opacity)
@@ -124,7 +162,7 @@ public sealed class OverlayWindow : Window
         var area = screen.WorkingArea;
         var scale = screen.Scaling;
         Width = Math.Min(760, area.Width / scale - 32);
-        Height = 190;
+        Height = 310;
         Position = new PixelPoint(
             area.X + (area.Width - (int)Math.Round(Width * scale)) / 2,
             area.Bottom - (int)Math.Round((Height + 32) * scale));

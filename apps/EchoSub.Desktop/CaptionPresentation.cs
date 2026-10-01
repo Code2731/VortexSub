@@ -12,7 +12,8 @@ public sealed class CaptionPresentation
     public void Clear() { key = null; preview = null; }
 
     public (string? Source, string? Translation) Update(IEnumerable<HistoryRecord> records,
-        string? productSession, ulong internalSession, ulong epoch, bool running, double nowSeconds)
+        string? productSession, ulong internalSession, ulong epoch, bool running, double nowSeconds,
+        bool expire = true)
     {
         var record = running ? records.LastOrDefault(r => r.ProductSessionId == productSession &&
             r.SessionId == internalSession && r.Epoch == epoch &&
@@ -38,11 +39,11 @@ public sealed class CaptionPresentation
             if (preview is null || preview.TranslationRequestId != record.TranslationRequestId ||
                 preview.SourceRevision != record.SourceRevision)
             { preview = record; previewSince = nowSeconds; }
-            if (nowSeconds - previewSince >= 5) return (null, null);
+            if (expire && nowSeconds - previewSince >= 5) return (null, null);
             translation = "[임시 번역] " + translation;
         }
         else if (preview is not null && record.TranslationState is "None" or "Pending" &&
-            nowSeconds - previewSince < 5)
+            (!expire || nowSeconds - previewSince < 5))
         {
             // Keep an already displayed, matching caption while the next revision
             // is decoded/translated. This never accepts a stale worker response.
@@ -51,7 +52,7 @@ public sealed class CaptionPresentation
         else
         {
             preview = null;
-            if (nowSeconds - since >= 5) return (null, null);
+            if (expire && nowSeconds - since >= 5) return (null, null);
         }
         return (prefix + record.Source, translation);
     }

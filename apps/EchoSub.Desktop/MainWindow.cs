@@ -45,9 +45,8 @@ public sealed class MainWindow : Window
     private WorkerClient? client;
     private Action? disconnectedHandler;
     private HistorySnapshot? snapshot;
-    private string? latestSource;
-    private string? latestTranslation;
-    private CaptionPresentation captions = new();
+    private CaptionCards latestCards = new(null, null);
+    private CaptionDeck captions = new();
     private readonly Stopwatch captionClock = Stopwatch.StartNew();
     private readonly TextBox translationEndpoint = new() { Text = "http://127.0.0.1:1234/v1/", Width = 350 };
     private readonly ComboBox translationModel = new() { Width = 350 };
@@ -221,14 +220,18 @@ public sealed class MainWindow : Window
                 overlay.ResetPlacement(this);
             }
             overlay.SetSourceVisible(overlaySourceEnabled.IsChecked == true);
-            if (live) overlay.SetCaptions(latestSource, latestTranslation);
+            if (live) overlay.SetCards(latestCards);
             overlay.Width = overlayWidth.Value;
             overlay.SetCardOpacity(cardOpacity.Value);
             overlay.Show();
             overlayButton.Content = OverlayLabel(true);
         };
         resetOverlay.Click += (_, _) => overlay?.ResetPlacement(this);
-        overlaySourceEnabled.IsCheckedChanged += (_, _) => overlay?.SetSourceVisible(overlaySourceEnabled.IsChecked == true);
+        overlaySourceEnabled.IsCheckedChanged += (_, _) =>
+        {
+            captions.ShowSource = overlaySourceEnabled.IsChecked == true;
+            overlay?.SetSourceVisible(captions.ShowSource);
+        };
         partialTranslationEnabled.IsCheckedChanged += (_, _) =>
         {
             if (partialTranslationEnabled.IsChecked == true) partialEnabled.IsChecked = true;
@@ -516,10 +519,11 @@ public sealed class MainWindow : Window
             details.Text += "\n모델 읽기 실패: 모델/DLL 경로·해시와 native CPU 빌드를 확인하세요.";
         while (client.Events.TryRead(out _)) { }
         var epoch = state.GetProperty("diagnostic_asr").GetProperty("epoch").GetUInt64();
-        (latestSource, latestTranslation) = captions.Update(snapshot?.Records ?? [], sessionId,
+        captions.ShowSource = overlaySourceEnabled.IsChecked == true;
+        latestCards = captions.Update(snapshot?.Records ?? [], sessionId,
             sessionId is not null ? session.GetProperty("internal_session_id").GetUInt64() : 0, epoch,
             sessionState == "Running" && captureState == "Running", captionClock.Elapsed.TotalSeconds);
-        overlay?.SetCaptions(latestSource, latestTranslation);
+        overlay?.SetCards(latestCards);
     }
 
     private async Task ConfigureTranslationAsync(bool selectedModel)
@@ -545,18 +549,14 @@ public sealed class MainWindow : Window
     private void ClearSource()
     {
         captions.Clear();
-        latestSource = latestTranslation = null;
-        if (live) overlay?.SetCaptions(null, null);
+        latestCards = new(null, null);
+        if (live) overlay?.SetCards(latestCards);
     }
 
     private void ExpireSource()
     {
-        if (latestSource is not null && captions.IsExpired(captionClock.Elapsed.TotalSeconds))
-        {
-            // Keep the expired identity so polling cannot resurrect the same caption.
-            latestSource = latestTranslation = null;
-            if (live) overlay?.SetCaptions(null, null);
-        }
+        latestCards = captions.Tick(captionClock.Elapsed.TotalSeconds);
+        if (live) overlay?.SetCards(latestCards);
     }
 
     private async Task DisconnectCoreAsync()
@@ -571,7 +571,7 @@ public sealed class MainWindow : Window
         client = null;
         ClearSource();
         snapshot = null;
-        captions = new CaptionPresentation();
+        captions = new CaptionDeck();
         translationSupported = translationBusy = false;
         translationModels = [];
         translationModel.ItemsSource = null;
