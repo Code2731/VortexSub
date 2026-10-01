@@ -1,5 +1,17 @@
 # Model baseline probes (T00-04.1)
 
+## Laya output validation
+
+Run `scripts/probe-laya-translation.ps1 -Rounds 3 -Device cuda` with the approved,
+verified assets in `laya-model.json`. It compares 24 authored source/candidate
+pairs using six choice decisions, English/Korean questions and reversed option
+order. Gold labels never enter the model input. Controls, warmups, synchronized
+seconds, confusion counts, versions, failures and raw results stay under ignored
+`results/laya-translation-*`. Inference is offline and observational; no live
+caption blocking, IPC or model replacement. See
+[contract](../docs/LAYA_TRANSLATION_VALIDATION.md) and
+[measured limitations](../docs/evidence/laya-translation-validation-windows-20261002.md).
+
 ## Prompt and reference-context comparison
 
 Run `scripts/probe-translation-context.ps1 -Rounds 3` to compare the frozen

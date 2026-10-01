@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "repo": "convaiinnovations/laya-multilingual",
+  "revision": "e4e9ddf21a7b1903b7acffd8814ad4307bf63a67",
+  "license": "Apache-2.0",
+  "directory": "../models/laya/multilingual",
+  "files": [
+    {"path": "model.safetensors", "bytes": 643835514, "sha256": "9d628fd971b700382ac6f65920a86f149777b2e748e0c955fb3b19695aa8f204"},
+    {"path": "tokenizer/tokenizer.json", "bytes": 34363188, "sha256": "609d8f4c067cd3950f88594c5a802616cea245823836ef5848ee4fc40aab5b6f"},
+    {"path": "encoder/config.json", "bytes": 1938, "git_blob": "0de0e2d30638873790cf962def52e2acf4db3eef"},
+    {"path": "rl_agent_config.json", "bytes": 472, "git_blob": "00e35f88bb731bb9126a914666ab1cdac8a204c8"},
+    {"path": "tokenizer/tokenizer_config.json", "bytes": 502, "git_blob": "eea1ed61121530d74c1722dc2aab6ec917a75909"}
+  ],
+  "package": {
+    "version": "0.3.23",
+    "bytes": 286096,
+    "sha256": "30247fd93dec16b131d8483b1621db198600e90c777ad7d9992e48fc118db677",
+    "url": "https://files.pythonhosted.org/packages/cc/94/6ccecbf491c2d17c408a455dc3fc379f5e87a769474a30618096c984f85d/laya-0.3.23-py3-none-any.whl",
+    "directory": "../models/laya/sdk"
+  }
+}

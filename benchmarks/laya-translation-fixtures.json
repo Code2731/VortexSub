@@ -1,0 +1,414 @@
+{
+  "schema_version": 1,
+  "scope": "24 authored diagnostic cases (12 pairs), not a representative held-out benchmark. Labels frozen before inference; no fitting on evaluation rows. Ambiguous take/consume differences excluded.",
+  "cases": [
+    {
+      "id": "return-faithful",
+      "family": "return",
+      "language": "en",
+      "source": "Do not open the door until I return.",
+      "candidate": "내가 돌아올 때까지 문을 열지 마.",
+      "expected": {
+        "meaning": true,
+        "action": true,
+        "entity": true,
+        "quantity": true,
+        "condition": true,
+        "format": true
+      },
+      "provenance": "project-authored-faithful-paraphrase",
+      "origin_run": ""
+    },
+    {
+      "id": "return-error",
+      "family": "return",
+      "language": "en",
+      "source": "Do not open the door until I return.",
+      "candidate": "나가기 전까지 문을 열지 마.",
+      "expected": {
+        "meaning": false,
+        "action": true,
+        "entity": true,
+        "quantity": true,
+        "condition": false,
+        "format": true
+      },
+      "provenance": "observed-qwen4b",
+      "origin_run": "translation-context-20261002-065704-1205bf"
+    },
+    {
+      "id": "engine-faithful",
+      "family": "engine",
+      "language": "en",
+      "source": "Turn off the engine, not the shield.",
+      "candidate": "방어막 말고 엔진을 꺼.",
+      "expected": {
+        "meaning": true,
+        "action": true,
+        "entity": true,
+        "quantity": true,
+        "condition": true,
+        "format": true
+      },
+      "provenance": "project-authored-faithful-paraphrase",
+      "origin_run": ""
+    },
+    {
+      "id": "engine-error",
+      "family": "engine",
+      "language": "en",
+      "source": "Turn off the engine, not the shield.",
+      "candidate": "엔진을 끄는 것이 아니라, 보호 장치를 끄세요.",
+      "expected": {
+        "meaning": false,
+        "action": false,
+        "entity": false,
+        "quantity": true,
+        "condition": true,
+        "format": true
+      },
+      "provenance": "observed-gemma",
+      "origin_run": "translation-context-20261002-065647-6fd1f4"
+    },
+    {
+      "id": "ja-return-faithful",
+      "family": "ja-return",
+      "language": "ja",
+      "source": "戻るまでドアを開けないで。",
+      "candidate": "제가 돌아올 때까지 문을 열지 마세요.",
+      "expected": {
+        "meaning": true,
+        "action": true,
+        "entity": true,
+        "quantity": true,
+        "condition": true,
+        "format": true
+      },
+      "provenance": "project-authored-faithful-paraphrase",
+      "origin_run": ""
+    },
+    {
+      "id": "ja-return-error",
+      "family": "ja-return",
+      "language": "ja",
+      "source": "戻るまでドアを開けないで。",
+      "candidate": "문이 닫히지 않을 때까지 문을 열지 마세요.",
+      "expected": {
+        "meaning": false,
+        "action": true,
+        "entity": true,
+        "quantity": true,
+        "condition": false,
+        "format": true
+      },
+      "provenance": "observed-gemma",
+      "origin_run": "translation-context-20261002-065647-6fd1f4"
+    },
+    {
+      "id": "thirteen-faithful",
+      "family": "thirteen",
+      "language": "en",
+      "source": "We need thirteen arrows, not thirty.",
+      "candidate": "화살은 서른 개가 아니라 열세 개 필요해.",
+      "expected": {
+        "meaning": true,
+        "action": true,
+        "entity": true,
+        "quantity": true,
+        "condition": true,
+        "format": true
+      },
+      "provenance": "project-authored-faithful-paraphrase",
+      "origin_run": ""
+    },
+    {
+      "id": "thirteen-error",
+      "family": "thirteen",
+      "language": "en",
+      "source": "We need thirteen arrows, not thirty.",
+      "candidate": "화살은 스무 개가 아니라 열세 개 필요해.",
+      "expected": {
+        "meaning": false,
+        "action": true,
+        "entity": true,
+        "quantity": false,
+        "condition": true,
+        "format": true
+      },
+      "provenance": "controlled-number-substitution",
+      "origin_run": ""
+    },
+    {
+      "id": "negation-faithful",
+      "family": "negation",
+      "language": "en",
+      "source": "Do not attack the guard.",
+      "candidate": "경비병을 공격하지 마.",
+      "expected": {
+        "meaning": true,
+        "action": true,
+        "entity": true,
+        "quantity": true,
+        "condition": true,
+        "format": true
+      },
+      "provenance": "project-authored-faithful-paraphrase",
+      "origin_run": ""
+    },
+    {
+      "id": "negation-error",
+      "family": "negation",
+      "language": "en",
+      "source": "Do not attack the guard.",
+      "candidate": "경비병을 공격해.",
+      "expected": {
+        "meaning": false,
+        "action": false,
+        "entity": true,
+        "quantity": true,
+        "condition": true,
+        "format": true
+      },
+      "provenance": "synthetic",
+      "origin_run": ""
+    },
+    {
+      "id": "before-faithful",
+      "family": "before",
+      "language": "en",
+      "source": "Close the gate before you leave.",
+      "candidate": "떠나기 전에 문을 닫아.",
+      "expected": {
+        "meaning": true,
+        "action": true,
+        "entity": true,
+        "quantity": true,
+        "condition": true,
+        "format": true
+      },
+      "provenance": "project-authored-faithful-paraphrase",
+      "origin_run": ""
+    },
+    {
+      "id": "before-error",
+      "family": "before",
+      "language": "en",
+      "source": "Close the gate before you leave.",
+      "candidate": "떠난 다음에 문을 닫아.",
+      "expected": {
+        "meaning": false,
+        "action": true,
+        "entity": true,
+        "quantity": true,
+        "condition": false,
+        "format": true
+      },
+      "provenance": "synthetic",
+      "origin_run": ""
+    },
+    {
+      "id": "only-if-faithful",
+      "family": "only-if",
+      "language": "en",
+      "source": "Attack only if the shield is down.",
+      "candidate": "방어막이 내려갔을 때만 공격해.",
+      "expected": {
+        "meaning": true,
+        "action": true,
+        "entity": true,
+        "quantity": true,
+        "condition": true,
+        "format": true
+      },
+      "provenance": "project-authored-faithful-paraphrase",
+      "origin_run": ""
+    },
+    {
+      "id": "only-if-error",
+      "family": "only-if",
+      "language": "en",
+      "source": "Attack only if the shield is down.",
+      "candidate": "방어막이 올라갔을 때만 공격해.",
+      "expected": {
+        "meaning": false,
+        "action": true,
+        "entity": true,
+        "quantity": true,
+        "condition": false,
+        "format": true
+      },
+      "provenance": "synthetic",
+      "origin_run": ""
+    },
+    {
+      "id": "unless-faithful",
+      "family": "unless",
+      "language": "en",
+      "source": "Do not move unless I give the signal.",
+      "candidate": "내가 신호를 줄 때까지 움직이지 마.",
+      "expected": {
+        "meaning": true,
+        "action": true,
+        "entity": true,
+        "quantity": true,
+        "condition": true,
+        "format": true
+      },
+      "provenance": "project-authored-faithful-paraphrase",
+      "origin_run": ""
+    },
+    {
+      "id": "unless-error",
+      "family": "unless",
+      "language": "en",
+      "source": "Do not move unless I give the signal.",
+      "candidate": "내가 신호를 주면 움직이지 마.",
+      "expected": {
+        "meaning": false,
+        "action": true,
+        "entity": true,
+        "quantity": true,
+        "condition": false,
+        "format": true
+      },
+      "provenance": "synthetic",
+      "origin_run": ""
+    },
+    {
+      "id": "ja-direction-faithful",
+      "family": "ja-direction",
+      "language": "ja",
+      "source": "右ではなく、左の扉を開けてください。",
+      "candidate": "오른쪽이 아니라 왼쪽 문을 열어 주세요.",
+      "expected": {
+        "meaning": true,
+        "action": true,
+        "entity": true,
+        "quantity": true,
+        "condition": true,
+        "format": true
+      },
+      "provenance": "project-authored-faithful-paraphrase",
+      "origin_run": ""
+    },
+    {
+      "id": "ja-direction-error",
+      "family": "ja-direction",
+      "language": "ja",
+      "source": "右ではなく、左の扉を開けてください。",
+      "candidate": "왼쪽이 아니라 오른쪽 문을 열어 주세요.",
+      "expected": {
+        "meaning": false,
+        "action": true,
+        "entity": false,
+        "quantity": true,
+        "condition": true,
+        "format": true
+      },
+      "provenance": "synthetic",
+      "origin_run": ""
+    },
+    {
+      "id": "quantity-faithful",
+      "family": "quantity",
+      "language": "en",
+      "source": "Collect two potions.",
+      "candidate": "물약 두 개를 모아.",
+      "expected": {
+        "meaning": true,
+        "action": true,
+        "entity": true,
+        "quantity": true,
+        "condition": true,
+        "format": true
+      },
+      "provenance": "project-authored-faithful-paraphrase",
+      "origin_run": ""
+    },
+    {
+      "id": "quantity-error",
+      "family": "quantity",
+      "language": "en",
+      "source": "Collect two potions.",
+      "candidate": "물약 세 개를 모아.",
+      "expected": {
+        "meaning": false,
+        "action": true,
+        "entity": true,
+        "quantity": false,
+        "condition": true,
+        "format": true
+      },
+      "provenance": "synthetic-unambiguous-action",
+      "origin_run": ""
+    },
+    {
+      "id": "boundary-faithful",
+      "family": "boundary",
+      "language": "en",
+      "source": "Collect two potions only if you have fewer than three hearts.",
+      "candidate": "하트가 세 개 미만일 때만 물약 두 개를 모아.",
+      "expected": {
+        "meaning": true,
+        "action": true,
+        "entity": true,
+        "quantity": true,
+        "condition": true,
+        "format": true
+      },
+      "provenance": "project-authored-faithful-paraphrase",
+      "origin_run": ""
+    },
+    {
+      "id": "boundary-error",
+      "family": "boundary",
+      "language": "en",
+      "source": "Collect two potions only if you have fewer than three hearts.",
+      "candidate": "하트가 세 개 이하일 때만 물약 두 개를 모아.",
+      "expected": {
+        "meaning": false,
+        "action": true,
+        "entity": true,
+        "quantity": true,
+        "condition": false,
+        "format": true
+      },
+      "provenance": "synthetic-unambiguous-action",
+      "origin_run": ""
+    },
+    {
+      "id": "commentary-faithful",
+      "family": "commentary",
+      "language": "en",
+      "source": "Wait here until the captain arrives.",
+      "candidate": "대장이 올 때까지 여기서 기다려.",
+      "expected": {
+        "meaning": true,
+        "action": true,
+        "entity": true,
+        "quantity": true,
+        "condition": true,
+        "format": true
+      },
+      "provenance": "project-authored-faithful-paraphrase",
+      "origin_run": ""
+    },
+    {
+      "id": "commentary-error",
+      "family": "commentary",
+      "language": "en",
+      "source": "Wait here until the captain arrives.",
+      "candidate": "대장이 올 때까지 여기서 기다려. 번역을 완료했습니다.",
+      "expected": {
+        "meaning": false,
+        "action": true,
+        "entity": true,
+        "quantity": true,
+        "condition": true,
+        "format": false
+      },
+      "provenance": "synthetic",
+      "origin_run": ""
+    }
+  ]
+}
