@@ -33,7 +33,7 @@ macOS에서는 고정 SDK 설치 후 `bash scripts/check.sh`를 실행합니다.
 
 CUDA 전사를 비교하려면 **`run-live-cuda.bat`**을 실행하거나 `run-live.bat -AsrBackend cuda`를 사용하세요. NVIDIA GPU와 설치된 CUDA Toolkit이 필요합니다. 기본 전사는 CPU이며, CUDA의 실제 번역·게임 동시 성능은 아직 미검증입니다. [파일 비교와 실행 안내](docs/LIVE_UI.md).
 
-더 빠른 임시 번역 비교는 **`run-live-cuda-fast.bat`**으로 실행하고 세션 시작 전에 **안정된 부분 먼저 번역 · 임시 결과**를 켜세요. 부분 요청 간격이 0.5초로 줄어듭니다. 미완성 정보와 GPU 비용이 늘 수 있으며 기본값은 유지합니다. [실제 ASR→Qwen 측정](docs/evidence/paced-translation-windows-20261001.md).
+더 빠른 임시 번역 비교는 **`run-live-cuda-fast.bat`**으로 실행하고 세션 시작 전에 **안정된 부분 먼저 번역 · 임시 결과**를 켜세요. 첫 부분 요청 조건과 후속 간격을 각각 0.5초로 줄입니다(실효 첫 요청 약 0.512초). 미완성 정보와 GPU 비용이 늘 수 있으며 기본값은 유지합니다. [실제 ASR→Qwen 측정](docs/evidence/paced-translation-windows-20261001.md) · [첫 요청 변경·보류 계측](docs/evidence/early-partial-windows-20261002.md).
 
 현재 draft 갱신 대기도 줄였습니다. 앱의 **자막 지연 기록** 옵션으로 수신→카드 반영 시점을 텍스트 없는 로그에 기록할 수 있습니다. 실행 중 켜고 끌 수 있고 저장 경로를 표시합니다. 이전 자막 읽기 시간은 유지합니다. [표시 규칙·계측](docs/CAPTION_READING.md).
 

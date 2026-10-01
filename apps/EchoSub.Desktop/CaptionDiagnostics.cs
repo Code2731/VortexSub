@@ -65,7 +65,7 @@ internal static class CaptionDiagnostics
                 translation_request_id = Number(identity, "translation_request_id"),
                 audio_start_s = Seconds(payload, "audio_start_s"), audio_end_s = Seconds(payload, "audio_end_s"),
                 voice_start_s = Seconds(payload, "voice_start_s"), voice_end_s = Seconds(payload, "voice_end_s"),
-                stable_chars = Number(payload, "stable_chars"), decode_s = Seconds(payload, "decode_s"),
+                preview_hold_reason = HoldReason(payload), stable_chars = Number(payload, "stable_chars"), decode_s = Seconds(payload, "decode_s"),
                 partial_deferred_wait_s = Seconds(payload, "partial_deferred_wait_s"),
                 elapsed_s = Seconds(payload, "elapsed_s"), applied = Flag(payload, "applied"),
                 queued = Flag(payload, "queued"), preview = Flag(payload, "preview") });
@@ -76,6 +76,15 @@ internal static class CaptionDiagnostics
             session_id = Number(record, "session_id"), epoch = Number(record, "epoch"),
             segment_id = Number(record, "segment_id"), source_revision = Number(record, "source_revision"),
             translation_request_id = Number(record, "translation_request_id") });
+    }
+
+    private static string? HoldReason(JsonElement payload)
+    {
+        if (!payload.TryGetProperty("preview_hold_reason", out var value) || value.ValueKind != JsonValueKind.String) return null;
+        return value.GetString() is { } reason && reason is "Eligible" or "Disabled" or "NoStablePrefix"
+            or "FinalTranslationQueued" or "FinalAsrQueued" or "FinalTranslationInFlight" or "Cadence"
+            or "EmptyTail" or "TooShort" or "AlreadyTranslated" or "IncompleteCondition"
+            or "IncompleteNumber" or "ConditionContinuation" or "DanglingWord" or "AsrUnavailable" ? reason : null;
     }
 
     private static double? Seconds(JsonElement value, string name) =>

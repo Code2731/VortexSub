@@ -13,6 +13,7 @@ pub(crate) struct Units {
     identity: Option<SegmentIdentity>,
     delivered: String,
     last: Option<Unit>,
+    pub hold_reason: Option<&'static str>,
 }
 impl Units {
     pub fn reset(&mut self) {
@@ -36,10 +37,12 @@ impl Units {
             // A correction in the mutable tail does not invalidate earlier closed units.
             self.last = None;
         }
+        self.hold_reason = None;
         let rest = &stable[self.delivered.len()..];
         let start = stable.len() - rest.trim_start().len();
         let tail = &stable[start..];
         if tail.is_empty() {
+            self.hold_reason = Some("EmptyTail");
             return None;
         }
         let limit = tail
@@ -93,6 +96,7 @@ impl Units {
         if source.chars().count() < if closed { 2 } else { 6 }
             || !closed && language == "en" && source.split_whitespace().count() < 3
         {
+            self.hold_reason = Some("TooShort");
             return None;
         }
         let unit = Unit {
@@ -100,21 +104,23 @@ impl Units {
             source: source.into(),
             closed,
         };
-        if language == "en"
-            && english_fragment(
+        if language == "en" {
+            if let Some(reason) = english_fragment(
                 &unit.source,
                 unit.closed,
                 observed.strip_prefix(&unit.prefix).unwrap_or(""),
                 source.len() < tail.trim_end().len(),
-            )
-        {
-            return None;
+            ) {
+                self.hold_reason = Some(reason);
+                return None;
+            }
         }
         if self
             .last
             .as_ref()
             .is_some_and(|old| old.prefix == unit.prefix && old.source == unit.source)
         {
+            self.hold_reason = Some("AlreadyTranslated");
             return None;
         }
         Some(unit)
@@ -129,14 +135,19 @@ impl Units {
 
 // A bounded lexical veto, not a grammar or meaning classifier. Only preview units
 // reach this function; final ASR always goes through whole-source translation.
-fn english_fragment(source: &str, closed: bool, remainder: &str, truncated: bool) -> bool {
+fn english_fragment(
+    source: &str,
+    closed: bool,
+    remainder: &str,
+    truncated: bool,
+) -> Option<&'static str> {
     let lower = source.to_ascii_lowercase();
     let words: Vec<&str> = lower
         .split_whitespace()
         .map(|word| word.trim_matches(|c: char| c.is_ascii_punctuation()))
         .collect();
     let Some(&last) = words.last() else {
-        return false;
+        return None;
     };
     // Even Whisper punctuation must not close "until I" or "unless we can".
     if let Some(condition) = words.iter().rposition(|word| condition_word(word)) {
@@ -178,7 +189,7 @@ fn english_fragment(source: &str, closed: bool, remainder: &str, truncated: bool
                     )
                 })
         {
-            return true;
+            return Some("IncompleteCondition");
         }
     }
     let numeric = last.parse::<f64>().is_ok_and(f64::is_finite)
@@ -218,10 +229,10 @@ fn english_fragment(source: &str, closed: bool, remainder: &str, truncated: bool
         );
     // Punctuation alone does not provide the missing object in "There are three.".
     if numeric && words.len() == 3 && words[0] == "there" && matches!(words[1], "is" | "are") {
-        return true;
+        return Some("IncompleteNumber");
     }
     if closed || truncated {
-        return false;
+        return None;
     }
     // Use an unstable continuation only to defer; never send it as source/context.
     let following = remainder
@@ -230,23 +241,29 @@ fn english_fragment(source: &str, closed: bool, remainder: &str, truncated: bool
         .next()
         .unwrap_or("");
     if condition_word(&following.to_ascii_lowercase()) {
-        return true;
+        return Some("ConditionContinuation");
     }
-    numeric
-        || matches!(
-            last,
-            "a" | "an"
-                | "the"
-                | "of"
-                | "to"
-                | "with"
-                | "without"
-                | "near"
-                | "into"
-                | "and"
-                | "or"
-                | "because"
-        )
+    if numeric {
+        return Some("IncompleteNumber");
+    }
+    if matches!(
+        last,
+        "a" | "an"
+            | "the"
+            | "of"
+            | "to"
+            | "with"
+            | "without"
+            | "near"
+            | "into"
+            | "and"
+            | "or"
+            | "because"
+    ) {
+        Some("DanglingWord")
+    } else {
+        None
+    }
 }
 
 fn condition_word(word: &str) -> bool {

@@ -103,3 +103,27 @@ owner 전달→완료에는 내부 대기/완료 polling이 포함되고, native
 실패했지만 pipeline이 수용한 번역 완료도 완료 시간에 포함될 수 있다.
 구형 로그의 `pipeline.events=0`은 미측정이다. 이번 로그 형식은 기존 UI 집계와
 호환되며, 새 실행 결과로 병목을 판단해야 한다.
+
+### 임시 번역 보류 이유 (2026-10-02)
+
+`source.partial`의 `preview_hold_reason`을 같은 옵션으로 기록한다.
+요약의 `preview_decision_observations`는 전체 부분 원문 갱신의 판정 횟수,
+`before_first_translation_decisions`는 segment의 첫 적용 번역 전 판정 횟수다.
+시간 합계나 보류 해제 이벤트가 아니며, 새 ASR 갱신 때의 상태만 관측한다.
+
+- `NoStablePrefix`: 두 전사의 공통 원문이 최소 기준에 도달하지 않음.
+- `TooShort`: 남은 번역 단위가 최소 길이에 미달.
+- `IncompleteNumber` / `IncompleteCondition` / `ConditionContinuation` /
+  `DanglingWord`: 숫자·조건·관사/연결어 조각의 기존 보류 규칙.
+- `Cadence`: 기존 0.5초 임시 요청 간격. `FinalAsrQueued`,
+  `FinalTranslationQueued`, `FinalTranslationInFlight`: 확정 작업 우선.
+- `EmptyTail` / `AlreadyTranslated`: 새로 번역할 단위 없음.
+- `Disabled` / `AsrUnavailable`: 임시 번역 꺼짐 또는 ASR 원문 불가.
+- `Eligible`: 선택 시점의 사전 보류 없음. HTTP 성공/의미 완성 보장은 아님.
+- `Unreported`: 구형 로그나 알려진 값이 없는 경우. 원인을 추정하지 않는다.
+
+이유는 고정 목록만 저장하며 임의 문자열을 로그로 복사하지 않는다.
+빠른 CUDA 모드는 첫 부분 요청 조건을 0.8→0.5초(프레임 반올림 0.512초)로
+앞당겼다. 기본 모드는 0.8초다. 두 전사 일치와 보류/읽기 규칙은 유지한다.
+짧은 입력에서 전사 변경/무음 판정과 재추론 비용이 늘 수 있으며, 전체 첫 자막
+가속은 새 실행 로그로 확인해야 한다. 기존 실행의 결과를 개선 후 측정으로 쓰지 않는다.

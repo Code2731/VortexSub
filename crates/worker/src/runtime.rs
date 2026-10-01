@@ -877,7 +877,7 @@ impl Runtime {
             .ok_or(("INTERNAL_ERROR", "Record unavailable"))?;
         q.publish(
             name,
-            json!({"worker_at_s":self.now() as f64/1e9,"stable_chars":r.stable_source.chars().count(),"history_version":self.core.version(),"record":self.wire_record(r)}),
+            json!({"worker_at_s":self.now() as f64/1e9,"stable_chars":r.stable_source.chars().count(),"preview_hold_reason":r.preview_hold_reason.or((r.source_state == echosub_pipeline_core::SourceState::Partial).then_some("Eligible")),"history_version":self.core.version(),"record":self.wire_record(r)}),
             (name == "source.partial").then(|| {
                 format!(
                     "source-partial/{}/{}/{}",

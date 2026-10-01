@@ -72,6 +72,7 @@ pub struct Record {
     pub translation_reason: Option<Reason>,
     pub translation_request_id: Option<u64>,
     pub stable_source: String,
+    pub preview_hold_reason: Option<&'static str>,
     pub translation_is_preview: bool,
     pub translation_source: String,
     pub translation_prefix: String,
@@ -468,6 +469,7 @@ impl Pipeline {
                 translation_reason: None,
                 translation_request_id: None,
                 stable_source: String::new(),
+                preview_hold_reason: None,
                 translation_is_preview: false,
                 translation_source: String::new(),
                 translation_prefix: String::new(),
@@ -478,6 +480,7 @@ impl Pipeline {
         self.records[i].range = range;
         self.records[i].source_reason = None;
         self.records[i].stable_source.clear();
+        self.records[i].preview_hold_reason = None;
         self.records[i].translation_source.clear();
         self.records[i].translation_prefix.clear();
         self.unit_followup = false;
@@ -577,6 +580,7 @@ impl Pipeline {
                 if flight.kind == AsrKind::Final {
                     self.agreement.reset();
                     self.units.reset();
+                    self.records[i].preview_hold_reason = None;
                     self.records[i].source_state = SourceState::Final;
                     self.enqueue_translation(i, now);
                 } else {
@@ -588,15 +592,26 @@ impl Pipeline {
                         &self.records[i].source,
                         &self.source_language,
                     );
-                    if self.partial_translation_enabled
-                        && !self.records[i].stable_source.is_empty()
-                        && self.translation_queue.is_empty()
-                        && self.final_queue.is_empty()
-                        && self.translation.is_none_or(|f| f.preview)
-                        && self
+                    self.records[i].preview_hold_reason =
+                        if !self.partial_translation_enabled || !self.translation_enabled {
+                            Some("Disabled")
+                        } else if self.records[i].stable_source.is_empty() {
+                            Some("NoStablePrefix")
+                        } else if !self.translation_queue.is_empty() {
+                            Some("FinalTranslationQueued")
+                        } else if !self.final_queue.is_empty() {
+                            Some("FinalAsrQueued")
+                        } else if self.translation.is_some_and(|f| !f.preview) {
+                            Some("FinalTranslationInFlight")
+                        } else if self
                             .last_preview_ns
-                            .is_none_or(|last| now.saturating_sub(last) >= 500_000_000)
-                    {
+                            .is_some_and(|last| now.saturating_sub(last) < 500_000_000)
+                        {
+                            Some("Cadence")
+                        } else {
+                            None
+                        };
+                    if self.records[i].preview_hold_reason.is_none() {
                         self.enqueue_translation(i, now);
                     }
                 }
@@ -604,6 +619,7 @@ impl Pipeline {
             other => {
                 self.agreement.reset();
                 self.records[i].stable_source.clear();
+                self.records[i].preview_hold_reason = Some("AsrUnavailable");
                 let reason = match other {
                     Outcome::NoSpeech => Reason::NoSpeech,
                     Outcome::OverlapOnly => Reason::OverlapOnly,
@@ -646,8 +662,10 @@ impl Pipeline {
                 &self.records[i].source,
                 &self.source_language,
             ) else {
+                self.records[i].preview_hold_reason = self.units.hold_reason;
                 return;
             };
+            self.records[i].preview_hold_reason = None;
             Some(unit)
         } else {
             None

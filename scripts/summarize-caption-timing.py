@@ -35,6 +35,8 @@ revisions = OrderedDict()
 requests = OrderedDict()
 segments = OrderedDict()
 stage_samples = {}
+hold_observations = {}
+first_translation_hold_observations = {}
 stage_missing_pairs = {}
 stage_events = stage_invalid = ignored_asr = unapplied_translation = 0
 
@@ -81,6 +83,16 @@ def pipeline(row):
         else:
             ignored_asr += 1
     elif event in ('source.partial', 'source.final'):
+        if event == 'source.partial':
+            reason = row.get('preview_hold_reason')
+            allowed = {'Eligible', 'Disabled', 'NoStablePrefix', 'FinalTranslationQueued',
+                       'FinalAsrQueued', 'FinalTranslationInFlight', 'Cadence', 'EmptyTail',
+                       'TooShort', 'AlreadyTranslated', 'IncompleteCondition', 'IncompleteNumber',
+                       'ConditionContinuation', 'DanglingWord', 'AsrUnavailable'}
+            reason = reason if isinstance(reason, str) and reason in allowed else 'Unreported'
+            hold_observations[reason] = hold_observations.get(reason, 0) + 1
+            if 'first_translation' not in seg:
+                first_translation_hold_observations[reason] = first_translation_hold_observations.get(reason, 0) + 1
         rev.setdefault('source_ready', at)
         if 'first_source' not in seg:
             seg['first_source'] = at
@@ -156,6 +168,8 @@ print(json.dumps({'matched_first_visible_deck_applications': len(samples),
                   'event_receipt_to_deck_s': stats(samples), 'deck_deferred_s': stats(deferred),
                   'pipeline': {'events': stage_events, 'invalid': stage_invalid,
                                'ignored_asr': ignored_asr, 'unapplied_translation': unapplied_translation,
+                               'preview_decision_observations': hold_observations,
+                               'before_first_translation_decisions': first_translation_hold_observations,
                                'durations_s': {name: stats(values) for name, values in stage_samples.items()},
                                'missing_or_invalid_pairs': stage_missing_pairs,
                                'note': 'Worker-local clock differences only. Sampled voice span is an audio range, not wall-clock latency. Admission begins after VAD and may be coalesced; nonempty stable text is not necessarily eligible for translation. No device-to-screen latency or worker-to-desktop transport duration. Missing/evicted pairs are omitted, not zero.'},

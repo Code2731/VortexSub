@@ -328,6 +328,7 @@ mod tests {
             translation_reason: None,
             translation_request_id: None,
             stable_source: String::new(),
+            preview_hold_reason: None,
             translation_is_preview: false,
             translation_source: String::new(),
             translation_prefix: String::new(),

@@ -109,7 +109,45 @@ fn unfinished_units_are_bounded_and_decimal_points_are_not_sentence_ends() {
     partial(&mut f, 1536, changed, 1_700_000_000);
     partial(&mut f, 2048, changed, 2_200_000_000);
     // The corrected stable prefix ends in an article; defer its preview.
+    assert_eq!(f.records()[0].preview_hold_reason, Some("DanglingWord"));
     assert!(f.core.next_translation(2_200_000_000).unwrap().is_none());
+}
+#[test]
+fn preview_hold_reasons_release_when_number_and_condition_fragments_complete() {
+    for (fragment, complete, reason) in [
+        (
+            "There are three.",
+            "There are three enemies.",
+            "IncompleteNumber",
+        ),
+        (
+            "Do not open the door until I.",
+            "Do not open the door until I return.",
+            "IncompleteCondition",
+        ),
+        ("Do open the door", "Do open the door now.", "DanglingWord"),
+    ] {
+        let mut f = Fixture::new(1000, "ko");
+        f.core.set_partial_translation_enabled(true);
+        partial(&mut f, 512, fragment, 0);
+        assert_eq!(f.records()[0].preview_hold_reason, Some("NoStablePrefix"));
+        partial(&mut f, 1024, fragment, 500_000_000);
+        assert_eq!(f.records()[0].preview_hold_reason, Some(reason));
+        assert!(f.core.next_translation(500_000_000).unwrap().is_none());
+        partial(&mut f, 1536, complete, 1_000_000_000);
+        partial(&mut f, 2048, complete, 1_500_000_000);
+        assert!(f.core.next_translation(1_500_000_000).unwrap().is_some());
+        assert_eq!(f.records()[0].preview_hold_reason, None);
+    }
+    let mut f = Fixture::new(1000, "ko");
+    f.core.set_partial_translation_enabled(true);
+    partial(&mut f, 512, "Do not open the door", 0);
+    partial(&mut f, 1024, "Do not open the door until I", 500_000_000);
+    assert_eq!(
+        f.records()[0].preview_hold_reason,
+        Some("ConditionContinuation")
+    );
+    assert!(f.core.next_translation(500_000_000).unwrap().is_none());
 }
 fn partial(f: &mut Fixture, end: u64, text: &str, now: u64) {
     f.submit(1, AsrKind::Partial, end, now);
@@ -126,6 +164,7 @@ fn local_agreement_is_provisional_and_default_does_not_translate_partials() {
     let mut f = Fixture::new(1000, "ko");
     partial(&mut f, 512, "We should take the left", 0);
     assert!(f.records()[0].stable_source.is_empty());
+    assert_eq!(f.records()[0].preview_hold_reason, Some("Disabled"));
     partial(&mut f, 1024, "We should take the left path.", 500_000_000);
     assert_eq!(f.records()[0].stable_source, "We should take the left");
     assert!(f.core.next_translation(500_000_000).unwrap().is_none());

@@ -224,6 +224,11 @@ fn stable_preview_is_opt_in_and_replaced_by_full_final_http() {
         .unwrap()
         .is_empty());
     assert!(s.bodies.lock().unwrap().is_empty());
+    assert!(w
+        .events
+        .iter()
+        .any(|event| event["event"] == "source.partial"
+            && event["payload"]["preview_hold_reason"] == "NoStablePrefix"));
     source(&mut w, "We should take the left path.", "partial");
     until(&mut w, |v| v["translator"]["completed_jobs"] == 1);
     let preview = history(&mut w);

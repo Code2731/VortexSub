@@ -56,6 +56,17 @@ class TimingSummary(unittest.TestCase):
         self.assertEqual(result['missing_or_invalid_pairs']['translation_owner_dispatch_to_completion_s'], 1)
         self.assertEqual(result['invalid'], 1)
 
+    def test_decision_counts_are_observations_and_reject_unrecognized_text(self):
+        result = summarize([row('source.partial', 1, stable_chars=0, preview_hold_reason='NoStablePrefix'),
+                            row('source.partial', 2, stable_chars=10, preview_hold_reason='IncompleteNumber'),
+                            row('translation.updated', 3, translation_request_id=1),
+                            row('source.partial', 4, stable_chars=10, preview_hold_reason='AlreadyTranslated'),
+                            row('source.partial', 5, stable_chars=10, preview_hold_reason='private text')])['pipeline']
+        self.assertEqual(result['before_first_translation_decisions'], {'NoStablePrefix': 1, 'IncompleteNumber': 1})
+        self.assertEqual(result['preview_decision_observations']['AlreadyTranslated'], 1)
+        self.assertEqual(result['preview_decision_observations']['Unreported'], 1)
+        self.assertNotIn('private text', str(result))
+
     def test_legacy_ui_log_still_summarizes(self):
         base = dict(worker_pid=1, session_id=1, epoch=1, segment_id=1,
                     source_revision=1, translation_request_id=1)
