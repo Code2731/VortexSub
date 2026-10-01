@@ -1,8 +1,15 @@
-# ASR·번역 후보 검토 (2026-10-01)
+# ASR·번역 후보 검토 (2026-10-01, 후속 2026-10-02)
 
-현재 기본 구성은 CPU Whisper base + GPU llama.cpp의
-Qwen3-4B-Instruct-2507 Q4_K_M이다. 아래 후보는 조사만 했으며 다운로드나
-실측은 하지 않았다. 모델/runtime 확보 전에 용량·라이선스·고정 revision을
+후속: 동의받은 SenseVoiceSmall INT8 CPU와 Whisper CUDA 파일 비교를 완료했다.
+이번 구성에서 추론 가속은 없었다. Whisper 짧은 입력 패딩의 첫 원문 가속은
+파일 실험에 한정되며 제품 번역 지연 개선은 미확인이다.
+[실측 근거](evidence/asr-candidates-windows-20261002.md).
+[설치·비교 절차](ASR_CANDIDATE_COMPARISON.md)를 따른다.
+현재 빠른 실행 경로의 비교 기준은 Whisper base CUDA다.
+
+최초 조사 당시 기본 구성은 CPU Whisper base + GPU llama.cpp의
+Qwen3-4B-Instruct-2507 Q4_K_M이다. 아래 내용은 최초 조사 당시의 기록이다.
+SenseVoice 외 후보는 다운로드·실측하지 않았다. 모델/runtime 확보 전에 용량·라이선스·고정 revision을
 확인하고 저장소의 다운로드 동의 절차를 따른다.
 
 ## ASR

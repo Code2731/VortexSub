@@ -1,5 +1,18 @@
 # 구현 상태
 
+## SenseVoice 후보 비교와 짧은 Whisper 입력 실험 (2026-10-02)
+
+사용자 동의 후 약 259 MB의 고정 모델/wheel을 해시 검증·별도 설치했다.
+영/한 합성 각 10개와 무음 1개를 전체/부분 입력 각 3회 비교했다.
+SenseVoice CPU 전체 decode 영어 0.067671초, Whisper CUDA 0.046737초로
+엔진 교체에 따른 추론 가속은 없었다. Whisper가 0.8초 입력을 거부하는 것을
+확인하고 파일 probe에 1.02초 zero-pad 후보를 추가했다. 첫 원문 시뮬레이션
+영어 1.093→0.854초·한국어 1.102→0.849초이며 최종 원문 60/60 동일했다.
+일부 부분 원문의 오인식과 수정이 남아 제품 기본값은 변경하지 않았다.
+다음은 패딩 후보의 생산 스케줄러/번역 paced 비교다. Python/PowerShell 문법,
+Rust fmt·native release build 확인; 일반 테스트·live/화면·자연/일본어·Mac 미실행.
+[실측과 판단](evidence/asr-candidates-windows-20261002.md).
+
 ## 실제 부분 전사 window/fallback 연결 (2026-10-02)
 
 적용된 revision에만 정렬 mapping을 만들고 owner에서 축소 재결합 실패 시

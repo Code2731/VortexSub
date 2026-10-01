@@ -272,3 +272,15 @@ The reference binary must implement the same replay protocol. Reports include
 trace/binary hashes, final-only controls and execution order. This is offline
 MOCK ASR admission with actual HTTP, not native scheduling or screen latency.
 See [comparison and trim evidence](../docs/evidence/translation-units-trim-windows-20261001.md).
+
+## SenseVoice candidate file comparison
+
+After explicit download consent, install the pinned model and private Windows CPU
+runtime with `models/tabby/venv/Scripts/python.exe -X utf8 scripts/probe-sensevoice.py
+--download-approved`. Normal probe runs never download. Run without that flag for
+three whole/prefix passes over the local fixture manifest. The native model probe's
+`prefix` command uses identical 0.8/0.256-second input boundaries for Whisper.
+`scripts/summarize-asr-candidates.py <sense-report> <whisper-report> --output <json>`
+checks matching fixtures/rounds/boundaries and applies the same character scoring.
+All time values are seconds. Prefix availability is a file simulation, not live
+caption latency. See [configuration and limits](../docs/ASR_CANDIDATE_COMPARISON.md).

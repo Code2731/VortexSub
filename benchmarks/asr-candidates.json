@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "candidate": "sensevoice-small-int8-cpu",
+  "model_license": "FunASR Model Open Source License Agreement v1.1 (custom)",
+  "model_license_url": "https://github.com/modelscope/FunASR/blob/main/MODEL_LICENSE",
+  "runtime_license": "Apache-2.0",
+  "model_revision": "2365baeacb507f821a0c8120fcee3d484dba7a07",
+  "runtime_version": "1.13.8",
+  "assets": [
+    {
+      "name": "model.int8.onnx",
+      "bytes": 239233841,
+      "sha256": "c71f0ce00bec95b07744e116345e33d8cbbe08cef896382cf907bf4b51a2cd51",
+      "url": "https://huggingface.co/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17/resolve/2365baeacb507f821a0c8120fcee3d484dba7a07/model.int8.onnx"
+    },
+    {
+      "name": "tokens.txt",
+      "bytes": 315894,
+      "sha256": "f449eb28dc567533d7fa59be34e2abca8784f771850c78a47fb731a31429a1dc",
+      "url": "https://huggingface.co/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17/resolve/2365baeacb507f821a0c8120fcee3d484dba7a07/tokens.txt"
+    },
+    {
+      "name": "sherpa_onnx-1.13.8-cp312-cp312-win_amd64.whl",
+      "bytes": 2287856,
+      "sha256": "566e49ad3fb2aa8ceb723a52f9809aa6c2ee0a5eb3b0946c3fd2374af807a5c6",
+      "url": "https://files.pythonhosted.org/packages/24/af/33e9dcaa527bbc0c2526959713626607a46da2d7b19871b7773d8607d356/sherpa_onnx-1.13.8-cp312-cp312-win_amd64.whl"
+    },
+    {
+      "name": "sherpa_onnx_core-1.13.8-py3-none-win_amd64.whl",
+      "bytes": 16903581,
+      "sha256": "5579e80196d516e6dae23c8f629292ce3142ab8869925d32b94612fd86f93733",
+      "url": "https://files.pythonhosted.org/packages/94/38/64356ad97f68fffcf01fe7545407ad18a2ea86c1ffae5b0950f7fac73638/sherpa_onnx_core-1.13.8-py3-none-win_amd64.whl"
+    }
+  ]
+}

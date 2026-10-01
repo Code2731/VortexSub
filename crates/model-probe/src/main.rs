@@ -5,6 +5,8 @@ mod cancel_probe;
 mod corpus;
 #[cfg(feature = "native")]
 mod load_probe;
+#[cfg(feature = "native")]
+mod prefix_probe;
 mod scoring;
 
 use std::error::Error;
@@ -23,6 +25,8 @@ fn execute() -> Result<(), Box<dyn Error>> {
             benchmark::run(Path::new(&args[1]), Path::new(&args[2]), Path::new(&args[3]), args[4].parse()?, &args[5])
         }
         #[cfg(feature = "native")]
+        Some("prefix") if args.len() == 8 || args.len() == 9 => prefix_probe::run(&args[1..]),
+        #[cfg(feature = "native")]
         Some("load") if args.len() == 11 => {
             load_probe::run(&args[1..])
         }
@@ -34,7 +38,7 @@ fn execute() -> Result<(), Box<dyn Error>> {
         Some("cancel-child") if args.len() == 8 => {
             cancel_probe::child(Path::new(&args[1]), Path::new(&args[2]), &args[3], args[4].parse()?, &args[5], &args[6], Path::new(&args[7]))
         }
-        _ => Err("Usage: echosub-model-probe validate <fixtures.json>\nNative feature: asr <fixtures.json> <model-downloads.json> <report.json> <threads> <cpu|cuda|metal>\nNative feature: cancel <fixtures.json> <model-downloads.json> <report.json> <threads> <cpu|cuda|metal> <iterations 10..100>".into()),
+        _ => Err("Usage: echosub-model-probe validate <fixtures.json>\nNative feature: asr <fixtures.json> <model-downloads.json> <report.json> <threads> <cpu|cuda|metal>\nNative feature: prefix <fixtures.json> <model.bin> <sha256> <report.json> <threads> <cpu|cuda> <rounds>\nNative feature: cancel <fixtures.json> <model-downloads.json> <report.json> <threads> <cpu|cuda|metal> <iterations 10..100>".into()),
     }
 }
 
