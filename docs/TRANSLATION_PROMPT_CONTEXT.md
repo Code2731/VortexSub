@@ -40,6 +40,10 @@ temperature 0.2·max_tokens 256·단일 HTTP 요청이며 새 모델이나 추�
 
 ## 판단
 
+후속 의미 통제 비교는 `-Fixtures benchmarks/translation-semantic-controls.json`로
+실행한다. 6개 원문을 문맥 없음/관련/무관으로 비교하며 `-Profiles plain`은 일반
+텍스트 전달 진단 대조군이다. 앱에는 연결하지 않는다. [162회 결과와 판단](evidence/translation-semantic-controls-windows-20261002.md).
+
 영어 문맥 혼입과 일부 명령 반전은 줄었지만 `until I return` 오역, 일본어 정정
 문맥 혼입, 어휘/숫자 오류와 일부 새 오류가 남았다. 전체 품질 gate는 false다.
 [측정·검토·적용 범위](evidence/translation-prompt-context-windows-20261002.md)를 따른다.

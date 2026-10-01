@@ -31,6 +31,15 @@ def candidate(body, profile, config):
                         {'role': 'user', 'content': json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(',', ':'))}]
     if profile == 'baseline':
         body['messages'][0]['content'] = config['baseline_system']
+    elif profile == 'plain':
+        names = {'en': 'English', 'ja': 'Japanese', 'ko': 'Korean'}
+        body['messages'] = [{'role': 'system', 'content':
+            f"Translate the current {names[payload['source_language']]} subtitle into {names[payload['target_language']]}. "
+            'Earlier dialogue is reference only. Output only the current subtitle translation, with no explanation.'}]
+        if payload['context']:
+            body['messages'].append({'role': 'user', 'content': 'Earlier dialogue (reference only):\n' + '\n'.join(payload['context'])})
+        body['messages'].append({'role': 'user', 'content': 'Current subtitle:\n' + payload['source_text']})
+        return body
     elif profile != 'production':
         body['messages'][0]['content'] = config['strict_system']
     if profile == 'korean':
@@ -58,8 +67,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--rounds', type=int, default=3)
     parser.add_argument('--server')
+    parser.add_argument('--fixtures', type=Path, help='Authored full-source fixture JSON; defaults to the prompt/context comparison set')
     parser.add_argument('--owner-check', action='store_true', help='Also call the real Rust HTTP owner once per fixture/policy')
-    parser.add_argument('--profiles', nargs='+', choices=['baseline', 'strict', 'isolated', 'readable', 'examples', 'korean', 'production'])
+    parser.add_argument('--profiles', nargs='+', choices=['baseline', 'strict', 'isolated', 'readable', 'examples', 'korean', 'production', 'plain'])
     args = parser.parse_args()
     if not 1 <= args.rounds <= 10:
         parser.error('rounds must be 1..10')
@@ -74,7 +84,7 @@ def main():
         raise RuntimeError('Existing translation model hash mismatch')
     server_path = Path(args.server or shutil.which('llama-server.exe') or
                        str(Path(os.environ['LOCALAPPDATA']) / 'Microsoft/WinGet/Links/llama-server.exe')).resolve(strict=True)
-    fixtures = repo / 'benchmarks/translation-context-fixtures.json'
+    fixtures = (args.fixtures or repo / 'benchmarks/translation-context-fixtures.json').resolve(strict=True)
     profiles_path = repo / 'benchmarks/translation-prompt-profiles.json'
     profiles = json.loads(profiles_path.read_text(encoding='utf-8'))
     selected_profiles = args.profiles or profiles['profiles']
@@ -159,7 +169,7 @@ def main():
                                         'elapsed_s': elapsed, 'usage': usage, 'error': error, 'manual_review': 'PENDING',
                                         'request_sha256': hashlib.sha256(json.dumps(body, sort_keys=True, ensure_ascii=False).encode('utf-8')).hexdigest()})
                         save('report.json', {'quality_gate_passed': False, 'warmup': warmup, 'results': results,
-                                           'offered': len(cases) * len(profiles['profiles']) * args.rounds})
+                                           'offered': len(cases) * len(selected_profiles) * args.rounds})
                 print(f'Round {round + 1}: {len(results)} completed', flush=True)
             for profile in selected_profiles:
                 print(profile, 'HTTP median_s:', statistics.median(r['elapsed_s'] for r in results if r['profile'] == profile), flush=True)
