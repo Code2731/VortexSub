@@ -36,6 +36,8 @@ requests = OrderedDict()
 segments = OrderedDict()
 stage_samples = {}
 hold_observations = {}
+adaptive_observations = {}
+asr_outcomes = {}
 first_translation_hold_observations = {}
 stage_missing_pairs = {}
 stage_events = stage_invalid = ignored_asr = unapplied_translation = 0
@@ -62,6 +64,14 @@ def pipeline(row):
     rev = revisions.get(key, {})
     seg = segments.get(key[:-1], {})
     if event in ('capture.partial_requested', 'capture.segmented') and row.get('queued') is True:
+        if event == 'capture.partial_requested':
+            policy = row.get('adaptive_policy')
+            allowed = {'Initial', 'Fixed', 'ConfirmSoon', 'StableProgress', 'EmptyBackoff', 'UnchangedBackoff', 'DecodeCostBackoff'}
+            policy = policy if isinstance(policy, str) and policy in allowed else 'Unreported'
+            adaptive_observations[policy] = adaptive_observations.get(policy, 0) + 1
+            growth = row.get('adaptive_growth_s')
+            if isinstance(growth, (int, float)) and not isinstance(growth, bool) and math.isfinite(growth) and growth >= 0:
+                stage_samples.setdefault('adaptive_required_audio_growth_s', []).append(growth)
         wait = row.get('partial_deferred_wait_s')
         if isinstance(wait, (int, float)) and math.isfinite(wait) and wait >= 0:
             stage_samples.setdefault('latest_partial_deferred_wait_s', []).append(wait)
@@ -75,6 +85,9 @@ def pipeline(row):
         rev.setdefault('asr_started', at)
         measure('asr_admission_to_owner_dispatch_s', at, rev.get('admitted'))
     elif event == 'asr.completed':
+        kind = row.get('outcome_kind')
+        kind = kind if isinstance(kind, str) and kind in {'Text', 'NoSpeech', 'OverlapOnly', 'Cancelled', 'Failed'} else 'Unreported'
+        asr_outcomes[kind] = asr_outcomes.get(kind, 0) + 1
         if row.get('applied') is True:
             measure('asr_owner_dispatch_to_completion_s', at, rev.get('asr_started'))
             decode = row.get('decode_s')
@@ -168,6 +181,8 @@ print(json.dumps({'matched_first_visible_deck_applications': len(samples),
                   'event_receipt_to_deck_s': stats(samples), 'deck_deferred_s': stats(deferred),
                   'pipeline': {'events': stage_events, 'invalid': stage_invalid,
                                'ignored_asr': ignored_asr, 'unapplied_translation': unapplied_translation,
+                               'adaptive_policy_observations': adaptive_observations,
+                               'asr_completion_outcomes': asr_outcomes,
                                'preview_decision_observations': hold_observations,
                                'before_first_translation_decisions': first_translation_hold_observations,
                                'durations_s': {name: stats(values) for name, values in stage_samples.items()},

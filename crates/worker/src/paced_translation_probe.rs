@@ -45,10 +45,21 @@ fn native_paced_translation_probe() {
     let wav_hash = hash(&wav);
     let pcm = crate::native_owner::load_wav(&wav, &wav_hash).unwrap();
     assert!((16000..=128000).contains(&pcm.len()));
+    let adaptive_compare = std::env::var("ECHOSUB_ADAPTIVE_COMPARE").as_deref() == Ok("1");
     let mut reports = Vec::new();
     for round in 1..=rounds {
         // Alternate interval order within this backend; no claims of full order balancing.
-        let intervals = if round % 2 == 1 { [1., 0.5] } else { [0.5, 1.] };
+        let intervals = if adaptive_compare {
+            if round % 2 == 1 {
+                [0.5, 0.25]
+            } else {
+                [0.25, 0.5]
+            }
+        } else if round % 2 == 1 {
+            [1., 0.5]
+        } else {
+            [0.5, 1.]
+        };
         for interval_s in intervals {
             let mut r = Runtime::new(
                 false,
@@ -83,12 +94,14 @@ fn native_paced_translation_probe() {
                 );
                 std::thread::sleep(Duration::from_millis(5));
             }
+            r.fast_partials = adaptive_compare && interval_s == 0.25;
             r.partial_enabled = true;
             r.core.set_partial_translation_enabled(true);
             let setup_s = setup.elapsed().as_secs_f64();
             q.drain_probe_events();
             let start = Instant::now();
             let mut cursor = 0;
+            let effective_interval_s = (interval_s * 16000_f64 / 512.).round() * 512. / 16000.;
             let mut next_s = first_s;
             let mut final_sent = false;
             let mut final_asr_s = None;
@@ -105,6 +118,11 @@ fn native_paced_translation_probe() {
                     "paced HTTP replay did not drain"
                 );
                 let available = ((elapsed * 16000.) as usize).min(pcm.len());
+                let available = if available == pcm.len() {
+                    available
+                } else {
+                    available / 512 * 512
+                };
                 if available > cursor {
                     r.ring
                         .append(r.epoch, cursor as u64, &pcm[cursor..available])
@@ -124,7 +142,7 @@ fn native_paced_translation_probe() {
                 } else if !final_sent && elapsed >= next_s {
                     r.live_event(SpeechEvent::Partial(segment(&r, cursor as u64)), &q)
                         .unwrap();
-                    next_s += interval_s;
+                    next_s += effective_interval_s;
                 }
                 r.poll(&q).unwrap();
                 let observed = start.elapsed().as_secs_f64();
@@ -184,7 +202,7 @@ fn native_paced_translation_probe() {
                     segment_id: 1,
                 })
                 .unwrap();
-            reports.push(json!({"round":round,"interval_s":interval_s,"setup_s":setup_s,
+            reports.push(json!({"round":round,"interval_s":interval_s,"effective_interval_s":effective_interval_s,"adaptive":r.fast_partials,"setup_s":setup_s,
                 "audio_s":pcm.len() as f64/16000.,"first_text_s":first_text_s,"first_stable_s":first_stable_s,
                 "first_translation_s":first_translation_s,"final_asr_s":final_asr_s,
                 "final_translation_s":final_translation_s,"scheduler":r.partial_schedule.value(),

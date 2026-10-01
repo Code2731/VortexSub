@@ -1,5 +1,15 @@
 # 구현 상태
 
+## 적응형 부분 전사 스케줄 (2026-10-02)
+
+첫 요청을 0.8초로 복구하고 빠른 모드의 실제 재전사를 결과별 새 오디오
+조건(0.256~1.024초)으로 선택한다. 빈/반복 결과와 decode 비용도 반영한다.
+동일 합성 영어 파일·실제 CUDA ASR/Qwen HTTP 각각 3회에서 첫 번역
+중앙값 2.016→1.738초, 누적 decode 1.398→1.049초다. 품질 gate는 false다.
+Windows check(Rust 157개·C# 표시 39개 assertion·HTTP/IPC), Python 요약기
+5개·native CUDA/VAD 빌드 PASS. 실제 VAD/캡처/화면·게임·macOS는 미실행이다.
+[정책·다음 단계](ADAPTIVE_PARTIALS.md) · [측정 근거](evidence/adaptive-partial-windows-20261002.md).
+
 ## 빠른 모드 첫 요청·보류 이유 (2026-10-02)
 
 사용자 빠른 모드 로그에서 39개 번역 구간 중 35개가 확정 전 첫 번역을 냈다.

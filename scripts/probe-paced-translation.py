@@ -18,6 +18,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--backend', choices=['cpu', 'cuda'], default='cuda')
 parser.add_argument('--rounds', type=int, default=3)
 parser.add_argument('--server')
+parser.add_argument('--adaptive', action='store_true', help='Compare fixed 0.5 s with feedback scheduling; both first requests at 0.8 s')
 args = parser.parse_args()
 if not 1 <= args.rounds <= 10:
     parser.error('rounds must be 1..10')
@@ -69,6 +70,7 @@ with socket.socket() as check:
 key_file = out / 'api-key.tmp'
 key_file.write_text(secrets.token_hex(24), encoding='utf-8')
 environment = os.environ.copy()
+environment['ECHOSUB_ADAPTIVE_COMPARE'] = '1' if args.adaptive else '0'
 environment['ECHOSUB_TRANSLATION_TOKEN'] = key_file.read_text(encoding='utf-8')
 server = None
 stop = threading.Event()
@@ -120,10 +122,10 @@ try:
         monitor_thread.start()
         command = ['powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File',
                    str(repo / 'scripts/probe-partial-scheduling.ps1'), '-Backend', args.backend,
-                   '-Rounds', str(args.rounds), '-FirstPartialSeconds', '1.0', '-WavPath', str(wav),
+                   '-Rounds', str(args.rounds), '-FirstPartialSeconds', '0.8' if args.adaptive else '1.0', '-WavPath', str(wav),
                    '-ReportPath', str(out / 'report.json'), '-TranslationEndpoint', 'http://127.0.0.1:18087/v1/',
                    '-TranslationModel', model['id']]
-        save('runtime.json', {'backend': args.backend, 'asr_weights_sha256': asr['sha256'],
+        save('runtime.json', {'backend': args.backend, 'adaptive_compare': args.adaptive, 'asr_weights_sha256': asr['sha256'],
                              'translation_weights_sha256': model['sha256'], 'server_sha256': sha(server_path),
                              'worker_sha256': sha(repo / f'target/model-probe-{args.backend}/release/echosub-worker.exe'),
                              'wav_sha256': sha(wav), 'rounds': args.rounds,

@@ -134,7 +134,7 @@ impl Runtime {
         self.vad_enabled
     }
     pub fn state(&self, q: &Outbox) -> Value {
-        json!({"session":self.session.value(self.now(),self.epoch),"translator":self.translator.value(self.translation.is_some()),"model":{"state":self.model_state},"last_seq":q.last_seq(),"history_version":self.core.version(),"diagnostic_capture":self.capture.value(),"diagnostic_live_vad":self.live_owner.as_ref().map(|o|o.state()).unwrap_or_else(||self.live_stats.clone()),"diagnostic_asr":{"enabled":self.has_native(),"epoch":self.epoch.epoch,"pending_inputs":self.pending_inputs.len(),"decoding":self.flight.is_some(),"native_running":self.flight.as_ref().is_some_and(|(_,token)|token.snapshot().running),"completed_jobs":self.completed_jobs,"partial_enabled":self.partial_enabled,"partial_scheduler":self.partial_schedule.value(),"pending_language_count":self.languages.len(),"model_load_s":self.load_s,"vad":self.vad_enabled}})
+        json!({"session":self.session.value(self.now(),self.epoch),"translator":self.translator.value(self.translation.is_some()),"model":{"state":self.model_state},"last_seq":q.last_seq(),"history_version":self.core.version(),"diagnostic_capture":self.capture.value(),"diagnostic_live_vad":self.live_owner.as_ref().map(|o|o.state()).unwrap_or_else(||self.live_stats.clone()),"diagnostic_asr":{"enabled":self.has_native(),"epoch":self.epoch.epoch,"pending_inputs":self.pending_inputs.len(),"decoding":self.flight.is_some(),"native_running":self.flight.as_ref().is_some_and(|(_,token)|token.snapshot().running),"completed_jobs":self.completed_jobs,"partial_enabled":self.partial_enabled,"adaptive_partials":self.fast_partials,"partial_scheduler":self.partial_schedule.value(),"pending_language_count":self.languages.len(),"model_load_s":self.load_s,"vad":self.vad_enabled}})
     }
     pub fn fixture(&mut self, method: &str, p: &Value, q: &Outbox) -> Reply {
         if self.native.is_none() || self.is_live() {
@@ -471,10 +471,36 @@ impl Runtime {
                             .set_translation_languages(&language, "ko")
                             .map_err(|_| std::io::Error::other("Translation language rejected"))?;
                     }
+                    let outcome_kind = match &outcome {
+                        Outcome::Text(_) => "Text",
+                        Outcome::NoSpeech => "NoSpeech",
+                        Outcome::OverlapOnly => "OverlapOnly",
+                        Outcome::Cancelled => "Cancelled",
+                        Outcome::Failed => "Failed",
+                    };
                     let applied = self
                         .core
                         .complete_asr(key, outcome, self.now())
                         .map_err(|_| std::io::Error::other("ASR completion rejected"))?;
+                    if self.fast_partials && applied == echosub_pipeline_core::Apply::Applied {
+                        if let Some((vad, id)) = self.live_segment.filter(|(_, id)| {
+                            id.audio == key.audio && id.segment_id == key.segment_id
+                        }) {
+                            if let Some(record) = self.core.record(id).filter(|r| {
+                                r.source_state == echosub_pipeline_core::SourceState::Partial
+                                    && r.key == key
+                            }) {
+                                let text = (record.source_reason.is_none())
+                                    .then_some(record.source.as_str());
+                                self.partial_schedule.adaptive.feedback(
+                                    vad,
+                                    text,
+                                    &record.stable_source,
+                                    decode_s,
+                                );
+                            }
+                        }
+                    }
                     self.partial_schedule.decode_s += decode_s;
                     if applied == echosub_pipeline_core::Apply::Applied {
                         self.partial_schedule.applied += 1;
@@ -482,7 +508,7 @@ impl Runtime {
                         self.partial_schedule.ignored += 1;
                     }
                     self.completed_jobs += 1;
-                    q.publish("asr.completed",json!({"worker_at_s":self.now() as f64/1e9,"session_id":key.audio.session_id,"epoch":key.audio.epoch,"segment_id":key.segment_id,"source_revision":key.source_revision,"decode_s":decode_s,"applied":applied==echosub_pipeline_core::Apply::Applied,"abort_observed":abort_observed,"overlap_segments_removed":overlap_segments_removed,"overlap_tokens_removed":overlap_tokens_removed,"timed_token_count":timed_token_count,"input_samples":input_samples,"nonzero_samples":nonzero_samples}),None)?;
+                    q.publish("asr.completed",json!({"worker_at_s":self.now() as f64/1e9,"session_id":key.audio.session_id,"epoch":key.audio.epoch,"segment_id":key.segment_id,"source_revision":key.source_revision,"decode_s":decode_s,"outcome_kind":outcome_kind,"applied":applied==echosub_pipeline_core::Apply::Applied,"abort_observed":abort_observed,"overlap_segments_removed":overlap_segments_removed,"overlap_tokens_removed":overlap_tokens_removed,"timed_token_count":timed_token_count,"input_samples":input_samples,"nonzero_samples":nonzero_samples}),None)?;
                     if applied == echosub_pipeline_core::Apply::Applied {
                         let record = self
                             .core

@@ -67,6 +67,15 @@ class TimingSummary(unittest.TestCase):
         self.assertEqual(result['preview_decision_observations']['Unreported'], 1)
         self.assertNotIn('private text', str(result))
 
+    def test_adaptive_and_outcome_categories_exclude_free_text(self):
+        result = summarize([row('capture.partial_requested', 1, queued=True, adaptive_policy='ConfirmSoon', adaptive_growth_s=0.256),
+                            row('asr.completed', 2, applied=True, outcome_kind='NoSpeech'),
+                            row('asr.completed', 3, applied=False, outcome_kind='private error')])['pipeline']
+        self.assertEqual(result['adaptive_policy_observations'], {'ConfirmSoon': 1})
+        self.assertEqual(result['asr_completion_outcomes'], {'NoSpeech': 1, 'Unreported': 1})
+        self.assertEqual(result['durations_s']['adaptive_required_audio_growth_s']['median'], 0.256)
+        self.assertNotIn('private error', str(result))
+
     def test_legacy_ui_log_still_summarizes(self):
         base = dict(worker_pid=1, session_id=1, epoch=1, segment_id=1,
                     source_revision=1, translation_request_id=1)

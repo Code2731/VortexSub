@@ -65,6 +65,8 @@ internal static class CaptionDiagnostics
                 translation_request_id = Number(identity, "translation_request_id"),
                 audio_start_s = Seconds(payload, "audio_start_s"), audio_end_s = Seconds(payload, "audio_end_s"),
                 voice_start_s = Seconds(payload, "voice_start_s"), voice_end_s = Seconds(payload, "voice_end_s"),
+                adaptive_policy = AdaptivePolicy(payload), outcome_kind = OutcomeKind(payload),
+                adaptive_growth_s = Seconds(payload, "adaptive_growth_s"),
                 preview_hold_reason = HoldReason(payload), stable_chars = Number(payload, "stable_chars"), decode_s = Seconds(payload, "decode_s"),
                 partial_deferred_wait_s = Seconds(payload, "partial_deferred_wait_s"),
                 elapsed_s = Seconds(payload, "elapsed_s"), applied = Flag(payload, "applied"),
@@ -76,6 +78,19 @@ internal static class CaptionDiagnostics
             session_id = Number(record, "session_id"), epoch = Number(record, "epoch"),
             segment_id = Number(record, "segment_id"), source_revision = Number(record, "source_revision"),
             translation_request_id = Number(record, "translation_request_id") });
+    }
+
+    private static string? AdaptivePolicy(JsonElement payload)
+    {
+        if (!payload.TryGetProperty("adaptive_policy", out var value) || value.ValueKind != JsonValueKind.String) return null;
+        return value.GetString() is { } policy && policy is "Initial" or "Fixed" or "ConfirmSoon"
+            or "StableProgress" or "EmptyBackoff" or "UnchangedBackoff" or "DecodeCostBackoff" ? policy : null;
+    }
+
+    private static string? OutcomeKind(JsonElement payload)
+    {
+        if (!payload.TryGetProperty("outcome_kind", out var value) || value.ValueKind != JsonValueKind.String) return null;
+        return value.GetString() is { } kind && kind is "Text" or "NoSpeech" or "OverlapOnly" or "Cancelled" or "Failed" ? kind : null;
     }
 
     private static string? HoldReason(JsonElement payload)

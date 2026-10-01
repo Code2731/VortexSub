@@ -17,16 +17,21 @@ pub(super) struct PartialSchedule {
     pub(super) ignored: u64,
     pub(super) decode_s: f64,
     wait_s: f64,
+    pub(super) adaptive: crate::adaptive_partial::AdaptivePartial,
+    adaptive_deferred: u64,
 }
 impl PartialSchedule {
     pub(super) fn clear(&mut self) {
         self.pending = None;
+        self.adaptive.reset();
     }
     pub(super) fn value(&self) -> serde_json::Value {
         json!({"pending":self.pending.is_some(),"requested":self.requested,
             "deferred":self.deferred,"replaced":self.replaced,"dropped":self.dropped,
             "asr_applied":self.applied,"asr_ignored":self.ignored,
-            "asr_decode_total_s":self.decode_s,"last_deferred_wait_s":self.wait_s})
+            "asr_decode_total_s":self.decode_s,"last_deferred_wait_s":self.wait_s,
+            "adaptive_deferred":self.adaptive_deferred,"adaptive_growth_s":self.adaptive.growth_s(),
+            "adaptive_policy":self.adaptive.decision})
     }
 }
 
@@ -38,7 +43,15 @@ impl Runtime {
                     return Ok(());
                 }
                 self.partial_schedule.requested += 1;
-                if self.partial_busy() {
+                let adaptive_wait = self.fast_partials
+                    && !self
+                        .partial_schedule
+                        .adaptive
+                        .due(segment.id, segment.pcm_range.end);
+                if adaptive_wait {
+                    self.partial_schedule.adaptive_deferred += 1;
+                }
+                if self.partial_busy() || adaptive_wait {
                     self.partial_schedule.deferred += 1;
                     if self
                         .partial_schedule
@@ -49,7 +62,7 @@ impl Runtime {
                         self.partial_schedule.replaced += 1;
                     }
                 } else {
-                    self.partial_schedule.clear();
+                    self.partial_schedule.pending = None;
                     self.live_asr_segment(segment, AsrKind::Partial, "Partial", q)?;
                 }
             }
@@ -103,6 +116,15 @@ impl Runtime {
             self.partial_schedule.dropped += 1;
             return Ok(());
         }
+        if self.fast_partials
+            && !self
+                .partial_schedule
+                .adaptive
+                .due(segment.id, segment.pcm_range.end)
+        {
+            self.partial_schedule.pending = Some((segment, requested));
+            return Ok(());
+        }
         self.partial_schedule.wait_s = self.now().saturating_sub(requested) as f64 / 1e9;
         self.live_asr_segment(segment, AsrKind::Partial, "DeferredLatest", q)
     }
@@ -145,6 +167,11 @@ impl Runtime {
         // Replaced partials must not accumulate stale language entries.
         self.prune_languages();
         if admitted.queued {
+            if self.fast_partials && kind == AsrKind::Partial {
+                self.partial_schedule
+                    .adaptive
+                    .admitted(segment.id, segment.pcm_range.end);
+            }
             self.languages
                 .push((admitted.key, self.live_language.clone()));
             if let Some((_, previous)) = self
@@ -171,7 +198,7 @@ impl Runtime {
                 id.audio.session_id, id.audio.epoch, id.segment_id
             )
         });
-        q.publish(event,json!({"worker_at_s":now as f64/1e9,"session_id":id.audio.session_id,"partial_deferred_wait_s":if reason == "DeferredLatest" {self.partial_schedule.wait_s} else {0.},"voice_start_s":segment.voice_range.start_s(),"voice_end_s":segment.voice_range.end_s(),"epoch":id.audio.epoch,"segment_id":id.segment_id,"source_revision":admitted.key.source_revision,"vad_segment_id":segment.id.segment_id,"continued_from":segment.continued_from.map(|s|s.segment_id),"queued":admitted.queued,"reason":reason,"audio_start_s":segment.pcm_range.start_s(),"audio_end_s":segment.pcm_range.end_s()}),coalesce)?;
+        q.publish(event,json!({"worker_at_s":now as f64/1e9,"session_id":id.audio.session_id,"adaptive_growth_s":if self.fast_partials {Some(self.partial_schedule.adaptive.growth_s())} else {None},"adaptive_policy":if self.fast_partials {self.partial_schedule.adaptive.decision} else {"Fixed"},"partial_deferred_wait_s":if reason == "DeferredLatest" {self.partial_schedule.wait_s} else {0.},"voice_start_s":segment.voice_range.start_s(),"voice_end_s":segment.voice_range.end_s(),"epoch":id.audio.epoch,"segment_id":id.segment_id,"source_revision":admitted.key.source_revision,"vad_segment_id":segment.id.segment_id,"continued_from":segment.continued_from.map(|s|s.segment_id),"queued":admitted.queued,"reason":reason,"audio_start_s":segment.pcm_range.start_s(),"audio_end_s":segment.pcm_range.end_s()}),coalesce)?;
         Ok(())
     }
     fn cancel_native_if_requested(&self) {
@@ -288,6 +315,64 @@ mod tests {
         );
         // Use no further core mutation with the real clock after this synthetic deadline.
         assert!(!r.core.preview_pending());
+    }
+    #[test]
+    fn adaptive_pending_waits_for_new_audio_and_final_bypasses_feedback() {
+        let mut r = Runtime::new(false, None, false);
+        r.core = echosub_pipeline_core::Pipeline::new_asr_only(r.epoch, 1000).unwrap();
+        r.partial_enabled = true;
+        r.fast_partials = true;
+        r.ring.append(r.epoch, 0, &vec![0.2; 64000]).unwrap();
+        let q = Outbox::default();
+        r.live_event(SpeechEvent::Partial(segment(&r, 1, 12800)), &q)
+            .unwrap();
+        let first = r.core.next_asr().unwrap();
+        r.core
+            .complete_asr(
+                first.key(),
+                Outcome::Text("Take the left path.".into()),
+                r.now(),
+            )
+            .unwrap();
+        drop(first);
+        let vad = segment(&r, 1, 12800).id;
+        r.partial_schedule
+            .adaptive
+            .feedback(vad, Some("Take the left path."), "", 0.05);
+        r.live_event(SpeechEvent::Partial(segment(&r, 1, 16896)), &q)
+            .unwrap();
+        let confirm = r.core.next_asr().unwrap();
+        assert_eq!(confirm.pcm.range().end, 16896);
+        r.core
+            .complete_asr(
+                confirm.key(),
+                Outcome::Text("Take the left path.".into()),
+                r.now(),
+            )
+            .unwrap();
+        drop(confirm);
+        r.partial_schedule.adaptive.feedback(
+            vad,
+            Some("Take the left path."),
+            "Take the left path.",
+            0.05,
+        );
+        r.live_event(SpeechEvent::Partial(segment(&r, 1, 20992)), &q)
+            .unwrap();
+        r.flush_partial(&q).unwrap();
+        assert!(r.core.next_asr().is_none());
+        assert!(r.partial_schedule.pending.is_some());
+        r.live_event(
+            SpeechEvent::Final {
+                segment: segment(&r, 1, 20992),
+                reason: FinalReason::Silence,
+            },
+            &q,
+        )
+        .unwrap();
+        assert!(r.partial_schedule.pending.is_none());
+        assert_eq!(r.core.next_asr().unwrap().kind, AsrKind::Final);
+        assert_eq!(r.partial_schedule.adaptive.decision, "Initial");
     }
     #[test]
     fn overwritten_deferred_audio_is_dropped_without_admitting_a_job() {

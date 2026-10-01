@@ -2,6 +2,7 @@ param(
     [ValidateSet('cpu', 'cuda')] [string] $Backend = 'cuda',
     [ValidateRange(1, 10)] [int] $Rounds = 3,
     [string] $ServerPath,
+    [switch] $Adaptive,
     [string] $PythonPath
 )
 $ErrorActionPreference = 'Stop'
@@ -15,6 +16,7 @@ try {
     & cargo build -p echosub-translation --locked --offline
     if ($LASTEXITCODE -ne 0) { throw 'HTTP warmup probe build failed' }
     $arguments = @((Join-Path $repo 'scripts/probe-paced-translation.py'), '--backend', $Backend, '--rounds', "$Rounds")
+    if ($Adaptive) { $arguments += '--adaptive' }
     if ($ServerPath) { $arguments += @('--server', $ServerPath) }
     & $PythonPath @arguments
     if ($LASTEXITCODE -ne 0) { throw 'Paced translation measurement failed; completed reports/logs retained.' }

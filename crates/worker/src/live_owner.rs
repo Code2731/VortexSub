@@ -27,8 +27,8 @@ impl<B: Backend> Stream<B> {
                 identity,
                 start,
                 VadSettings {
-                    partial_interval_s: interval_s,
-                    partial_minimum_speech_s: if interval_s <= 0.5 { 0.5 } else { 0.8 },
+                    partial_interval_s: if interval_s <= 0.5 { 0.25 } else { interval_s },
+                    partial_minimum_speech_s: 0.8,
                     ..VadSettings::default()
                 },
             )
@@ -289,7 +289,7 @@ mod tests {
         }
     }
     #[test]
-    fn faster_partial_interval_advances_first_request_and_preserves_final_audio() {
+    fn adaptive_candidates_preserve_first_request_and_final_audio() {
         let mut observed = Vec::new();
         for interval in [1.0, 0.5] {
             let mut stream = Stream::new(Voiced { calls: 0 }, ID, 16000, interval);
@@ -320,7 +320,7 @@ mod tests {
                     .segmenter
                     .requested_settings()
                     .partial_minimum_speech_s,
-                if interval <= 0.5 { 0.5 } else { 0.8 }
+                0.8
             );
             assert!(partials.windows(2).all(|pair| pair[1] - pair[0]
                 >= stream
@@ -329,7 +329,7 @@ mod tests {
                     .partial_interval_samples));
             observed.push((partials, final_range));
         }
-        assert_eq!(observed[0].0[0] - observed[1].0[0], 9 * 512);
+        assert_eq!(observed[0].0[0], observed[1].0[0]);
         assert!(observed[1].0.len() > observed[0].0.len());
         assert_eq!(observed[0].1, observed[1].1);
     }

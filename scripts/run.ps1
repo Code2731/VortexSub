@@ -59,7 +59,7 @@ try {
         if ($FastPartials) {
             $workerArguments += '--fast-partials'
             $env:ECHOSUB_WORKER_ARGUMENTS = ConvertTo-Json -InputObject $workerArguments -Compress
-            Write-Host 'Fast partial first request: 0.5 seconds; interval: 0.5 seconds; enable partial ASR/translation in the UI before Start.'
+            Write-Host 'Adaptive partials: first request 0.8 seconds; VAD candidates 0.25 seconds; feedback controls fresh audio per decode. Enable partial ASR/translation before Start.'
         }
         Write-Host "Live $AsrBackend source diagnostics: optional local translation; partial disabled by default; select capture Start in the UI."
     }

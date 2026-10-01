@@ -127,3 +127,21 @@ owner 전달→완료에는 내부 대기/완료 polling이 포함되고, native
 앞당겼다. 기본 모드는 0.8초다. 두 전사 일치와 보류/읽기 규칙은 유지한다.
 짧은 입력에서 전사 변경/무음 판정과 재추론 비용이 늘 수 있으며, 전체 첫 자막
 가속은 새 실행 로그로 확인해야 한다. 기존 실행의 결과를 개선 후 측정으로 쓰지 않는다.
+
+### 적응형 스케줄 계측 (2026-10-02 후속)
+
+빠른 모드의 첫 요청은 0.8초로 복구했다. 앞의 0.5초 첫 요청 변경은 현재
+동작이 아닌 이전 라운드 기록이다. [적응형 정책](ADAPTIVE_PARTIALS.md)을 따른다.
+
+부분 접수 이벤트의 `adaptive_policy`는 `Initial`, `ConfirmSoon`, `StableProgress`,
+`EmptyBackoff`, `UnchangedBackoff`, `DecodeCostBackoff` 또는 기본 `Fixed`다.
+`adaptive_growth_s`는 이전 접수 이후 필요한 **새 오디오 샘플 길이**이며
+벽시계 timer가 아니다. 첫 요청은 별도의 0.8초 VAD 조건을 따른다.
+`asr.completed.outcome_kind`는 Text/NoSpeech/OverlapOnly/Cancelled/Failed만 기록한다.
+Text는 모델 원문 반환의 분류이며 최종 적용/품질 성공을 뜻하지 않는다.
+
+요약은 `adaptive_policy_observations`, `asr_completion_outcomes`와
+`adaptive_required_audio_growth_s`를 출력한다. 없는 구형 필드는 Unreported로
+남긴다. 진단 상태의 `requested`는 VAD 후보 수이며 실제 추론 수는 아니다.
+`adaptive_deferred`는 새 오디오 부족으로 보류한 후보 수다. 후보/처리 수를
+구분해 고갈·취소·반복 처리와 함께 비교한다.

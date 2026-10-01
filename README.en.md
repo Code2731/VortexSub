@@ -33,7 +33,7 @@ On macOS, install the pinned SDKs and run `bash scripts/check.sh`. Platform supp
 
 To try CUDA transcription, use **`run-live-cuda.bat`** or `run-live.bat -AsrBackend cuda`. An NVIDIA GPU and installed CUDA Toolkit are required. CPU remains the default; translation/game contention with CUDA ASR has not been validated. See [file comparison and usage](docs/LIVE_UI.md).
 
-For faster provisional translation, use **`run-live-cuda-fast.bat`** and enable **안정된 부분 먼저 번역 · 임시 결과** before starting a session. Its first partial threshold and subsequent interval are both 0.5 seconds (effective first threshold about 0.512 seconds). Incomplete information and GPU costs can increase; defaults remain unchanged. See [actual ASR→Qwen measurements](docs/evidence/paced-translation-windows-20261001.md) and [first-request change and hold diagnostics](docs/evidence/early-partial-windows-20261002.md).
+For faster provisional translation, use **`run-live-cuda-fast.bat`** and enable **안정된 부분 먼저 번역 · 임시 결과** before starting a session. Its first request remains at 0.8 seconds; subsequent requests adapt to transcription results and fresh audio. Incomplete information and GPU costs can increase; defaults remain unchanged. See [actual ASR→Qwen measurements](docs/evidence/paced-translation-windows-20261001.md) and [adaptive scheduling and validation scope](docs/ADAPTIVE_PARTIALS.md).
 
 Current draft replacement waits are also shorter. Enable **자막 지연 기록** (Caption timing log) in the app to record event receipt and card application timestamps without transcript text. Toggle it during a session; the output path appears below the option. Previous-caption reading time is retained. See [display rules and timing](docs/CAPTION_READING.md).
 
