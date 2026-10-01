@@ -34,6 +34,10 @@ token 시간 검토는 단어 길이 0으로 trim을 거부했다. 라이브 tri
 별도다. 사용자 로그 32건은 수신→Deck 중앙값 0.033초·보호 대기 0초다.
 미완성 영어 조건/숫자 조각 보류를 구현했고, 다음은 동일 trace 품질/지연 비교와
 수집→ASR→안정 판별→HTTP의 단계별 계측이다.
+단계별 metadata 계측은 기존 UI 옵션에 연결했다. worker 내부 시계와 UI 시계를
+분리하며 샘플 길이를 별도 집계한다. 다음은 사용자 새 로그로 실제 단계 병목 확인,
+기존 미완성 조건/숫자 trace의 품질·첫 출력 지연 비교다.
+[계측 정의](CAPTION_READING.md).
 [사용자 로그와 보류 구현 범위](evidence/caption-user-log-windows-20261001.md).
 [근거](evidence/caption-display-windows-20261001.md).
 

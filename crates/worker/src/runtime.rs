@@ -482,7 +482,7 @@ impl Runtime {
                         self.partial_schedule.ignored += 1;
                     }
                     self.completed_jobs += 1;
-                    q.publish("asr.completed",json!({"session_id":key.audio.session_id,"epoch":key.audio.epoch,"segment_id":key.segment_id,"source_revision":key.source_revision,"decode_s":decode_s,"applied":applied==echosub_pipeline_core::Apply::Applied,"abort_observed":abort_observed,"overlap_segments_removed":overlap_segments_removed,"overlap_tokens_removed":overlap_tokens_removed,"timed_token_count":timed_token_count,"input_samples":input_samples,"nonzero_samples":nonzero_samples}),None)?;
+                    q.publish("asr.completed",json!({"worker_at_s":self.now() as f64/1e9,"session_id":key.audio.session_id,"epoch":key.audio.epoch,"segment_id":key.segment_id,"source_revision":key.source_revision,"decode_s":decode_s,"applied":applied==echosub_pipeline_core::Apply::Applied,"abort_observed":abort_observed,"overlap_segments_removed":overlap_segments_removed,"overlap_tokens_removed":overlap_tokens_removed,"timed_token_count":timed_token_count,"input_samples":input_samples,"nonzero_samples":nonzero_samples}),None)?;
                     if applied == echosub_pipeline_core::Apply::Applied {
                         let record = self
                             .core
@@ -627,7 +627,7 @@ impl Runtime {
                     })
                     .map_err(|_| std::io::Error::other("Native owner is unavailable"))?;
                 self.flight = Some((key, token));
-                q.publish("asr.started",json!({"epoch":key.audio.epoch,"segment_id":key.segment_id,"source_revision":key.source_revision}),None)?;
+                q.publish("asr.started",json!({"worker_at_s":self.now() as f64/1e9,"session_id":key.audio.session_id,"epoch":key.audio.epoch,"segment_id":key.segment_id,"source_revision":key.source_revision}),None)?;
             }
         }
         Ok(())
@@ -877,7 +877,7 @@ impl Runtime {
             .ok_or(("INTERNAL_ERROR", "Record unavailable"))?;
         q.publish(
             name,
-            json!({"history_version":self.core.version(),"record":self.wire_record(r)}),
+            json!({"worker_at_s":self.now() as f64/1e9,"stable_chars":r.stable_source.chars().count(),"history_version":self.core.version(),"record":self.wire_record(r)}),
             (name == "source.partial").then(|| {
                 format!(
                     "source-partial/{}/{}/{}",

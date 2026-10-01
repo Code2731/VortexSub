@@ -94,7 +94,7 @@ fn unfinished_units_are_bounded_and_decimal_points_are_not_sentence_ends() {
 
     let mut f = Fixture::new(1000, "ko");
     f.core.set_partial_translation_enabled(true);
-    let text = "Take the left path. Do not open the door";
+    let text = "Take the left path. Do not open the door now";
     partial(&mut f, 512, text, 0);
     partial(&mut f, 1024, text, 500_000_000);
     let first = f.core.next_translation(500_000_000).unwrap().unwrap();

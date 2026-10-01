@@ -1,5 +1,15 @@
 # 구현 상태
 
+## 단계별 자막 지연 계측 (2026-10-01)
+
+기존 자막 지연 기록 옵션에 worker의 접수·ASR·안정 원문·번역 전달/완료
+metadata를 연결했다. worker/UI 시계를 분리해 단계별 초 단위 통계를 계산한다.
+샘플 음성 길이는 벽시계 지연으로 해석하지 않는다. 기존 로그에는 새 단계가 없다.
+Windows check(Rust 153개·C# 표시 39개 assertion·HTTP/IPC·빌드),
+요약기 fixture 3개 PASS. 이전 보류 규칙과 충돌한 기존 tail fixture 입력을 수정했다.
+실제 단계 로그·미완성 사례 HTTP 품질 비교·UI·게임·macOS는 미실행이다.
+[사용·범위](CAPTION_READING.md) · [확인 근거](evidence/pipeline-timing-windows-20261001.md).
+
 ## 사용자 표시 로그·미완성 영어 조각 보류 (2026-10-01)
 
 사용자 로그 32건에서 번역 수신→Deck 중앙값 0.033초/최대 0.036초,

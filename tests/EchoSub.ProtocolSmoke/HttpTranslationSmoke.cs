@@ -49,9 +49,12 @@ internal static class HttpTranslationSmoke
             catch (OperationCanceledException) when (stop.IsCancellationRequested) { }
             catch (SocketException) when (stop.IsCancellationRequested) { }
         });
+        var timingPath = Path.Combine(Path.GetTempPath(), $"echosub-timing-smoke-{Guid.NewGuid():N}.jsonl");
         try
         {
+            await CaptionDiagnostics.SetEnabledAsync(true, timingPath);
             await using var client = WorkerClient.Start(worker, arguments: new[] { "--mock-pipeline", "--diagnostic-translation" });
+            client.EventReceived += (name, payload) => CaptionDiagnostics.Received(client.ProcessId, name, payload);
             var hello = await client.SendAsync("hello", new { client = "HttpTranslationSmoke", protocol_major = 1 });
             Require(hello.GetProperty("capabilities").GetProperty("translation").GetBoolean(), "HTTP capability");
             await client.SendAsync("configure_translation", new { endpoint, model_id = "fixture/model" });
@@ -71,6 +74,18 @@ internal static class HttpTranslationSmoke
             var state = await client.SendAsync("get_state");
             Require(!state.ToString().Contains("server-private-detail"), "server body excluded from IPC state");
             await client.SendAsync("disable_translation");
+            await CaptionDiagnostics.DrainAsync();
+            var timingLines = File.ReadAllLines(timingPath);
+            var timingRows = timingLines.Select(line => JsonSerializer.Deserialize<JsonElement>(line)).ToArray();
+            var started = timingRows.Single(row => row.GetProperty("phase").GetString() == "pipeline_event_received"
+                && row.GetProperty("event_name").GetString() == "translation.started"
+                && row.GetProperty("translation_request_id").GetUInt64() == first.TranslationRequestId);
+            var completed = timingRows.Single(row => row.GetProperty("phase").GetString() == "pipeline_event_received"
+                && row.GetProperty("event_name").GetString() == "translation.completed"
+                && row.GetProperty("translation_request_id").GetUInt64() == first.TranslationRequestId);
+            Require(completed.GetProperty("worker_at_s").GetDouble() >= started.GetProperty("worker_at_s").GetDouble(), "worker timing shares one origin");
+            Require(started.GetProperty("source_revision").GetUInt64() == first.SourceRevision, "timing source identity");
+            Require(!string.Join("\n", timingLines).Contains("Don't move") && !string.Join("\n", timingLines).Contains("번역 완료"), "timing excludes transcript and translation text");
             await using var previewClient = WorkerClient.Start(worker, arguments: new[] { "--mock-pipeline", "--mock-session-control", "--diagnostic-translation" });
             var previewHello = await previewClient.SendAsync("hello", new { client = "HttpPreviewSmoke", protocol_major = 1 });
             Require(previewHello.GetProperty("capabilities").GetProperty("partial_translation").GetBoolean(), "preview capability");
@@ -91,7 +106,12 @@ internal static class HttpTranslationSmoke
             var replaced = await Terminal(previewClient, 1);
             Require(replaced is { SourceState: "Final", TranslationIsPreview: false, SourceRevision: 3, TranslationState: "Done" }, "final replaces preview with current revision");
         }
-        finally { stop.Cancel(); listener.Stop(); await server; }
+        finally
+        {
+            await CaptionDiagnostics.DrainAsync();
+            if (File.Exists(timingPath)) File.Delete(timingPath);
+            stop.Cancel(); listener.Stop(); await server;
+        }
     }
     private static async Task<HistoryRecord> Terminal(WorkerClient client, ulong segment)
     {

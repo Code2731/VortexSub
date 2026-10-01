@@ -171,7 +171,7 @@ impl Runtime {
                 id.audio.session_id, id.audio.epoch, id.segment_id
             )
         });
-        q.publish(event,json!({"epoch":id.audio.epoch,"segment_id":id.segment_id,"source_revision":admitted.key.source_revision,"vad_segment_id":segment.id.segment_id,"continued_from":segment.continued_from.map(|s|s.segment_id),"queued":admitted.queued,"reason":reason,"audio_start_s":segment.pcm_range.start_s(),"audio_end_s":segment.pcm_range.end_s()}),coalesce)?;
+        q.publish(event,json!({"worker_at_s":now as f64/1e9,"session_id":id.audio.session_id,"partial_deferred_wait_s":if reason == "DeferredLatest" {self.partial_schedule.wait_s} else {0.},"voice_start_s":segment.voice_range.start_s(),"voice_end_s":segment.voice_range.end_s(),"epoch":id.audio.epoch,"segment_id":id.segment_id,"source_revision":admitted.key.source_revision,"vad_segment_id":segment.id.segment_id,"continued_from":segment.continued_from.map(|s|s.segment_id),"queued":admitted.queued,"reason":reason,"audio_start_s":segment.pcm_range.start_s(),"audio_end_s":segment.pcm_range.end_s()}),coalesce)?;
         Ok(())
     }
     fn cancel_native_if_requested(&self) {

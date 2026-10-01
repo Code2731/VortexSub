@@ -243,6 +243,38 @@ fn stable_preview_is_opt_in_and_replaced_by_full_final_http() {
     );
     until(&mut w, |v| v["translator"]["completed_jobs"] == 2);
     let final_record = history(&mut w);
+    for request in 1..=2 {
+        let started = w
+            .events
+            .iter()
+            .find(|e| {
+                e["event"] == "translation.started"
+                    && e["payload"]["translation_request_id"] == request
+            })
+            .unwrap();
+        let completed = w
+            .events
+            .iter()
+            .find(|e| {
+                e["event"] == "translation.completed"
+                    && e["payload"]["translation_request_id"] == request
+            })
+            .unwrap();
+        let start = &started["payload"];
+        let end = &completed["payload"];
+        for field in [
+            "session_id",
+            "epoch",
+            "segment_id",
+            "source_revision",
+            "translation_request_id",
+        ] {
+            assert_eq!(start[field], end[field]);
+        }
+        assert!(end["worker_at_s"].as_f64().unwrap() >= start["worker_at_s"].as_f64().unwrap());
+        assert_eq!(start["preview"], request == 1);
+        assert!(start.get("source").is_none());
+    }
     assert_eq!(final_record[0]["translation_is_preview"], false);
     assert_eq!(final_record[0]["source_state"], "Final");
     assert_eq!(final_record[0]["source_revision"], 3);

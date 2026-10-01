@@ -51,13 +51,40 @@ internal static class CaptionDiagnostics
 
     public static void Received(int workerPid, string name, JsonElement payload)
     {
-        if (!Enabled || name != "translation.updated" || !payload.TryGetProperty("record", out var record) ||
+        if (!Enabled) return;
+        if (name is "capture.partial_requested" or "capture.segmented" or "asr.started" or "asr.completed"
+            or "source.partial" or "source.final" or "translation.started" or "translation.completed" or "translation.updated")
+        {
+            var identity = payload.TryGetProperty("record", out var nested) && nested.ValueKind == JsonValueKind.Object ? nested : payload;
+            // Whitelist scalar metadata; never serialize the worker's text-bearing payload.
+            Write(new { phase = "pipeline_event_received", at_s = Now, worker_pid = workerPid, event_name = name,
+                worker_at_s = Seconds(payload, "worker_at_s"), session_id = Number(identity, "session_id"),
+                epoch = Number(identity, "epoch"), segment_id = Number(identity, "segment_id"),
+                source_revision = name is "source.partial" or "source.final" ?
+                    Number(identity, "applied_source_revision") ?? Number(identity, "source_revision") : Number(identity, "source_revision"),
+                translation_request_id = Number(identity, "translation_request_id"),
+                audio_start_s = Seconds(payload, "audio_start_s"), audio_end_s = Seconds(payload, "audio_end_s"),
+                voice_start_s = Seconds(payload, "voice_start_s"), voice_end_s = Seconds(payload, "voice_end_s"),
+                stable_chars = Number(payload, "stable_chars"), decode_s = Seconds(payload, "decode_s"),
+                partial_deferred_wait_s = Seconds(payload, "partial_deferred_wait_s"),
+                elapsed_s = Seconds(payload, "elapsed_s"), applied = Flag(payload, "applied"),
+                queued = Flag(payload, "queued"), preview = Flag(payload, "preview") });
+        }
+        if (name != "translation.updated" || !payload.TryGetProperty("record", out var record) ||
             record.ValueKind != JsonValueKind.Object) return;
         Write(new { phase = "translation_event_received", at_s = Now, worker_pid = workerPid,
             session_id = Number(record, "session_id"), epoch = Number(record, "epoch"),
             segment_id = Number(record, "segment_id"), source_revision = Number(record, "source_revision"),
             translation_request_id = Number(record, "translation_request_id") });
     }
+
+    private static double? Seconds(JsonElement value, string name) =>
+        value.TryGetProperty(name, out var element) && element.ValueKind == JsonValueKind.Number &&
+        element.TryGetDouble(out var number) && double.IsFinite(number) && number >= 0 ? number : null;
+
+    private static bool? Flag(JsonElement value, string name) =>
+        value.TryGetProperty(name, out var element) && element.ValueKind is JsonValueKind.True or JsonValueKind.False ?
+            element.GetBoolean() : null;
 
     public static void Applied(CaptionUpdateTiming timing, bool overlayVisible, int? workerPid)
     {

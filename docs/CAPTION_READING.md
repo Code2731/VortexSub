@@ -70,3 +70,36 @@ models/tabby/venv/Scripts/python.exe scripts/summarize-caption-timing.py logs/ca
 동일 ID의 첫 visible Deck 반영을 수신 이벤트와 연결해 지연·Deck 대기를 요약한다.
 512개 ID 상한 밖/누락/숨겨진 오버레이는 완전한 관측으로 보지 않는다.
 `overlay_assigned`는 Avalonia 속성 대입이며 GPU 합성·물리 화면 표시 완료가 아니다.
+
+## 단계별 지연 로그 (2026-10-01)
+
+**자막 지연 기록**을 세션 시작 전에 켜면 같은 파일에 `pipeline_event_received`도
+기록한다. 원문/번역을 포함하지 않고 worker PID와 전체 identity, 초 단위 시간,
+안정 원문 문자 수와 적용/대기 여부만 선택한다. 기존 요약 명령은 UI 통계와
+`pipeline.durations_s`를 함께 출력한다. 항목별 `n`은 실제 연결된 관측 수다.
+
+| 항목 | 의미 |
+|---|---|
+| `sampled_voice_start_to_request_audio_end_s` | VAD 음성 시작부터 요청 PCM 끝까지의 샘플 길이 |
+| `latest_partial_deferred_wait_s` | 최신으로 남긴 부분 요청의 scheduler 보류 시간 |
+| `asr_admission_to_owner_dispatch_s` | ASR 접수→native owner 전달 |
+| `asr_owner_dispatch_to_completion_s` / `native_decode_s` | owner 전달→완료 처리 / native decode 처리 |
+| `first_source_to_first_nonempty_stable_s` | 첫 원문→첫 비어 있지 않은 안정 prefix |
+| `source_revision_ready_to_translation_dispatch_s` | 해당 원문 revision 가용→번역 owner 전달 |
+| `translation_owner_dispatch_to_completion_s` | 번역 owner 전달→완료 처리 |
+| `first_nonempty_stable_to_first_translation_update_s` | 첫 안정 prefix→첫 적용 번역 발행 |
+| `first_observed_admission_to_first_translation_update_s` | 처음 관측한 ASR 접수→첫 적용 번역 발행 |
+
+worker의 `worker_at_s`는 프로세스 시작 기준이며 UI의 `at_s`와 직접 빼지 않는다.
+owner 전달→완료에는 내부 대기/완료 polling이 포함되고, native decode 시간은
+별도다. 샘플 길이는 실제 벽시계 지연이 아니다. 캡처/VAD owner의 이전 대기,
+물리 음성 재생/화면 렌더링과 worker→UI 전송 시간은 이번 계측으로 측정하지 않는다.
+부분 접수 이벤트는 coalesce될 수 있어 처음 관측한 접수가 최초 접수와 다를 수 있다.
+안정 prefix는 번역 가능한 완성 단위와 같지 않다. 여러 단위의 후속 요청에는
+기존 0.5초 간격도 원문 가용→번역 전달에 포함될 수 있다.
+
+맵은 각각 최대 512개이며 ID/시점 누락·역순은 `missing_or_invalid_pairs`로
+보고하고 해당 쌍을 통계에서 제외한다. ignored ASR/unapplied 번역은 별도 집계한다.
+실패했지만 pipeline이 수용한 번역 완료도 완료 시간에 포함될 수 있다.
+구형 로그의 `pipeline.events=0`은 미측정이다. 이번 로그 형식은 기존 UI 집계와
+호환되며, 새 실행 결과로 병목을 판단해야 한다.

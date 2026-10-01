@@ -55,3 +55,16 @@ Desktop server settings, translated captions/export, live E2E and macOS are next
 
 
 Desktop settings and presentation: [T03-02a](DESKTOP_TRANSLATION.md).
+
+## Optional timing metadata (2026-10-01)
+
+`translation.started` reports full source/request identity, `preview`, and
+`worker_at_s` at HTTP owner dispatch. `translation.completed` and applied
+`translation.updated` also carry `worker_at_s`. Capture admission, native ASR,
+and source events carry the same worker-local clock; source events add
+`stable_chars`. These additive fields do not change protocol version 1.
+Unknown events/fields remain compatible with the bounded desktop event reader.
+Owner dispatch is not the socket-send or first-token timestamp. The desktop
+caption timing option selects scalar metadata into its bounded background log;
+text-bearing event payloads are never serialized into that log.
+See [stage definitions and limits](CAPTION_READING.md).

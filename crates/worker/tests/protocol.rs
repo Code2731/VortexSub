@@ -592,7 +592,13 @@ fn mock_source_translation_and_versioned_pages_round_trip() {
     for line in trailing.lines() {
         worker.events.push(serde_json::from_str(line).unwrap());
     }
-    assert!(worker.events.iter().any(|e| e["event"] == "source.final"));
+    let source_event = worker
+        .events
+        .iter()
+        .find(|e| e["event"] == "source.final")
+        .unwrap();
+    assert!(source_event["payload"]["worker_at_s"].as_f64().unwrap() >= 0.);
+    assert!(source_event["payload"]["stable_chars"].is_u64());
     assert!(worker
         .events
         .iter()

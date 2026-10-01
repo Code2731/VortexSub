@@ -199,6 +199,10 @@ impl Runtime {
                         segment_id: job.key.source.segment_id,
                     })
                     .is_some_and(|r| r.translation_is_preview);
+                q.publish("translation.started", json!({"worker_at_s":self.now() as f64/1e9,
+                    "session_id":job.key.source.audio.session_id,"epoch":job.key.source.audio.epoch,
+                    "segment_id":job.key.source.segment_id,"source_revision":job.key.source.source_revision,
+                    "translation_request_id":job.key.request_id,"preview":self.translator.started_preview}),None)?;
                 let submitted = match (&mut self.translator.owner, &self.translator.selected) {
                     (Some(owner), Some(model)) if self.translator.state == "Ready" => owner
                         .translate(
@@ -240,7 +244,7 @@ impl Runtime {
             .started
             .take()
             .map(|s| s.elapsed().as_secs_f64());
-        q.publish("translation.completed", json!({"session_id":key.source.audio.session_id,
+        q.publish("translation.completed", json!({"worker_at_s":self.now() as f64/1e9,"session_id":key.source.audio.session_id,
             "epoch":key.source.audio.epoch,"segment_id":key.source.segment_id,"source_revision":key.source.source_revision,
             "translation_request_id":key.request_id,"elapsed_s":elapsed_s,"preview":self.translator.started_preview,"applied":applied==Apply::Applied,"error":error}), None)?;
         if applied == Apply::Applied {
@@ -253,7 +257,7 @@ impl Runtime {
                 .ok_or_else(|| std::io::Error::other("Translation record unavailable"))?;
             q.publish(
                 "translation.updated",
-                json!({"history_version":self.core.version(),"record":self.wire_record(record)}),
+                json!({"worker_at_s":self.now() as f64/1e9,"history_version":self.core.version(),"record":self.wire_record(record)}),
                 None,
             )?;
         }
