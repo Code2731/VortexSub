@@ -22,6 +22,8 @@ pub struct Token {
     pub byte_end: usize,
     pub start_ms: i64,
     pub end_ms: i64,
+    /// Experimental DTW emission landmark, not a word start/end interval.
+    pub dtw_ms: Option<i64>,
 }
 
 pub const ENGINE_ID: &str = "whisper-rs=0.14.4; whisper-rs-sys=0.13.1; bundled whisper.cpp=1.7.4";

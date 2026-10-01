@@ -8,7 +8,8 @@ param(
     [switch] $CurrentOnly,
     [string] $TranslationEndpoint,
     [string] $TranslationModel,
-    [switch] $Trim
+    [switch] $Trim,
+    [switch] $Dtw
 )
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
@@ -21,16 +22,18 @@ if (-not $ReportPath) {
 $oldModel = $env:ECHOSUB_SCHEDULE_MODEL
 $oldWav = $env:ECHOSUB_SCHEDULE_WAV
 $oldReport = $env:ECHOSUB_SCHEDULE_REPORT
-$probeEnvNames = @('ECHOSUB_SCHEDULE_BACKEND','ECHOSUB_SCHEDULE_ROUNDS','ECHOSUB_SCHEDULE_FIRST','ECHOSUB_SCHEDULE_CURRENT','ECHOSUB_SCHEDULE_ENDPOINT','ECHOSUB_SCHEDULE_TRANSLATION_MODEL')
+$probeEnvNames = @('ECHOSUB_SCHEDULE_BACKEND','ECHOSUB_SCHEDULE_ROUNDS','ECHOSUB_SCHEDULE_FIRST','ECHOSUB_SCHEDULE_CURRENT','ECHOSUB_SCHEDULE_ENDPOINT','ECHOSUB_SCHEDULE_TRANSLATION_MODEL','ECHOSUB_SCHEDULE_DTW')
 $oldProbeEnv = @{}
 foreach ($probeEnvName in $probeEnvNames) { $oldProbeEnv[$probeEnvName] = [Environment]::GetEnvironmentVariable($probeEnvName) }
 if ($TranslationEndpoint -and ($Trim -or -not $TranslationModel)) { throw 'Translation comparison requires -TranslationModel and cannot use -Trim' }
+if ($Dtw -and -not $Trim) { throw '-Dtw requires -Trim' }
 Push-Location $repo
 try {
     $env:ECHOSUB_SCHEDULE_MODEL = (Resolve-Path -LiteralPath $ModelPath).Path
     $env:ECHOSUB_SCHEDULE_WAV = (Resolve-Path -LiteralPath $WavPath).Path
     $env:ECHOSUB_SCHEDULE_REPORT = [IO.Path]::GetFullPath($ReportPath)
     $env:ECHOSUB_SCHEDULE_BACKEND = $Backend
+    $env:ECHOSUB_SCHEDULE_DTW = if ($Dtw) { '1' } else { '0' }
     $env:ECHOSUB_SCHEDULE_ROUNDS = "$Rounds"
     $env:ECHOSUB_SCHEDULE_FIRST = $FirstPartialSeconds.ToString([Globalization.CultureInfo]::InvariantCulture)
     $env:ECHOSUB_SCHEDULE_CURRENT = if ($CurrentOnly) { '1' } else { '0' }

@@ -30,12 +30,23 @@ fn native_timed_trim_probe() {
         "use the existing 7.605 s en-joined fixture"
     );
     let gpu = std::env::var("ECHOSUB_SCHEDULE_BACKEND").is_ok_and(|s| s == "cuda");
-    let mut engine = AsrEngine::load(&model, gpu, 8).unwrap();
+    let dtw = std::env::var("ECHOSUB_SCHEDULE_DTW").is_ok_and(|s| s == "1");
+    let mut engine = if dtw {
+        AsrEngine::load_dtw_base(&model, gpu, 8)
+    } else {
+        AsrEngine::load(&model, gpu, 8)
+    }
+    .unwrap();
     let mut observations = Vec::new();
     let mut aligned = Vec::new();
     for end in [48000, 64000] {
         let (segments, decode_s) = decode(&mut engine, &pcm[..end]);
-        let candidate = crate::decode_window::prefix(
+        let align = if dtw {
+            crate::decode_window::prefix_dtw
+        } else {
+            crate::decode_window::prefix
+        };
+        let candidate = align(
             &segments,
             echosub_audio_core::SampleRange {
                 start: 0,
@@ -44,7 +55,7 @@ fn native_timed_trim_probe() {
             prefix,
         );
         observations.push(json!({"input_s":end as f64/16000.,"decode_s":decode_s,
-            "candidate_end_s":candidate.as_ref().ok().map(|p|p.end as f64/16000.),"rejected_reason":candidate.as_ref().err(),"segments":segments.iter().map(|s|json!({"start_s":s.start_ms as f64/1000.,"end_s":s.end_ms as f64/1000.,"text":s.text,"tokens":s.tokens.iter().map(|t|json!({"byte_start":t.byte_start,"byte_end":t.byte_end,"start_s":t.start_ms as f64/1000.,"end_s":t.end_ms as f64/1000.})).collect::<Vec<_>>()})).collect::<Vec<_>>()}));
+            "candidate_boundary_kind":if dtw {"DtwLexicalLandmark"} else {"TokenIntervalEnd"},"candidate_end_s":candidate.as_ref().ok().map(|p|p.end as f64/16000.),"rejected_reason":candidate.as_ref().err(),"segments":segments.iter().map(|s|json!({"start_s":s.start_ms as f64/1000.,"end_s":s.end_ms as f64/1000.,"text":s.text,"tokens":s.tokens.iter().map(|t|json!({"byte_start":t.byte_start,"byte_end":t.byte_end,"start_s":t.start_ms as f64/1000.,"end_s":t.end_ms as f64/1000.,"dtw_s":t.dtw_ms.map(|ms|ms as f64/1000.)})).collect::<Vec<_>>()})).collect::<Vec<_>>()}));
         aligned.push(candidate.ok());
     }
     let (full, full_s) = decode(&mut engine, &pcm);
@@ -63,7 +74,7 @@ fn native_timed_trim_probe() {
         json!({"merged_source":merged.as_ref().ok(),"merge_rejected_reason":merged.as_ref().err(),"cut_s":cut as f64/16000.,"input_s":(pcm.len()-cut) as f64/16000.,
             "decode_s":decode_s,"source":segments.iter().map(|s|s.text.as_str()).collect::<String>().trim()})
     });
-    let result = json!({"model_sha256":model_hash,"wav_sha256":wav_hash,"backend":if gpu {"cuda"} else {"cpu"},"threads":8,
+    let result = json!({"model_sha256":model_hash,"wav_sha256":wav_hash,"backend":if gpu {"cuda"} else {"cpu"},"threads":8,"dtw":dtw,
         "prefix":prefix,"observations":observations,"full_input_s":pcm.len() as f64/16000.,
         "full_decode_s":full_s,"full_source":full.iter().map(|s|s.text.as_str()).collect::<String>().trim(),
         "trimmed":trimmed,"live_enabled":false,"quality_gate_passed":false,

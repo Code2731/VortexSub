@@ -12,6 +12,7 @@ pub struct Prefix {
     pub end: u64,
     anchor: String,
     anchor_start: u64,
+    dtw: bool,
 }
 
 /// Keep native byte offsets until all text and absolute sample bounds are checked.
@@ -95,6 +96,96 @@ pub fn prefix(
                     end,
                     anchor: raw[anchor.0..target].trim().to_owned(),
                     anchor_start: anchor.2,
+                    dtw: false,
+                });
+            }
+        }
+        if covered != segment.text.len() {
+            return Err("IncompleteTokenCoverage");
+        }
+        base += segment.text.len();
+    }
+    Err("MissingTokenCoverage")
+}
+
+/// DTW landmarks remain points. They never repair or replace t0/t1 intervals.
+/// A cut is only a file candidate; exact overlap reconstruction must still succeed.
+pub fn prefix_dtw(
+    segments: &[Segment],
+    range: SampleRange,
+    stable: &str,
+) -> Result<Prefix, &'static str> {
+    if range.start >= range.end || stable.is_empty() || stable.len() > 1024 {
+        return Err("InvalidPrefixOrRange");
+    }
+    let mut raw = String::new();
+    for segment in segments {
+        if raw.len().saturating_add(segment.text.len()) > MAX_BYTES || segment.text.contains('\0') {
+            return Err("InvalidText");
+        }
+        raw.push_str(&segment.text);
+    }
+    if !raw.trim_start().starts_with(stable) {
+        return Err("PrefixMismatch");
+    }
+    let target = raw.len() - raw.trim_start().len() + stable.len();
+    if target < raw.len() && !raw.as_bytes()[target].is_ascii_whitespace() {
+        return Err("UnsafeWordBoundary");
+    }
+    let mut base = 0;
+    let mut previous = range.start;
+    let mut lexical = Vec::new();
+    for segment in segments {
+        let mut covered = 0;
+        for token in &segment.tokens {
+            if token.byte_start != covered
+                || token.byte_end <= covered
+                || token.byte_end > segment.text.len()
+            {
+                return Err("IncompleteTokenCoverage");
+            }
+            let byte = base + token.byte_start;
+            let end = base + token.byte_end;
+            if end > target {
+                return Err("CrossingPrefixToken");
+            }
+            let piece = raw.get(byte..end).ok_or("UnsafeUtf8Boundary")?;
+            let point = token
+                .dtw_ms
+                .and_then(|ms| u64::try_from(ms).ok())
+                .and_then(|ms| ms.checked_mul(16))
+                .and_then(|s| range.start.checked_add(s))
+                .ok_or("MissingDtwLandmark")?;
+            if point < previous || point >= range.end {
+                return Err("InvalidDtwLandmark");
+            }
+            previous = point;
+            if piece
+                .chars()
+                .any(|c| !c.is_whitespace() && !c.is_ascii_punctuation())
+            {
+                if lexical.len() == MAX_BYTES {
+                    return Err("InvalidText");
+                }
+                lexical.push((byte, point));
+            }
+            covered = token.byte_end;
+            if end == target {
+                let last = lexical.last().ok_or("MissingDtwLandmark")?.1;
+                let anchor = lexical
+                    .iter()
+                    .find(|(byte, point)| {
+                        *point >= last.saturating_sub(CONTEXT)
+                            && (*byte == 0 || raw.as_bytes()[*byte].is_ascii_whitespace())
+                            && raw[*byte..target].split_whitespace().take(2).count() == 2
+                    })
+                    .ok_or("InsufficientOverlapAnchor")?;
+                return Ok(Prefix {
+                    text: stable.into(),
+                    end: last,
+                    anchor: raw[anchor.0..target].trim().into(),
+                    anchor_start: anchor.1,
+                    dtw: true,
                 });
             }
         }
@@ -107,7 +198,8 @@ pub fn prefix(
 }
 
 pub fn window(first: &Prefix, second: &Prefix, product: SampleRange) -> Option<SampleRange> {
-    if first.text != second.text
+    if first.dtw != second.dtw
+        || first.text != second.text
         || first.end.abs_diff(second.end) > TOLERANCE
         || first.end >= product.end
         || second.end >= product.end
@@ -131,7 +223,11 @@ pub fn merge(
     segments: &[Segment],
     window: SampleRange,
 ) -> Result<String, &'static str> {
-    let anchor = prefix(segments, window, &old.anchor)?;
+    let anchor = if old.dtw {
+        prefix_dtw(segments, window, &old.anchor)
+    } else {
+        prefix(segments, window, &old.anchor)
+    }?;
     if anchor.end.abs_diff(old.end) > TOLERANCE
         || anchor.anchor_start.abs_diff(old.anchor_start) > TOLERANCE
     {
@@ -171,12 +267,56 @@ mod tests {
                         byte_end: byte + s.len(),
                         start_ms: *a,
                         end_ms: *b,
+                        dtw_ms: None,
                     };
                     byte += s.len();
                     token
                 })
                 .collect(),
         }
+    }
+    #[test]
+    fn dtw_points_are_separate_from_invalid_intervals_and_require_valid_landmarks() {
+        let range = SampleRange {
+            start: 0,
+            end: 64000,
+        };
+        let mut native = segment(
+            " Go left now. Wait",
+            &[
+                (" Go", 0, 0),
+                (" left", 0, 0),
+                (" now.", 0, 0),
+                (" Wait", 0, 0),
+            ],
+        );
+        for (token, ms) in native.tokens.iter_mut().zip([200, 1800, 2300, 2800]) {
+            token.dtw_ms = Some(ms);
+        }
+        assert!(prefix(&[native.clone()], range, "Go left now.").is_err());
+        let p = prefix_dtw(&[native.clone()], range, "Go left now.").unwrap();
+        assert_eq!(p.end, 36800);
+        let w = window(&p, &p, range).unwrap();
+        let mut tail = segment(
+            " left now. Wait left now.",
+            &[(" left", 0, 0), (" now.", 0, 0), (" Wait left now.", 0, 0)],
+        );
+        for (token, ms) in tail.tokens.iter_mut().zip([1800, 2300, 2800]) {
+            token.dtw_ms = Some(ms - w.start as i64 / 16);
+        }
+        assert_eq!(
+            merge(&p, &[tail.clone()], w).unwrap(),
+            "Go left now. Wait left now."
+        );
+        tail.tokens[1].dtw_ms = Some(2800 - w.start as i64 / 16);
+        assert!(merge(&p, &[tail], w).is_err());
+        native.tokens[1].dtw_ms = None;
+        assert!(prefix_dtw(&[native.clone()], range, "Go left now.").is_err());
+        native.tokens[1].dtw_ms = Some(100);
+        assert_eq!(
+            prefix_dtw(&[native], range, "Go left now.").unwrap_err(),
+            "InvalidDtwLandmark"
+        );
     }
     #[test]
     fn aligned_prefix_reconstructs_full_source_and_keeps_repetition() {

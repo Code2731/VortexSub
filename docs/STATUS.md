@@ -1,5 +1,15 @@
 # 구현 상태
 
+## DTW 단어 정렬 파일 경로 (2026-10-02)
+
+기존 interval과 별도로 DTW 발화점을 추출하고 검증·재결합하는 파일 경로를 추가했다.
+동일 CUDA 파일 조건별 3회에서 일반 interval은 모두 거부됐지만 DTW는 모두
+0.928초 축소/전체 원문 재결합에 성공했다. 중앙값 일반 전체 0.182729초,
+DTW 전체 0.205880초, DTW 축소 0.174018초다. 일반 대비 차이가 작고 prefix
+정렬 비용도 있어 실시간 개선은 미확인이다. Rust 94개 PASS, native CUDA 빌드와
+6회 파일 비교 완료. 라이브는 아직 전체 입력/DTW off다.
+[구현 범위](DECODE_WINDOWS.md) · [측정·다음](evidence/dtw-alignment-windows-20261002.md).
+
 ## Decode window 기반 분리 (2026-10-02)
 
 제품 range/PCM window를 core API와 job에서 분리했다. 정렬·overlap 재결합은

@@ -131,6 +131,7 @@ mod tests {
                     byte_end: offset + piece.len(),
                     start_ms: *start,
                     end_ms: *end,
+                    dtw_ms: None,
                 };
                 offset = token.byte_end;
                 token
@@ -178,6 +179,7 @@ mod tests {
                 byte_end: 2,
                 start_ms: 10,
                 end_ms: 100,
+                dtw_ms: None,
             },
         );
         new.tokens.insert(
@@ -187,6 +189,7 @@ mod tests {
                 byte_end: first.byte_end,
                 start_ms: 100,
                 end_ms: 600,
+                dtw_ms: None,
             },
         );
         assert_eq!(

@@ -295,12 +295,14 @@ mod tests {
                 byte_end: 9,
                 start_ms: 0,
                 end_ms: 7000,
+                dtw_ms: None,
             },
             Token {
                 byte_start: 9,
                 byte_end: 12,
                 start_ms: 7400,
                 end_ms: 8000,
+                dtw_ms: None,
             },
         ];
         let mut next = span(0, 8000, " go go again");
@@ -310,18 +312,21 @@ mod tests {
                 byte_end: 3,
                 start_ms: 10,
                 end_ms: 600,
+                dtw_ms: None,
             },
             Token {
                 byte_start: 3,
                 byte_end: 6,
                 start_ms: 610,
                 end_ms: 900,
+                dtw_ms: None,
             },
             Token {
                 byte_start: 6,
                 byte_end: 12,
                 start_ms: 900,
                 end_ms: 1500,
+                dtw_ms: None,
             },
         ];
         for parent in [None, Some(id(1))] {

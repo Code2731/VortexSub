@@ -1,5 +1,11 @@
 # EchoSub 단계별 구현 계획
 
+2026-10-02 DTW 발화점 기반 파일 정렬/재결합을 구현했다. CUDA 동일 파일
+3회 모두 축소 입력의 재결합 원문이 전체 전사와 일치했다. 기존 interval을
+고쳐 쓴 것이 아니며 일반 전체 대비 처리 시간 이득은 약 0.009초로 작다.
+다음은 적용 revision의 mapping과 owner fallback 연결, DTW 비용/거부율 비교다.
+[실제 범위와 근거](evidence/dtw-alignment-windows-20261002.md).
+
 2026-10-02 두 번째 단계의 기반인 product range/decode window를 분리하고
 정렬·overlap 재결합을 fixture/파일 probe로 연결했다. 실제 CUDA에서도 길이 0인
 단어 시간으로 cut을 거부했다. 다음은 단어 시간 정렬 확보와 적용 revision의

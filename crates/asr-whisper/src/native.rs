@@ -51,10 +51,25 @@ pub struct AsrEngine {
     state: WhisperState,
     _context: WhisperContext,
     threads: i32,
+    dtw: bool,
 }
 
 impl AsrEngine {
     pub fn load(path: &str, gpu: bool, threads: i32) -> Result<Self, Box<dyn Error>> {
+        Self::load_alignment(path, gpu, threads, false)
+    }
+
+    /// Explicit file diagnostic for the multilingual base preset only.
+    pub fn load_dtw_base(path: &str, gpu: bool, threads: i32) -> Result<Self, Box<dyn Error>> {
+        Self::load_alignment(path, gpu, threads, true)
+    }
+
+    fn load_alignment(
+        path: &str,
+        gpu: bool,
+        threads: i32,
+        dtw: bool,
+    ) -> Result<Self, Box<dyn Error>> {
         if !(1..=64).contains(&threads) {
             return Err("threads must be in 1..=64".into());
         }
@@ -63,12 +78,29 @@ impl AsrEngine {
         }
         let mut parameters = WhisperContextParameters::default();
         parameters.use_gpu(gpu);
+        if dtw {
+            parameters.flash_attn(false);
+            parameters.dtw_parameters(whisper_rs::DtwParameters {
+                mode: whisper_rs::DtwMode::ModelPreset {
+                    model_preset: whisper_rs::DtwModelPreset::Base,
+                },
+                dtw_mem_size: 128 * 1024 * 1024,
+            });
+        }
         let context = WhisperContext::new_with_params(path, parameters)?;
+        if dtw
+            && (context.model_n_text_layer() != 6
+                || context.model_n_text_state() != 512
+                || !context.is_multilingual())
+        {
+            return Err("DTW base diagnostic requires the multilingual base model".into());
+        }
         let state = context.create_state()?;
         Ok(Self {
             state,
             _context: context,
             threads,
+            dtw,
         })
     }
 
@@ -197,6 +229,8 @@ impl AsrEngine {
                             byte_end: bytes.len(),
                             start_ms: data.t0.saturating_mul(10),
                             end_ms: data.t1.saturating_mul(10),
+                            dtw_ms: (self.dtw && data.t_dtw >= 0)
+                                .then(|| data.t_dtw.saturating_mul(10)),
                         });
                     }
                     // Individual tokens may split UTF-8 characters. Never use lossy token text.

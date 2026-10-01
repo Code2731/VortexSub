@@ -13,6 +13,17 @@ fixture에서 짧은 입력 snapshot, 전체 기록 범위, 확정 우선, 진�
 
 ## 정렬과 재결합
 
+2026-10-02 후속으로 별도 DTW 발화 시점 정렬을 추가했다. 기존 interval을
+고쳐 쓰지 않고 `Token.dtw_ms`에 점으로 저장한다. `prefix_dtw`는 연속 byte
+coverage, PCM 범위, 발화점 순서와 두 단어 anchor를 검증한다. 경계 기준은
+마지막 발화 단어의 점이며 문장부호의 발화점은 제외한다. 두 관측의 일치와
+새 전사의 정확한 anchor/시간 일치를 모두 통과해야 재결합한다.
+
+`AsrEngine::load_dtw_base`는 기존 multilingual base 모델 전용 파일 진단이다.
+128 MiB 정렬 메모리 설정과 flash attention 비활성화를 명시한다. 일반 load와
+라이브 owner는 계속 DTW를 끈다. 시작·끝 길이 0의 기존 interval은 여전히
+거부되며 DTW 점을 임의의 단어 시작·끝 시간으로 바꾸지 않는다.
+
 worker의 `decode_window`는 현재 **fixture/파일 probe에만 연결**되어 있다.
 native 텍스트의 byte offset과 입력 기준 밀리초를 보존해 절대 sample로 변환한다.
 연속 token coverage, UTF-8/단어 경계, 시간 순서, PCM 범위를 검사한다.
@@ -41,3 +52,18 @@ CPU도 선택할 수 있다. [측정 기록](evidence/decode-window-windows-2026
 적용된 revision에만 alignment를 보관하고 owner에서 재결합 실패 시 전체 PCM을
 재전사하도록 연결한다. 확정 작업은 전체 PCM으로 유지한 채 지연·오역·수정 빈도를
 비교한다. 검증 전에는 live trim 옵션을 노출하지 않는다.
+
+## DTW 파일 비교
+
+일반/DTW 조건을 각각 3회, 순서를 교대해 기존 파일로 비교했다. 일반 interval은
+6개 prefix 관측 모두 거부됐다. DTW는 `path`가 모두 1.54초였고, 0.928초를
+제외한 6.677초 입력을 전사했다. 3회 모두 재결합 원문이 전체 전사와 같았다.
+처리 시간 중앙값은 일반 전체 0.182729초, DTW 전체 0.205880초,
+DTW 축소 0.174018초다. 일반 전체 대비 약 0.008710초 차이로 작으며
+정렬을 만드는 앞선 전사의 추가 비용도 있다. 라이브 지연 개선 근거는 아니다.
+
+재현 시 위 명령에 `-Dtw`를 추가한다. 새 모델/런타임은 필요하지 않다.
+다음은 적용된 identity/revision에만 mapping을 저장하는 owner 경로와
+재결합 실패 시 전체 입력 fallback이다. DTW 자체 비용과 실제 partial의
+prefix 변경·정렬 거부율을 비교한 후 활성화를 결정한다.
+[DTW 측정·제약](evidence/dtw-alignment-windows-20261002.md).
