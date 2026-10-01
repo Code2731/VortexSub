@@ -21,6 +21,7 @@ pub struct ModelConfig {
     pub threads: i32,
     pub vad: Option<VadConfig>,
     pub decode_window: bool,
+    pub pad_short_partials: bool,
 }
 #[cfg_attr(not(feature = "native-vad"), allow(dead_code))]
 #[derive(Clone)]
@@ -150,6 +151,9 @@ pub fn config_from_args(args: &[String]) -> Result<Option<ModelConfig>, &'static
         threads,
         vad,
         decode_window: args.iter().any(|a| a == "--experimental-decode-window"),
+        pad_short_partials: args
+            .iter()
+            .any(|a| a == "--experimental-pad-short-partials"),
     }))
 }
 pub fn valid_hash(hash: &str) -> bool {
@@ -352,8 +356,28 @@ impl NativeOwner {
                     });
                     window_attempted = window.is_some();
                     let offset = window.map_or(0, |p| (p.start - range.start) as usize);
+                    // Pad only native input; original PCM/range/identity stay intact.
+                    // Final audio and DTW windows always use their real samples.
+                    let input = &task.job.pcm.samples()[offset..];
+                    let mut padded = Vec::new();
+                    let input = if config.pad_short_partials
+                        && !config.decode_window
+                        && task.job.kind == echosub_pipeline_core::AsrKind::Partial
+                        && !input.is_empty()
+                        && input.len() < 16000
+                    {
+                        padded.extend_from_slice(input);
+                        padded.resize(16320, 0.0);
+                        eprintln!(
+                            "experimental short partial: {} real samples, 16320 native samples",
+                            input.len()
+                        );
+                        padded.as_slice()
+                    } else {
+                        input
+                    };
                     let mut decoded = engine.transcribe_cancellable_timed(
-                        &task.job.pcm.samples()[offset..],
+                        input,
                         &task.language,
                         &task.cancellation,
                     );

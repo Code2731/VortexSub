@@ -1,5 +1,5 @@
 param([switch] $NoBuild, [switch] $Offline, [switch] $NoPause, [switch] $Live,
-    [ValidateSet('cpu', 'cuda')] [string] $AsrBackend = 'cpu', [switch] $FastPartials, [switch] $CaptionTiming, [switch] $DecodeWindow)
+    [ValidateSet('cpu', 'cuda')] [string] $AsrBackend = 'cpu', [switch] $FastPartials, [switch] $CaptionTiming, [switch] $DecodeWindow, [switch] $PadShortPartials)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
 $env:AVALONIA_TELEMETRY_OPTOUT = '1'
@@ -41,6 +41,7 @@ try {
     if (-not $Live -and $AsrBackend -ne 'cpu') { throw '-AsrBackend cuda requires -Live' }
     if ($FastPartials -and (-not $Live -or $AsrBackend -ne 'cuda')) { throw '-FastPartials requires -Live -AsrBackend cuda' }
     if ($DecodeWindow -and -not $FastPartials) { throw '-DecodeWindow requires -FastPartials' }
+    if ($PadShortPartials -and (-not $FastPartials -or $DecodeWindow)) { throw '-PadShortPartials requires -FastPartials and cannot combine with -DecodeWindow' }
     if ($Live) {
         if (-not [Environment]::Is64BitProcess) { throw 'Live diagnostics require Windows x64 PowerShell' }
         $catalogue = Get-Content -LiteralPath (Join-Path $repo 'benchmarks/model-downloads.json') -Raw | ConvertFrom-Json
@@ -60,6 +61,7 @@ try {
         if ($FastPartials) {
             $workerArguments += '--fast-partials'
             if ($DecodeWindow) { $workerArguments += '--experimental-decode-window'; Write-Host 'Experimental DTW decode windows enabled; final ASR keeps full audio.' }
+            if ($PadShortPartials) { $workerArguments += '--experimental-pad-short-partials'; Write-Host 'Experimental short partial padding enabled; original audio ranges retained.' }
             $env:ECHOSUB_WORKER_ARGUMENTS = ConvertTo-Json -InputObject $workerArguments -Compress
             Write-Host 'Adaptive partials: first request 0.8 seconds; VAD candidates 0.25 seconds; feedback controls fresh audio per decode. Enable partial ASR/translation before Start.'
         }

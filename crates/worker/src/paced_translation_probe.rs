@@ -47,10 +47,12 @@ fn native_paced_translation_probe() {
     assert!((16000..=128000).contains(&pcm.len()));
     let adaptive_compare = std::env::var("ECHOSUB_ADAPTIVE_COMPARE").as_deref() == Ok("1");
     let window_compare = std::env::var("ECHOSUB_WINDOW_COMPARE").as_deref() == Ok("1");
+    let padding_compare = std::env::var("ECHOSUB_PADDING_COMPARE").as_deref() == Ok("1");
+    assert!(!(padding_compare && (window_compare || adaptive_compare)));
     let mut reports = Vec::new();
     for round in 1..=rounds {
         // Alternate interval order within this backend; no claims of full order balancing.
-        let intervals = if window_compare {
+        let intervals = if window_compare || padding_compare {
             [0.25, 0.25]
         } else if adaptive_compare {
             if round % 2 == 1 {
@@ -65,6 +67,7 @@ fn native_paced_translation_probe() {
         };
         for (condition, interval_s) in intervals.into_iter().enumerate() {
             let decode_window = window_compare && (condition == usize::from(round % 2 == 1));
+            let pad_short_partials = padding_compare && (condition == usize::from(round % 2 == 1));
             let mut r = Runtime::new(
                 false,
                 Some(ModelConfig {
@@ -74,6 +77,7 @@ fn native_paced_translation_probe() {
                     threads: 8,
                     vad: None,
                     decode_window,
+                    pad_short_partials,
                 }),
                 false,
             );
@@ -99,7 +103,8 @@ fn native_paced_translation_probe() {
                 );
                 std::thread::sleep(Duration::from_millis(5));
             }
-            r.fast_partials = window_compare || adaptive_compare && interval_s == 0.25;
+            r.fast_partials =
+                padding_compare || window_compare || adaptive_compare && interval_s == 0.25;
             r.partial_enabled = true;
             r.core.set_partial_translation_enabled(true);
             let setup_s = setup.elapsed().as_secs_f64();
@@ -207,7 +212,7 @@ fn native_paced_translation_probe() {
                     segment_id: 1,
                 })
                 .unwrap();
-            reports.push(json!({"round":round,"interval_s":interval_s,"effective_interval_s":effective_interval_s,"adaptive":r.fast_partials,"decode_window":decode_window,"window_attempts":r.window_state.attempts,"window_fallbacks":r.window_state.fallbacks,"setup_s":setup_s,
+            reports.push(json!({"round":round,"interval_s":interval_s,"effective_interval_s":effective_interval_s,"adaptive":r.fast_partials,"pad_short_partials":pad_short_partials,"decode_window":decode_window,"window_attempts":r.window_state.attempts,"window_fallbacks":r.window_state.fallbacks,"setup_s":setup_s,
                 "audio_s":pcm.len() as f64/16000.,"first_text_s":first_text_s,"first_stable_s":first_stable_s,
                 "first_translation_s":first_translation_s,"final_asr_s":final_asr_s,
                 "final_translation_s":final_translation_s,"scheduler":r.partial_schedule.value(),

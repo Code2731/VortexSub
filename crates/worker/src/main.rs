@@ -49,6 +49,13 @@ fn serve() -> io::Result<()> {
     let capture = args.iter().any(|a| a == "--diagnostic-capture");
     let live = args.iter().any(|a| a == "--live-asr");
     let fast_partials = args.iter().any(|a| a == "--fast-partials");
+    if args
+        .iter()
+        .any(|a| a == "--experimental-pad-short-partials")
+        && (!fast_partials || !live || args.iter().any(|a| a == "--experimental-decode-window"))
+    {
+        return Err(io::Error::other("Short partial padding requires fast live CUDA ASR and cannot combine with decode windows"));
+    }
     if args.iter().any(|a| a == "--experimental-decode-window") && (!fast_partials || !live) {
         return Err(io::Error::other(
             "Experimental decode windows require fast live CUDA ASR",

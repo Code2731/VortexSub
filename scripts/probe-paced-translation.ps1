@@ -4,9 +4,11 @@ param(
     [string] $ServerPath,
     [switch] $Adaptive,
     [switch] $DecodeWindow,
+    [switch] $PadShortPartials,
     [string] $PythonPath
 )
 $ErrorActionPreference = 'Stop'
+if ($PadShortPartials -and ($Adaptive -or $DecodeWindow)) { throw 'Padding comparison cannot combine with -Adaptive or -DecodeWindow' }
 $repo = Split-Path $PSScriptRoot -Parent
 if (-not $PythonPath) { $PythonPath = Join-Path $repo 'models/tabby/venv/Scripts/python.exe' }
 if (-not (Test-Path -LiteralPath $PythonPath)) { throw 'Supply an existing Python executable. This probe installs nothing.' }
@@ -19,6 +21,7 @@ try {
     $arguments = @((Join-Path $repo 'scripts/probe-paced-translation.py'), '--backend', $Backend, '--rounds', "$Rounds")
     if ($Adaptive) { $arguments += '--adaptive' }
     if ($DecodeWindow) { $arguments += '--decode-window' }
+    if ($PadShortPartials) { $arguments += '--pad-short-partials' }
     if ($ServerPath) { $arguments += @('--server', $ServerPath) }
     & $PythonPath @arguments
     if ($LASTEXITCODE -ne 0) { throw 'Paced translation measurement failed; completed reports/logs retained.' }

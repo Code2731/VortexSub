@@ -284,3 +284,10 @@ three whole/prefix passes over the local fixture manifest. The native model prob
 checks matching fixtures/rounds/boundaries and applies the same character scoring.
 All time values are seconds. Prefix availability is a file simulation, not live
 caption latency. See [configuration and limits](../docs/ASR_CANDIDATE_COMPARISON.md).
+
+`scripts/probe-paced-translation.ps1 -PadShortPartials -Rounds 3` compares padding
+off/on with the same adaptive scheduler, 0.8-second first request and actual Qwen
+HTTP owner, alternating condition order. It cannot combine with `-Adaptive` or
+`-DecodeWindow`. Run `scripts/summarize-paced-padding.py <report.json> --output
+<summary.json>` for paired timings and lexical source revision counts; inspect
+request and translation texts for quality. See [padding contract](../docs/SHORT_PARTIAL_PADDING.md).

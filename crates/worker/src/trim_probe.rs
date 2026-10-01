@@ -117,6 +117,7 @@ fn native_window_fallback_probe() {
         threads: 8,
         vad: None,
         decode_window: true,
+        pad_short_partials: false,
     });
     assert!(matches!(
         owner

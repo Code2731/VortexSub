@@ -115,3 +115,10 @@ Rust 91개·포맷·빌드·C# 빌드(경고/오류 0)·IPC smoke가 통과했�
 세션 시작 전에 부분 전사/번역도 켠다. 파일 비교에서는 전체 전사 대비 속도
 개선이 없어 기본으로 켜지 않는다. 재결합 실패 시 전체 입력 fallback을 수행하고
 확정 전사는 전체 입력이다. [동작·측정](DECODE_WINDOWS.md).
+
+### 실험적 짧은 부분 입력 패딩
+
+`run-live-cuda-fast.bat -PadShortPartials -CaptionTiming`으로 선택한다.
+부분 전사/번역 옵션을 세션 시작 전에 켠다. 기본 off이며 `-DecodeWindow`와
+함께 사용할 수 없다. 실제 파일/HTTP 비교에서 원문은 빨랐지만 첫 번역의 큰
+개선은 없었다. [입력·수명 계약과 측정](SHORT_PARTIAL_PADDING.md).

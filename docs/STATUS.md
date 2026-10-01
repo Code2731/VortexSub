@@ -1,5 +1,17 @@
 # 구현 상태
 
+## 짧은 partial 패딩 owner/번역 비교 (2026-10-02)
+
+native owner와 런처 실험 옵션 `-PadShortPartials`를 연결했다. 기본 off,
+DecodeWindow와 동시 선택 금지다. 원래 PCM 범위·identity와 final 전체 입력을 유지한다.
+같은 적응형 스케줄러/실제 Qwen HTTP의 교대 각 3회에서 첫 원문
+1.378→0.854초·안정 구간 1.637→1.111초였지만 첫 번역 1.812→1.793초로
+큰 가속은 없었다. `the`로 끝난 안정 원문은 DanglingWord로 보류되고,
+on 첫 번역은 “왼쪽을 선택…”이었다가 완전한 문장으로 수정됐다.
+최종 ASR 6/6 동일, 번역 품질 gate false. 다음은 미완성 꼬리의 preview 정책 비교다.
+CUDA/VAD release·실제 파일/HTTP probe·문법/fmt 확인; 일반 테스트와 live/UI/자연/Mac 미실행.
+[계약](SHORT_PARTIAL_PADDING.md) · [실측](evidence/short-partial-padding-windows-20261002.md).
+
 ## SenseVoice 후보 비교와 짧은 Whisper 입력 실험 (2026-10-02)
 
 사용자 동의 후 약 259 MB의 고정 모델/wheel을 해시 검증·별도 설치했다.

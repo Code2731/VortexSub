@@ -438,6 +438,7 @@ mod tests {
                             threads: 8,
                             vad: None,
                             decode_window: false,
+                            pad_short_partials: false,
                         }),
                         false,
                     );
