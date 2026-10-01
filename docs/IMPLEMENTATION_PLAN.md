@@ -22,6 +22,12 @@ token 시간 검토는 단어 길이 0으로 trim을 거부했다. 라이브 tri
 기본 CPU·간격은 유지하며 다음은 캡처 없이 paced ASR→Qwen의 단계별
 지연/품질·GPU 동시 경쟁 비교다. [범위](evidence/partial-backends-windows-20261001.md).
 
+실제 ASR→Qwen GPU 파일 비교에서 0.5초 간격의 첫 번역이
+3.361→2.330초로 앞당겨졌다. 빠른 CUDA 모드를 선택 실행으로 제공한다.
+미완성 원문 노출/오역과 비용 증가로 기본 간격은 유지한다. 다음은 UI 수신→
+카드 교체 계측과 읽기/current draft 제한 검토다.
+[조건과 한계](evidence/paced-translation-windows-20261001.md).
+
 2026-10-01 사용자 요청의 안정 prefix/임시 번역 실험을 opt-in으로 구현했다.
 오프라인 비교는 첫 표시를 앞당길 가능성과 의미 반전을 함께 확인했다.
 기본 꺼짐·품질 gate 보류를 유지한다. [결과와 범위](STREAMING_TRANSLATION.md).

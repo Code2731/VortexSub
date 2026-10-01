@@ -13,6 +13,9 @@ use std::time::Instant;
 mod export;
 #[path = "live_segments.rs"]
 mod live_segments;
+#[cfg(all(test, feature = "native-asr"))]
+#[path = "paced_translation_probe.rs"]
+mod paced_translation_probe;
 #[path = "session.rs"]
 mod session;
 #[path = "translation.rs"]
@@ -45,6 +48,7 @@ pub struct Runtime {
     live_language: String,
     live_stats: Value,
     partial_enabled: bool,
+    pub fast_partials: bool,
     partial_schedule: live_segments::PartialSchedule,
     live_segment: Option<(SegmentIdentity, SegmentIdentity)>,
     last_live_final: Option<(SegmentIdentity, SegmentIdentity)>,
@@ -99,6 +103,7 @@ impl Runtime {
             live_language: "en".into(),
             live_stats: json!({}),
             partial_enabled: false,
+            fast_partials: false,
             partial_schedule: live_segments::PartialSchedule::default(),
             live_segment: None,
             last_live_final: None,
@@ -333,6 +338,7 @@ impl Runtime {
                     config.clone(),
                     self.epoch,
                     self.partial_enabled,
+                    if self.fast_partials { 0.5 } else { 1.0 },
                 ));
                 self.live_accepting = true;
                 self.live_stats = json!({});

@@ -18,6 +18,15 @@ Whisper와 Qwen이 같은 GPU를 사용한다. ASR 단독 파일 속도 개선�
 게임·번역 동시 실행이나 화면 지연 개선으로 확대하지 않는다.
 [CPU/CUDA 파일 비교](evidence/partial-backends-windows-20261001.md).
 
+빠른 부분 전사 비교는 **`run-live-cuda-fast.bat`** 더블클릭 또는
+`./run-live-cuda.bat -FastPartials`로 실행한다. 세션 시작 전에
+**안정된 부분 먼저 번역 · 임시 결과**도 켜야 조기 번역이 나온다.
+`-FastPartials`는 부분 요청 간격만 1.0→0.5초로 바꾸며, 첫 요청의
+0.8초 발화 조건과 안정 prefix·번역/읽기 규칙은 유지한다.
+VAD의 512-sample 프레임 반올림으로 실제 간격은 약 0.992/0.512초다.
+CUDA 전용이며 기본 꺼짐이다. 미완성 정보의 조기 노출과 GPU 비용이
+늘 수 있다. [실제 ASR→Qwen 파일 측정](evidence/paced-translation-windows-20261001.md).
+
 1. 모델 상태가 Ready가 되면 출력 장치와 원문 언어(en/ja/ko)를 선택한다.
 2. **세션 시작**을 누르고 선택한 출력 장치에서 음성을 재생한다.
 3. 최근 100개 구간과 **원문 오버레이 표시**로 확정 원문을 확인한다.

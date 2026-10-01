@@ -45,6 +45,10 @@ fn serve() -> io::Result<()> {
     let config = native_owner::config_from_args(&args).map_err(io::Error::other)?;
     let capture = args.iter().any(|a| a == "--diagnostic-capture");
     let live = args.iter().any(|a| a == "--live-asr");
+    let fast_partials = args.iter().any(|a| a == "--fast-partials");
+    if fast_partials && (!live || !config.as_ref().is_some_and(|c| c.gpu)) {
+        return Err(io::Error::other("Fast partials require live CUDA ASR"));
+    }
     let sessions = args.iter().any(|a| a == "--session-control");
     let mock_sessions = args.iter().any(|a| a == "--mock-session-control");
     if (sessions && !live)
@@ -75,6 +79,7 @@ fn serve() -> io::Result<()> {
     let mut runtime =
         runtime::Runtime::new(args.iter().any(|a| a == "--mock-pipeline"), config, capture);
     runtime.session.enabled = sessions || mock_sessions;
+    runtime.fast_partials = fast_partials;
     runtime.session.mock = mock_sessions;
     if args.iter().any(|a| a == "--diagnostic-translation") {
         runtime.enable_http_translation();

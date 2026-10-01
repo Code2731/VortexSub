@@ -1,5 +1,5 @@
 param([switch] $NoBuild, [switch] $Offline, [switch] $NoPause, [switch] $Live,
-    [ValidateSet('cpu', 'cuda')] [string] $AsrBackend = 'cpu')
+    [ValidateSet('cpu', 'cuda')] [string] $AsrBackend = 'cpu', [switch] $FastPartials)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
 $env:AVALONIA_TELEMETRY_OPTOUT = '1'
@@ -37,6 +37,7 @@ try {
     Write-Host "EchoSub launcher: $repo"
     Write-Host "Launcher log: $launcherLog"
     if (-not $Live -and $AsrBackend -ne 'cpu') { throw '-AsrBackend cuda requires -Live' }
+    if ($FastPartials -and (-not $Live -or $AsrBackend -ne 'cuda')) { throw '-FastPartials requires -Live -AsrBackend cuda' }
     if ($Live) {
         if (-not [Environment]::Is64BitProcess) { throw 'Live diagnostics require Windows x64 PowerShell' }
         $catalogue = Get-Content -LiteralPath (Join-Path $repo 'benchmarks/model-downloads.json') -Raw | ConvertFrom-Json
@@ -53,6 +54,11 @@ try {
         $workerArguments = @('--diagnostic-translation', '--diagnostic-capture','--live-asr','--session-control','--diagnostic-asr','--asr-model',$asrPath,'--asr-sha256',$asr.sha256,'--asr-backend',$AsrBackend,
             '--diagnostic-vad','--vad-model',$vadPath,'--vad-sha256',$vad.sha256,'--vad-runtime',$runtimePath,'--vad-runtime-sha256',$runtime.sha256)
         $env:ECHOSUB_WORKER_ARGUMENTS = ConvertTo-Json -InputObject $workerArguments -Compress
+        if ($FastPartials) {
+            $workerArguments += '--fast-partials'
+            $env:ECHOSUB_WORKER_ARGUMENTS = ConvertTo-Json -InputObject $workerArguments -Compress
+            Write-Host 'Fast partial request interval: 0.5 seconds; enable partial ASR/translation in the UI before Start.'
+        }
         Write-Host "Live $AsrBackend source diagnostics: optional local translation; partial disabled by default; select capture Start in the UI."
     }
     if (-not $NoBuild) {

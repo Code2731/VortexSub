@@ -1,5 +1,5 @@
 param([string] $ServerPath, [switch] $NoBuild,
-    [ValidateSet('cpu', 'cuda')] [string] $AsrBackend = 'cpu')
+    [ValidateSet('cpu', 'cuda')] [string] $AsrBackend = 'cpu', [switch] $FastPartials)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
 $server = $null
@@ -8,6 +8,7 @@ $oldToken = $env:ECHOSUB_TRANSLATION_TOKEN
 $exitCode = 0
 
 try {
+    if ($FastPartials -and $AsrBackend -ne 'cuda') { throw '-FastPartials requires -AsrBackend cuda' }
     Write-Host 'EchoSub: starting local translation server and live subtitle UI.'
     if (-not $ServerPath) {
         $command = Get-Command llama-server.exe -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -70,6 +71,7 @@ try {
     Write-Host 'Closing the app also stops this launcher-owned translation server.'
     $launcherArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $repo 'scripts/run.ps1'), '-Live', '-Offline', '-NoPause', '-AsrBackend', $AsrBackend)
     if ($NoBuild) { $launcherArgs += '-NoBuild' }
+    if ($FastPartials) { $launcherArgs += '-FastPartials' }
     & (Join-Path $env:SystemRoot 'System32/WindowsPowerShell/v1.0/powershell.exe') @launcherArgs
     $exitCode = $LASTEXITCODE
 } catch {

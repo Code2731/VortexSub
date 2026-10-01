@@ -242,6 +242,23 @@ The default first request remains 0.8 seconds and default rounds remain one.
 Final-source correctness, partial corrections, HTTP/game contention and rendered
 caption latency must be assessed separately from decode throughput.
 
+`scripts/probe-paced-translation.ps1 -Backend cuda -Rounds 3` compares 1.0/0.5-second
+requests through the actual native owner, HTTP owner and production scheduler.
+It verifies existing consented assets, joins three local English TTS files and
+owns a private llama server on port 18087. No capture or download occurs.
+Interval order alternates between rounds. Reports include first source/stable
+prefix/translation times, actual request texts and native/HTTP completion events.
+Translation is warmed once; native owners are fresh per condition. Results,
+transcripts, logs and device-wide GPU samples remain Git-ignored.
+An already installed Python can be supplied with `-PythonPath`; the default is
+the consented Tabby environment. The wrapper builds `translation-probe.exe`
+offline for warmup. Completed conditions
+are saved before subsequent runs. No quality or screen-latency gate is implied.
+An existing local server can instead be used with `probe-partial-scheduling.ps1`
+`-TranslationEndpoint <numeric loopback URL> -TranslationModel <id>`; the token
+comes from `ECHOSUB_TRANSLATION_TOKEN`, never the report. This mode compares
+current admission at 1.0/0.5 seconds and ignores `-CurrentOnly`.
+
 Add `-Trim` for the explicit timed-token feasibility probe using the existing
 7.605-second joined English fixture beginning “We should take the left path.”
 It compares exact token boundaries in 3/4-second prefixes and rejects missing,

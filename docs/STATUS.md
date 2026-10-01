@@ -1,5 +1,16 @@
 # 구현 상태
 
+## 실제 paced ASR→Qwen·빠른 모드 (2026-10-01)
+
+동일 GPU에서 실제 ASR/HTTP를 연결해 1초·0.5초 간격 각각 3회 측정했다.
+첫 번역 중앙값 3.361→2.330초, 안정 prefix 3.107→2.087초다.
+확정 번역은 8.109→8.062초로 큰 차이가 없다. 누적 decode 0.741→1.283초,
+HTTP 4→5회와 미완성 정보의 조기 노출/오역도 확인했다. 품질 gate false.
+`run-live-cuda-fast.bat` 선택 실행을 추가했고 기본 간격/기본 꺼짐을 유지한다.
+check(Rust 153개·C# 표시 29개·IPC/HTTP), native CUDA/VAD 빌드 PASS.
+실제 빠른 모드 UI/장치·게임·자연/일본어·macOS는 미실행이다.
+[측정·사용·다음 작업](evidence/paced-translation-windows-20261001.md).
+
 ## Whisper CPU/CUDA 부분 전사 비교 (2026-10-01)
 
 동일 7.605초 합성 영어 파일을 backend/간격별 3회, 총 12회 측정했다.

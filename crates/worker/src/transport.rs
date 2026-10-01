@@ -34,6 +34,16 @@ fn encoded(value: Value) -> io::Result<Vec<u8>> {
     Ok(bytes)
 }
 impl Outbox {
+    #[cfg(all(test, feature = "native-asr"))]
+    pub(crate) fn drain_probe_events(&self) -> Vec<Value> {
+        self.state
+            .lock()
+            .unwrap()
+            .events
+            .drain(..)
+            .map(|event| serde_json::from_slice(&event.bytes).unwrap())
+            .collect()
+    }
     pub fn last_seq(&self) -> u64 {
         self.state.lock().unwrap().seq
     }

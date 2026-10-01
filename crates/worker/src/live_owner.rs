@@ -20,10 +20,18 @@ struct Stream<B: Backend> {
     partial_enabled: bool,
 }
 impl<B: Backend> Stream<B> {
-    fn new(backend: B, identity: AudioIdentity, start: u64) -> Self {
+    fn new(backend: B, identity: AudioIdentity, start: u64, interval_s: f64) -> Self {
         Self {
             detector: Detector::new(backend, identity, start),
-            segmenter: VadSegmenter::new(identity, start, VadSettings::default()).unwrap(),
+            segmenter: VadSegmenter::new(
+                identity,
+                start,
+                VadSettings {
+                    partial_interval_s: interval_s,
+                    ..VadSettings::default()
+                },
+            )
+            .unwrap(),
             partial_enabled: false,
         }
     }
@@ -80,7 +88,12 @@ pub struct LiveOwner {
 }
 impl LiveOwner {
     #[cfg(feature = "native-vad")]
-    pub fn start(config: VadConfig, identity: AudioIdentity, partial_enabled: bool) -> Self {
+    pub fn start(
+        config: VadConfig,
+        identity: AudioIdentity,
+        partial_enabled: bool,
+        interval_s: f64,
+    ) -> Self {
         let shared = Arc::new(Shared::default());
         let (input, rx) = mpsc::sync_channel::<AudioFrame>(CAPACITY);
         let (tx, output) = mpsc::sync_channel(CAPACITY);
@@ -114,8 +127,12 @@ impl LiveOwner {
                             return Err("LIVE_VAD_STALE_INPUT");
                         }
                         let stream = stream.get_or_insert_with(|| {
-                            let mut stream =
-                                Stream::new(backend.take().unwrap(), identity, frame.range.start);
+                            let mut stream = Stream::new(
+                                backend.take().unwrap(),
+                                identity,
+                                frame.range.start,
+                                interval_s,
+                            );
                             stream.partial_enabled = partial_enabled;
                             stream
                         });
@@ -156,7 +173,7 @@ impl LiveOwner {
         }
     }
     #[cfg(not(feature = "native-vad"))]
-    pub fn start(_: VadConfig, _: AudioIdentity, _: bool) -> Self {
+    pub fn start(_: VadConfig, _: AudioIdentity, _: bool, _: f64) -> Self {
         unreachable!("CLI requires native-vad")
     }
     pub fn stop(&self) {
@@ -218,7 +235,7 @@ mod tests {
     }
     #[test]
     fn recurrence_survives_packets_and_final_resets_without_padding_pcm() {
-        let mut s = Stream::new(Voiced { calls: 0 }, ID, 16000);
+        let mut s = Stream::new(Voiced { calls: 0 }, ID, 16000, 1.0);
         for i in 0..10 {
             assert!(s.push(&frame(i, 0.2), i * 32_000_000).unwrap().is_empty());
         }
@@ -236,7 +253,7 @@ mod tests {
     #[test]
     fn partials_are_opt_in_and_share_the_final_vad_identity() {
         for enabled in [false, true] {
-            let mut s = Stream::new(Voiced { calls: 0 }, ID, 16000);
+            let mut s = Stream::new(Voiced { calls: 0 }, ID, 16000, 1.0);
             s.partial_enabled = enabled;
             let mut events = Vec::new();
             for i in 0..80 {
@@ -271,8 +288,53 @@ mod tests {
         }
     }
     #[test]
+    fn faster_partial_interval_preserves_first_request_and_final_audio() {
+        let mut observed = Vec::new();
+        for interval in [1.0, 0.5] {
+            let mut stream = Stream::new(Voiced { calls: 0 }, ID, 16000, interval);
+            stream.partial_enabled = true;
+            let mut events = Vec::new();
+            for i in 0..80 {
+                events.extend(stream.push(&frame(i, 0.2), i * 32_000_000).unwrap());
+            }
+            for i in 80..96 {
+                events.extend(stream.push(&frame(i, 0.), i * 32_000_000).unwrap());
+            }
+            let partials: Vec<_> = events
+                .iter()
+                .filter_map(|event| match event {
+                    SpeechEvent::Partial(segment) => Some(segment.pcm_range.end),
+                    _ => None,
+                })
+                .collect();
+            let final_range = events
+                .iter()
+                .find_map(|event| match event {
+                    SpeechEvent::Final { segment, .. } => Some(segment.pcm_range),
+                    _ => None,
+                })
+                .unwrap();
+            assert_eq!(
+                stream
+                    .segmenter
+                    .requested_settings()
+                    .partial_minimum_speech_s,
+                0.8
+            );
+            assert!(partials.windows(2).all(|pair| pair[1] - pair[0]
+                >= stream
+                    .segmenter
+                    .effective_settings()
+                    .partial_interval_samples));
+            observed.push((partials, final_range));
+        }
+        assert_eq!(observed[0].0[0], observed[1].0[0]);
+        assert!(observed[1].0.len() > observed[0].0.len());
+        assert_eq!(observed[0].1, observed[1].1);
+    }
+    #[test]
     fn stop_discards_active_speech_and_stale_frames_are_rejected() {
-        let mut s = Stream::new(Voiced { calls: 0 }, ID, 16000);
+        let mut s = Stream::new(Voiced { calls: 0 }, ID, 16000, 1.0);
         for i in 0..10 {
             s.push(&frame(i, 0.2), i * 32_000_000).unwrap();
         }
