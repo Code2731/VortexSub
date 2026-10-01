@@ -9,7 +9,7 @@ def lexical(text):
     return "".join(c.lower() for c in text if c.isalnum())
 
 
-def metrics(run):
+def metrics(run, first_source=None):
     previous, revisions, partials, native_s = "", 0, 0, 0.0
     for event in run["events"]:
         message = event["message"]
@@ -21,7 +21,13 @@ def metrics(run):
             revisions += bool(previous and not text.startswith(previous))
             previous = text
             partials += 1
-    return {**{name: run[name] for name in ("first_text_s", "first_stable_s", "first_translation_s", "final_translation_s")},
+    complete_source_s = next((event["at_s"] for event in run["events"]
+                              if event["message"]["event"] == "translation.updated"
+                              and event["message"]["payload"]["record"]["translation_source"] == first_source), None) if first_source else None
+    if first_source and complete_source_s is None:
+        raise ValueError("No applied translation of the requested first source sentence")
+    return {**({"first_complete_source_translation_s": complete_source_s} if first_source else {}),
+            **{name: run[name] for name in ("first_text_s", "first_stable_s", "first_translation_s", "final_translation_s")},
             "native_decode_total_s": native_s, "partial_events": partials,
             "lexical_revision_events": revisions, "translation_requests": len(run["requests"])}
 
@@ -30,6 +36,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("report", type=Path)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--condition-field", choices=("pad_short_partials", "supported_preview"), default="pad_short_partials")
+    parser.add_argument("--first-source", help="Exact authored first sentence; source matching is not automatic translation quality grading")
     args = parser.parse_args()
     report = json.loads(args.report.read_text(encoding="utf-8"))
     runs = report["runs"]
@@ -37,23 +45,25 @@ def main():
     for run in runs:
         if not run["adaptive"] or run["decode_window"]:
             raise ValueError("Requires adaptive padding-only comparison")
-        key = (run["round"], run["pad_short_partials"])
+        if args.condition_field == "supported_preview" and not run["pad_short_partials"]:
+            raise ValueError("Supported preview comparison requires the same padded baseline")
+        key = (run["round"], run[args.condition_field])
         if key in pairs:
             raise ValueError("Duplicate condition")
-        pairs[key] = metrics(run)
+        pairs[key] = metrics(run, args.first_source)
     if len(runs) != report["rounds_requested"] * 2:
         raise ValueError("Incomplete comparison")
     groups = {}
     for enabled in (False, True):
         values = [pairs[(r, enabled)] for r in range(1, report["rounds_requested"] + 1)]
-        groups["padding_on" if enabled else "padding_off"] = {
+        groups[("supported_" if args.condition_field == "supported_preview" else "padding_") + ("on" if enabled else "off")] = {
             name: {"median": statistics.median(v[name] for v in values),
                    "min": min(v[name] for v in values), "max": max(v[name] for v in values)}
             for name in values[0]
         }
     changes = {name: statistics.median(pairs[(r, True)][name] - pairs[(r, False)][name]
                                      for r in range(1, report["rounds_requested"] + 1)) for name in next(iter(pairs.values()))}
-    summary = {"groups": groups, "paired_median_on_minus_off": changes,
+    summary = {"condition_field": args.condition_field, "groups": groups, "paired_median_on_minus_off": changes,
                "final_sources": sorted({r["final_record"]["source"] for r in runs}),
                "final_translations": sorted({r["final_record"]["translation"] for r in runs}),
                "quality_gate_passed": False,

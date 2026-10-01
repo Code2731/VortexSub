@@ -1,5 +1,5 @@
 param([string] $ServerPath, [switch] $NoBuild,
-    [ValidateSet('cpu', 'cuda')] [string] $AsrBackend = 'cpu', [switch] $FastPartials, [switch] $CaptionTiming, [switch] $DecodeWindow, [switch] $PadShortPartials)
+    [ValidateSet('cpu', 'cuda')] [string] $AsrBackend = 'cpu', [switch] $FastPartials, [switch] $CaptionTiming, [switch] $DecodeWindow, [switch] $PadShortPartials, [switch] $SupportedPreview)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
 $server = $null
@@ -11,6 +11,7 @@ try {
     if ($FastPartials -and $AsrBackend -ne 'cuda') { throw '-FastPartials requires -AsrBackend cuda' }
     if ($DecodeWindow -and -not $FastPartials) { throw '-DecodeWindow requires -FastPartials' }
     if ($PadShortPartials -and (-not $FastPartials -or $DecodeWindow)) { throw '-PadShortPartials requires -FastPartials and cannot combine with -DecodeWindow' }
+    if ($SupportedPreview -and (-not $FastPartials -or $DecodeWindow)) { throw '-SupportedPreview requires -FastPartials and cannot combine with -DecodeWindow' }
     Write-Host 'EchoSub: starting local translation server and live subtitle UI.'
     if (-not $ServerPath) {
         $command = Get-Command llama-server.exe -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -76,6 +77,7 @@ try {
     if ($FastPartials) { $launcherArgs += '-FastPartials' }
     if ($DecodeWindow) { $launcherArgs += '-DecodeWindow' }
     if ($PadShortPartials) { $launcherArgs += '-PadShortPartials' }
+    if ($SupportedPreview) { $launcherArgs += '-SupportedPreview' }
     if ($CaptionTiming) { $launcherArgs += '-CaptionTiming' }
     & (Join-Path $env:SystemRoot 'System32/WindowsPowerShell/v1.0/powershell.exe') @launcherArgs
     $exitCode = $LASTEXITCODE

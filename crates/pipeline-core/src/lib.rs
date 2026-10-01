@@ -170,6 +170,7 @@ pub struct Pipeline {
     target_language: String,
     translation_enabled: bool,
     partial_translation_enabled: bool,
+    supported_preview_enabled: bool,
     preview_queue: Option<TranslationJob>,
     agreement: agreement::Agreement,
     last_preview_ns: Option<u64>,
@@ -214,6 +215,7 @@ impl Pipeline {
             target_language: target_language.to_ascii_lowercase(),
             translation_enabled: true,
             partial_translation_enabled: false,
+            supported_preview_enabled: false,
             preview_queue: None,
             agreement: agreement::Agreement::default(),
             last_preview_ns: None,
@@ -244,6 +246,10 @@ impl Pipeline {
     /// Session option; callers change it with an epoch transition, never mid-session.
     pub fn set_partial_translation_enabled(&mut self, enabled: bool) {
         self.partial_translation_enabled = enabled;
+    }
+    /// Experimental session policy; configure before admitting work.
+    pub fn set_supported_preview_enabled(&mut self, enabled: bool) {
+        self.supported_preview_enabled = enabled;
     }
     /// Language is captured into each final job, not read again at HTTP completion.
     pub fn set_translation_languages(
@@ -687,6 +693,7 @@ impl Pipeline {
                 &self.records[i].stable_source,
                 &self.records[i].source,
                 &self.source_language,
+                self.supported_preview_enabled,
             ) else {
                 self.records[i].preview_hold_reason = self.units.hold_reason;
                 return;

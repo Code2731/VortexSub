@@ -7,6 +7,7 @@ pub(crate) struct Unit {
     pub prefix: String,
     pub source: String,
     pub closed: bool,
+    pub promoted: bool,
 }
 #[derive(Default)]
 pub(crate) struct Units {
@@ -25,6 +26,7 @@ impl Units {
         stable: &str,
         observed: &str,
         language: &str,
+        supported: bool,
     ) -> Option<Unit> {
         if self.identity != Some(id) || !stable.starts_with(&self.delivered) {
             self.reset();
@@ -32,15 +34,22 @@ impl Units {
         } else if self
             .last
             .as_ref()
-            .is_some_and(|u| !stable.starts_with(&u.prefix))
+            .is_some_and(|u| !(if u.promoted { observed } else { stable }).starts_with(&u.prefix))
         {
             // A correction in the mutable tail does not invalidate earlier closed units.
             self.last = None;
         }
         self.hold_reason = None;
-        let rest = &stable[self.delivered.len()..];
-        let start = stable.len() - rest.trim_start().len();
-        let tail = &stable[start..];
+        let extended = if supported && language == "en" {
+            supported_tail(stable, observed)
+        } else {
+            None
+        };
+        let promoted = extended.is_some();
+        let selected = extended.as_deref().unwrap_or(stable);
+        let rest = &selected[self.delivered.len()..];
+        let start = selected.len() - rest.trim_start().len();
+        let tail = &selected[start..];
         if tail.is_empty() {
             self.hold_reason = Some("EmptyTail");
             return None;
@@ -100,9 +109,10 @@ impl Units {
             return None;
         }
         let unit = Unit {
-            prefix: stable[..start + source.len()].into(),
+            prefix: selected[..start + source.len()].into(),
             source: source.into(),
-            closed,
+            closed: closed && !promoted,
+            promoted,
         };
         if language == "en" {
             if let Some(reason) = english_fragment(
@@ -120,6 +130,13 @@ impl Units {
             .as_ref()
             .is_some_and(|old| old.prefix == unit.prefix && old.source == unit.source)
         {
+            // Once the previously promoted sentence is genuinely stable, commit
+            // its boundary without translating it twice, then inspect the tail.
+            if !promoted && unit.closed && self.last.as_ref().is_some_and(|u| u.promoted) {
+                self.delivered = unit.prefix.clone();
+                self.last = Some(unit);
+                return self.select(id, stable, observed, language, supported);
+            }
             self.hold_reason = Some("AlreadyTranslated");
             return None;
         }
@@ -271,4 +288,68 @@ fn condition_word(word: &str) -> bool {
         word,
         "until" | "unless" | "if" | "when" | "before" | "after"
     )
+}
+
+// One observation may support only a reversible, sentence-ended lexical tail.
+// Never change Agreement's stable prefix or commit this unit as delivered.
+fn supported_tail(stable: &str, observed: &str) -> Option<String> {
+    let stable = stable.trim_end();
+    if stable.split_whitespace().count() < 3
+        || stable.chars().any(|c| ".!?;".contains(c))
+        || stable
+            .split_whitespace()
+            .any(|w| condition_word(&w.to_ascii_lowercase()))
+        || !matches!(
+            english_fragment(stable, false, "", false),
+            None | Some("DanglingWord")
+        )
+    {
+        return None;
+    }
+    let suffix = observed.strip_prefix(stable)?;
+    if !suffix.starts_with(char::is_whitespace) || suffix.len() > 80 {
+        return None;
+    }
+    let suffix = suffix.trim();
+    if !suffix.ends_with(['.', '!', '?']) {
+        return None;
+    }
+    let words: Vec<&str> = suffix[..suffix.len() - 1].split_whitespace().collect();
+    if !(1..=2).contains(&words.len())
+        || words.iter().any(|w| {
+            !w.chars().all(|c| c.is_ascii_alphabetic())
+                || english_fragment(&format!("There are {w}"), false, "", false)
+                    == Some("IncompleteNumber")
+                || w.len() < 2
+                || matches!(
+                    w.to_ascii_lowercase().as_str(),
+                    "not"
+                        | "no"
+                        | "never"
+                        | "cannot"
+                        | "can"
+                        | "could"
+                        | "will"
+                        | "would"
+                        | "should"
+                        | "must"
+                        | "may"
+                        | "might"
+                        | "mr"
+                        | "mrs"
+                        | "ms"
+                        | "dr"
+                        | "prof"
+                        | "vs"
+                )
+                || condition_word(&w.to_ascii_lowercase())
+        })
+    {
+        return None;
+    }
+    let result = observed.trim_end();
+    if result.len() > MAX_UNIT_BYTES || english_fragment(result, false, "", false).is_some() {
+        return None;
+    }
+    Some(result.to_owned())
 }

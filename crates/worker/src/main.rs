@@ -49,6 +49,14 @@ fn serve() -> io::Result<()> {
     let capture = args.iter().any(|a| a == "--diagnostic-capture");
     let live = args.iter().any(|a| a == "--live-asr");
     let fast_partials = args.iter().any(|a| a == "--fast-partials");
+    let supported_preview = args.iter().any(|a| a == "--experimental-supported-preview");
+    if supported_preview
+        && (!fast_partials || !live || args.iter().any(|a| a == "--experimental-decode-window"))
+    {
+        return Err(io::Error::other(
+            "Supported preview requires fast live CUDA ASR and cannot combine with decode windows",
+        ));
+    }
     if args
         .iter()
         .any(|a| a == "--experimental-pad-short-partials")
@@ -95,6 +103,9 @@ fn serve() -> io::Result<()> {
         runtime::Runtime::new(args.iter().any(|a| a == "--mock-pipeline"), config, capture);
     runtime.session.enabled = sessions || mock_sessions;
     runtime.fast_partials = fast_partials;
+    runtime
+        .core
+        .set_supported_preview_enabled(supported_preview);
     runtime.session.mock = mock_sessions;
     if args.iter().any(|a| a == "--diagnostic-translation") {
         runtime.enable_http_translation();

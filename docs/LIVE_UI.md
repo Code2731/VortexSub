@@ -122,3 +122,8 @@ Rust 91개·포맷·빌드·C# 빌드(경고/오류 0)·IPC smoke가 통과했�
 부분 전사/번역 옵션을 세션 시작 전에 켠다. 기본 off이며 `-DecodeWindow`와
 함께 사용할 수 없다. 실제 파일/HTTP 비교에서 원문은 빨랐지만 첫 번역의 큰
 개선은 없었다. [입력·수명 계약과 측정](SHORT_PARTIAL_PADDING.md).
+
+`run-live-cuda-fast.bat -PadShortPartials -SupportedPreview -CaptionTiming`은
+영어 첫 문장의 관측된 꼬리를 임시 번역에 사용하는 별도 실험이다. 기본 off다.
+한 파일에서 완전한 첫 문장 번역은 빨랐지만 뒤 조건절 문제가 남았다.
+[범위와 한계](SUPPORTED_PREVIEW.md).

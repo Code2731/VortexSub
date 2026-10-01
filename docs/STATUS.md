@@ -1,5 +1,16 @@
 # 구현 상태
 
+## 문장 끝 관측 꼬리 preview 비교 (2026-10-02)
+
+영어 첫 문장의 관측된 1~2단어 꼬리만 임시 번역 입력에 넣는 실험 옵션을 연결했다.
+stable/history 경계를 즉시 확정하지 않고 실제 안정 뒤 중복 없이 경계를 확정한다.
+같은 패딩 기준의 실제 ASR/HTTP 각 3회에서 첫 출력 1.749→1.852초로 늦어졌지만,
+완전한 첫 원문에 대응하는 번역은 2.853→1.852초로 약 1초 빨랐다.
+첫 “왼쪽을 선택…” 수정은 없어졌으나 뒤 조건절 전 조기 번역 요청과 원문 수정은 증가했다.
+최종 ASR 6/6 동일, 품질 gate false·기본 off. 다음은 조건/부정/숫자/방향 수정의 통제 비교다.
+native release·실제 파일/HTTP·문법/fmt/workspace build 확인; 일반 테스트·live/UI/자연/Mac 미실행.
+[계약](SUPPORTED_PREVIEW.md) · [측정](evidence/supported-preview-windows-20261002.md).
+
 ## 짧은 partial 패딩 owner/번역 비교 (2026-10-02)
 
 native owner와 런처 실험 옵션 `-PadShortPartials`를 연결했다. 기본 off,

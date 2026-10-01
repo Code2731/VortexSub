@@ -291,3 +291,11 @@ HTTP owner, alternating condition order. It cannot combine with `-Adaptive` or
 `-DecodeWindow`. Run `scripts/summarize-paced-padding.py <report.json> --output
 <summary.json>` for paired timings and lexical source revision counts; inspect
 request and translation texts for quality. See [padding contract](../docs/SHORT_PARTIAL_PADDING.md).
+
+`scripts/probe-paced-translation.ps1 -SupportedPreview -Rounds 3` compares the same
+padded adaptive baseline with bounded sentence-ended observed-tail preview.
+It cannot combine with other comparison switches. Use the summary script's
+`--condition-field supported_preview --first-source 'We should take the left path.'`
+to distinguish first output from the applied translation of the authored complete
+first sentence. Source matching is not automatic semantic quality grading.
+See [policy and evidence](../docs/SUPPORTED_PREVIEW.md).

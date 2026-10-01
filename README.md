@@ -37,6 +37,8 @@ CUDA 전사를 비교하려면 **`run-live-cuda.bat`**을 실행하거나 `run-l
 
 `-PadShortPartials`는 짧은 전사 입력 패딩 실험 옵션입니다. 파일/HTTP 비교에서 첫 원문은 빨랐지만 첫 번역의 큰 개선은 없었고 기본 off입니다. `-DecodeWindow`와 함께 사용할 수 없습니다. [실행과 측정](docs/SHORT_PARTIAL_PADDING.md).
 
+`-SupportedPreview`는 영어 첫 문장의 관측된 꼬리를 임시 번역에 사용하는 실험 옵션입니다. 같은 패딩 기준에서 완전한 첫 문장 번역은 빨랐지만 뒤 조건절 문제가 남아 기본 off입니다. [정책과 측정](docs/SUPPORTED_PREVIEW.md).
+
 현재 draft 갱신 대기도 줄였습니다. 앱의 **자막 지연 기록** 옵션으로 수신→카드 반영 시점을 텍스트 없는 로그에 기록할 수 있습니다. 실행 중 켜고 끌 수 있고 저장 경로를 표시합니다. 이전 자막 읽기 시간은 유지합니다. [표시 규칙·계측](docs/CAPTION_READING.md).
 
 `./run.cmd -Live -Offline`로 실행하고 모델 Ready 뒤 출력 장치·원문 언어를 선택해 **세션 시작**을 누르세요. 원문 history와 오버레이를 연결했습니다. 부분 전사는 기본 꺼짐이며 세션 시작 전 **부분 전사 켜기**로 선택합니다. 로컬 번역 서버를 별도로 실행한 뒤 **서버 연결 / 모델 조회**에서 모델을 준비하면 한국어 번역도 표시합니다. [서버 설정·표시 계약](docs/DESKTOP_TRANSLATION.md). [부분 전사 계약](docs/WORKER_PARTIAL_ASR.md). 일시정지/종료 후 정리가 끝나면 세션별 **TXT 저장 / 원문 SRT 저장**을 사용할 수 있습니다. [저장·UTC·시간축](docs/HISTORY_EXPORT.md). 선택 세션의 메모리 기록 삭제도 제공합니다. 실제 클릭·원문 화면 수용은 미검증입니다. [실행과 확인 범위](docs/LIVE_UI.md)
