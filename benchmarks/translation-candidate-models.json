@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "scope": "Download consent pending. Diagnostic candidates only; does not change production model selection.",
+  "scope": "Both downloads approved by the user on 2026-10-02; file sizes and SHA-256 verified. Diagnostic candidates only; does not change production model selection.",
   "models": [
     {
       "id": "qwen3-1.7b-q8_0",

@@ -9,6 +9,7 @@ import secrets
 import shutil
 import socket
 import statistics
+import struct
 import subprocess
 import time
 import urllib.error
@@ -18,6 +19,39 @@ import urllib.request
 def sha(path):
     with path.open('rb') as stream:
         return hashlib.file_digest(stream, 'sha256').hexdigest()
+
+
+def gguf_template(path):
+    # Read metadata only; the downloaded file remains unchanged.
+    with path.open('rb') as stream:
+        def number(fmt):
+            return struct.unpack('<' + fmt, stream.read(struct.calcsize('<' + fmt)))[0]
+        def string():
+            length = number('Q')
+            if length > 64 * 1024 * 1024:
+                raise ValueError('Oversized GGUF metadata string')
+            return stream.read(length).decode('utf-8')
+        def value(kind):
+            if kind == 8:
+                return string()
+            if kind == 9:
+                subtype, count = number('I'), number('Q')
+                if count > 1000000:
+                    raise ValueError('Oversized GGUF metadata array')
+                for _ in range(count):
+                    value(subtype)
+                return None
+            return number({0: 'B', 1: 'b', 2: 'H', 3: 'h', 4: 'I', 5: 'i',
+                           6: 'f', 7: '?', 10: 'Q', 11: 'q', 12: 'd'}[kind])
+        if stream.read(4) != b'GGUF' or number('I') != 3:
+            raise ValueError('Expected GGUF v3')
+        number('Q')  # Tensor count.
+        for _ in range(number('Q')):
+            key = string()
+            item = value(number('I'))
+            if key == 'tokenizer.chat_template':
+                return item
+        raise ValueError('GGUF chat template missing')
 
 
 def candidate(body, profile, config):
@@ -123,6 +157,18 @@ def main():
     selected_ids = {case['id'] for case in cases}
     bodies = {name: {id: candidate(body, name, profiles) for id, body in requests.items() if id in selected_ids}
               for name in selected_profiles}
+    gemma_prompts = {}
+    if 'gemma' in selected_profiles:
+        from jinja2 import StrictUndefined
+        from jinja2.sandbox import SandboxedEnvironment
+        template_text = gguf_template(model_path)
+        (out / 'embedded-template.jinja').write_text(template_text, encoding='utf-8')
+        template = SandboxedEnvironment(undefined=StrictUndefined).from_string(template_text)
+        def reject(message):
+            raise ValueError(message)
+        for id, body in bodies['gemma'].items():
+            gemma_prompts[id] = template.render(messages=body['messages'], bos_token='<bos>',
+                add_generation_prompt=True, raise_exception=reject)
     if model.get('disable_thinking'):
         for requests_by_id in bodies.values():
             for body in requests_by_id.values():
@@ -131,12 +177,16 @@ def main():
         raise RuntimeError('Exported fixture hash mismatch')
     def save(name, data):
         (out / name).write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding='utf-8')
+    if gemma_prompts:
+        save('rendered-gemma-prompts.json', gemma_prompts)
     save('candidate-requests.json', bodies)
     save('fixtures.json', json.loads(fixtures.read_text(encoding='utf-8')))
     save('profiles.json', profiles)
     save('runtime.json', {'model_id': model['id'], 'model_sha256': sha(model_path),
                          'catalog_sha256': sha(catalog_path), 'disable_thinking': model.get('disable_thinking', False),
                          'context_conditions': args.context_conditions,
+                         'gemma_transport': 'embedded Jinja2 render -> tokenize without added BOS -> completion' if gemma_prompts else None,
+                         'gemma_template_sha256': hashlib.sha256(template_text.encode('utf-8')).hexdigest() if gemma_prompts else None,
                          'server_sha256': sha(server_path), 'probe_sha256': sha(probe),
                          'fixtures_sha256': sha(fixtures), 'profiles_sha256': sha(profiles_path),
                          'sampling': {'temperature': .2, 'max_tokens': 256, 'top_k': 40, 'top_p': .9, 'min_p': .1},
@@ -150,17 +200,39 @@ def main():
     key_file.write_text(token, encoding='utf-8')
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     server = None
-    results, warmup = [], []
+    results, warmup, wire_requests = [], [], {}
     def send(body):
-        request = urllib.request.Request(f'http://127.0.0.1:{port}/v1/chat/completions',
+        start = time.monotonic()
+        gemma = body['messages'][0]['role'] == 'user' and isinstance(body['messages'][0]['content'], list)
+        endpoint = '/v1/chat/completions'
+        if gemma:
+            id = next(id for id, item in bodies['gemma'].items() if item == body)
+            tokenize = urllib.request.Request(f'http://127.0.0.1:{port}/tokenize',
+                data=json.dumps({'content': gemma_prompts[id], 'add_special': False, 'parse_special': True}).encode('utf-8'),
+                headers={'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'})
+            with opener.open(tokenize, timeout=10) as response:
+                tokens = json.loads(response.read(256 * 1024 + 1))['tokens']
+            if not tokens or len(tokens) > 2048 or tokens[0] != 2 or tokens.count(2) != 1:
+                raise ValueError('Gemma prompt must have exactly one BOS and fit the official 2K input budget')
+            endpoint = '/completion'
+            body = {'prompt': tokens, 'n_predict': 256, 'temperature': .2, 'stream': False,
+                    'top_k': 40, 'top_p': .9, 'min_p': .1, 'repeat_penalty': 1,
+                    'stop': ['<end_of_turn>'], 'cache_prompt': True}
+            wire_requests[id] = body
+            save('gemma-completion-requests.json', wire_requests)
+        request = urllib.request.Request(f'http://127.0.0.1:{port}{endpoint}',
                     data=json.dumps(body, ensure_ascii=False).encode('utf-8'),
                     headers={'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'})
-        start = time.monotonic()
         with opener.open(request, timeout=10) as response:
             data = response.read(256 * 1024 + 1)
         if len(data) > 256 * 1024:
             raise RuntimeError('Oversized response')
         value = json.loads(data)
+        if gemma:
+            text = value.get('content', '').strip()
+            stopped = value.get('stop_type') in ('eos', 'word') or value.get('stopped_eos') or value.get('stopped_word')
+            error = None if stopped and text and not value.get('truncated') else 'IncompleteResponse'
+            return text if error is None else None, time.monotonic() - start, value.get('timings'), error
         choice = value['choices'][0]
         text = choice['message'].get('content', '').strip()
         error = None if choice['finish_reason'] == 'stop' and text else 'IncompleteResponse'
@@ -189,6 +261,14 @@ def main():
                     pass
                 time.sleep(.25)
             print('Prompt/context comparison:', out, flush=True)
+            server_log = (out / 'server.log').read_text(encoding='utf-8', errors='replace')
+            fallback = 'defaulting to chatml' in server_log.lower()
+            runtime = json.loads((out / 'runtime.json').read_text(encoding='utf-8'))
+            runtime['server_template_fallback'] = fallback
+            runtime['fallback_bypassed_with_embedded_prompt'] = bool(gemma_prompts)
+            save('runtime.json', runtime)
+            if fallback and not gemma_prompts:
+                raise RuntimeError('Server silently substituted ChatML; exclude this run from model quality comparison')
             for profile in selected_profiles:
                 text, elapsed, usage, error = send(bodies[profile][cases[0]['id']])
                 warmup.append({'profile': profile, 'translation': text, 'elapsed_s': elapsed, 'usage': usage, 'error': error})

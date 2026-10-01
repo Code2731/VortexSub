@@ -3,7 +3,8 @@
 ## 선택과 출처
 
 현재 Qwen3-4B-Instruct-2507 Q4_K_M을 기준으로 두 후보를 선정했다.
-다운로드 동의 전이며 파일은 아직 없다. 새 runtime 설치도 하지 않았다.
+2026-10-02 사용자 동의 후 두 파일을 다운로드했고 크기·SHA-256을 검증했다.
+새 runtime 설치는 하지 않았다. [실제 비교 결과](evidence/translation-model-candidates-windows-20261002.md).
 
 | 후보 | 파일 크기 | 배포·라이선스 | 비교 목적 |
 |---|---:|---|---|
@@ -31,8 +32,11 @@ reasoning 출력이 있으면 실패로 기록한다. 앱 기본 모델/요청�
 TranslateGemma는 [공식 입력 계약](https://huggingface.co/google/translategemma-4b-it)의
 user content 배열·source_lang_code·target_lang_code·원문을 사용한다.
 system 역할과 참조 문맥은 넣지 않는다. 첫 단계는 설치된 llama.cpp가 이
-템플릿과 필드를 올바르게 처리하는지 확인하는 것이다. 미지원 시 입력 어댑터를
-보완하며 잘못된 템플릿 출력을 모델 품질 결과로 집계하지 않는다.
+템플릿과 필드를 올바르게 처리하는지 확인했다. 기존 build 6047은 내장 템플릿을
+파싱하지 못하고 ChatML로 대체했다. 이 경로의 결과를 제외하고 GGUF 내장 템플릿을
+기존 Jinja2로 그대로 렌더링해 `/tokenize`→`/completion`으로 전달했다.
+BOS 한 개·2K 입력 한계를 확인하고 실제 prompt/token 요청을 결과 폴더에 보존한다.
+다른 모델의 ChatML 자동 대체는 비교 시작 전에 실패로 처리한다.
 
 동의·파일 해시 확인 후 사용할 명령:
 

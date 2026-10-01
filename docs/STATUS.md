@@ -1,10 +1,22 @@
 # 구현 상태
 
-## 별도 번역 모델 후보 준비 (2026-10-02)
+## 두 번역 모델 실제 비교 (2026-10-02)
+
+사용자 동의 후 두 후보 4.32 GB를 다운로드했고 고정 크기/SHA-256이 일치한다.
+Qwen 1.7B/TranslateGemma/기준 Qwen 4B의 실제 로컬 HTTP 유효 요청 198회,
+응답 오류 0. TranslateGemma의 최초 ChatML 자동 대체 6회는 무효로 제외하고
+GGUF 공식 템플릿 렌더링→tokenize→completion 어댑터를 진단 도구에 보완했다.
+TranslateGemma는 영어 귀환을 복구했으나 엔진/방어막 행동 반전 3/3·일본어
+귀환 오류·물약 숫자/행동 오류가 남았다. Qwen 1.7B도 조건/방향/언어 혼입 오류가
+남아 두 후보 모두 품질 gate false·기본 모델 유지다. 새 runtime/앱 연결 없음.
+[실행·템플릿 호환·수동 검토](evidence/translation-model-candidates-windows-20261002.md).
+
+## 별도 번역 모델 후보 준비 기록 (2026-10-02)
 
 공식 Qwen3 1.7B Q8_0와 커뮤니티 GGUF TranslateGemma 4B Q4_K_M을 선정하고
 revision/크기/해시·라이선스를 별도 manifest에 고정했다. 합계 약 4.32 GB,
-다운로드 동의 대기이며 실제 후보 추론은 미실행이다. 기존 비교 도구에 manifest/
+준비 당시 다운로드 동의 대기·실제 후보 추론 미실행이었다. 이후 실행 결과는
+위의 두 번역 모델 실제 비교를 따른다. 기존 비교 도구에 manifest/
 모델/문맥 조건 선택과 Gemma 공식 user 입력, Qwen thinking off를 준비했다.
 HY-MT는 배포 라이선스의 한국 지역 제외로 이번 후보에서 제외했다.
 Gemma의 현재 llama.cpp 입력 템플릿 호환은 파일 준비 뒤 확인해야 한다.
