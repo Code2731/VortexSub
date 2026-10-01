@@ -230,6 +230,8 @@ fn stable_preview_is_opt_in_and_replaced_by_full_final_http() {
     assert_eq!(preview[0]["source_state"], "Partial");
     assert_eq!(preview[0]["translation_is_preview"], true);
     assert_eq!(preview[0]["translation_state"], "Done");
+    assert_eq!(preview[0]["translation_source"], "We should take the left");
+    assert_eq!(preview[0]["translation_prefix"], "We should take the left");
     assert_eq!(
         s.bodies.lock().unwrap()[0]["source_text"],
         "We should take the left"
@@ -248,6 +250,42 @@ fn stable_preview_is_opt_in_and_replaced_by_full_final_http() {
         s.bodies.lock().unwrap()[1]["source_text"],
         "We should take the left path after sunset."
     );
+    shutdown(w);
+}
+
+#[test]
+fn one_stable_revision_translates_two_sentence_units_without_retranslating_prefix() {
+    let s = Server::new();
+    let mut w = start();
+    configure(&mut w, &s);
+    assert_eq!(w.send(command("unit-session", "start_session", json!({"history_policy":"retain","config":{"source_language":"en","partial_enabled":true,"partial_translation_enabled":true}})))["ok"], true);
+    until(&mut w, |v| v["session"]["state"] == "Running");
+    let text = "Take the left path. Do not open the door until I return.";
+    source(&mut w, text, "partial");
+    source(&mut w, text, "partial");
+    until(&mut w, |v| {
+        v["translator"]["completed_jobs"].as_u64().unwrap() >= 2
+    });
+    let rows = history(&mut w);
+    assert_eq!(rows[0]["source_revision"], 2);
+    assert_eq!(
+        rows[0]["translation_source"],
+        "Do not open the door until I return."
+    );
+    {
+        let bodies = s.bodies.lock().unwrap();
+        assert_eq!(bodies.len(), 2);
+        assert_eq!(bodies[0]["source_text"], "Take the left path.");
+        assert_eq!(
+            bodies[1]["source_text"],
+            "Do not open the door until I return."
+        );
+        assert_eq!(bodies[1]["context"], json!(["Take the left path."]));
+    }
+    source(&mut w, text, "final");
+    until(&mut w, |v| v["translator"]["completed_jobs"] == 3);
+    assert_eq!(s.bodies.lock().unwrap()[2]["source_text"], text);
+    assert_eq!(history(&mut w)[0]["translation_source"], "");
     shutdown(w);
 }
 #[test]

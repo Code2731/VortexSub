@@ -16,6 +16,9 @@
 - 임시 번역 대기는 최신 1개, 확정 번역 대기는 기존 FIFO 2개다.
   HTTP 실행은 하나만 예약한다. 임시 요청 간격은 최소 0.5초,
   임시 deadline은 1.5초, 확정 deadline은 기존 8초다.
+- [문장/짧은 절 단위](TRANSLATION_UNITS.md)로 임시 번역 입력을 최대
+  384 UTF-8 바이트로 제한한다. 성공한 닫힌 단위 뒤의 원문만 새로 보내며
+  앞부분은 문맥이다. 수정 가능한 tail은 provisional이며 앞부분 반박 시 되돌린다.
 - 새 전사 admission은 이전 임시 번역을 취소한다. 라이브 스케줄러는 ASR이나
   임시 HTTP가 처리 중이면 다음 partial admission을 최신 하나로 보류한다.
   확정 전사는 보류를 우회한다. 실제 HTTP 반환 전까지
@@ -29,6 +32,8 @@
   segment 변경은 이전 읽기 카드로 이동하며 Pause/Stop/epoch 변경은 모두 지운다.
 - IPC의 `stable_source`, `translation_is_preview`와 session config의
   `partial_translation_enabled`는 추가 필드다. 이전 기록은 빈 문자열/false로 읽는다.
+  `translation_source`, `translation_prefix`는 현재 임시 단위와 원문 guard이며
+  구형/확정 기록은 빈 문자열이다. 최종 번역은 전체 원문을 계속 사용한다.
 
 WhisperStreaming의 LocalAgreement-2에서 착안한 간단한 문자열 정책이다.
 논문의 전체 스트리밍 스케줄러, wait-k 번역 모델이나 SimulWhisper 구현은 아니다.

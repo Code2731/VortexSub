@@ -223,6 +223,14 @@ public sealed class WorkerClient : IAsyncDisposable
                             if (record.Source is null || record.Translation is null || Encoding.UTF8.GetByteCount(record.Source) > 4096 || Encoding.UTF8.GetByteCount(record.Translation) > 4096 || record.Source.Contains('\0') || record.Translation.Contains('\0') || record.AudioStartSample >= record.AudioEndSample || record.AudioEndSample - record.AudioStartSample > 128000 || record.SourceRevision == 0 || record.SegmentId == 0 || !double.IsFinite(record.AudioStartSeconds) || !double.IsFinite(record.AudioEndSeconds)) throw new IOException("Invalid history record");
                             if (record.SourceState is not ("Partial" or "FinalPending" or "Final" or "Failed" or "Skipped" or "Discarded") || record.TranslationState is not ("None" or "Pending" or "Done" or "Failed" or "Skipped" or "Bypassed") || record.AppliedSourceRevision > record.SourceRevision) throw new IOException("Invalid history state");
                             if (record.StableSource is null || Encoding.UTF8.GetByteCount(record.StableSource) > 1024 || record.StableSource.Contains('\0') || (record.StableSource.Length > 0 && !record.Source.StartsWith(record.StableSource, StringComparison.Ordinal)) || (record.TranslationIsPreview && (record.SourceState != "Partial" && record.SourceState != "Discarded"))) throw new IOException("Invalid preview history");
+                            if (record.TranslationSource is null || record.TranslationPrefix is null ||
+                                Encoding.UTF8.GetByteCount(record.TranslationSource) > 384 || Encoding.UTF8.GetByteCount(record.TranslationPrefix) > 1024 ||
+                                record.TranslationSource.Contains('\0') || record.TranslationPrefix.Contains('\0') ||
+                                ((record.TranslationSource.Length > 0 || record.TranslationPrefix.Length > 0) &&
+                                    (!record.TranslationIsPreview || record.TranslationSource.Length == 0 ||
+                                     !record.StableSource.StartsWith(record.TranslationPrefix, StringComparison.Ordinal) ||
+                                     !record.TranslationPrefix.EndsWith(record.TranslationSource, StringComparison.Ordinal))))
+                                throw new IOException("Invalid translation unit history");
                             if (record.SourceState == "Final" && (record.AppliedSourceRevision != record.SourceRevision || string.IsNullOrWhiteSpace(record.Source))) throw new IOException("Invalid final source");
                         }
                         rows.AddRange(records);

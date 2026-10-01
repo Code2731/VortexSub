@@ -14,9 +14,10 @@ public sealed class CaptionDeck
     private Entry? previous;
     private Entry? current;
 
-    private sealed class Entry(ulong segment)
+    private sealed class Entry(ulong segment, int unitStart = 0)
     {
         public ulong Segment { get; } = segment;
+        public int UnitStart { get; } = unitStart;
         public CaptionPresentation Presenter { get; } = new();
         public CaptionCard? Card;
         public CaptionCard? Pending;
@@ -42,19 +43,29 @@ public sealed class CaptionDeck
             // An expired old segment cannot reappear when a late HTTP response arrives.
             if (nowSeconds >= previous.ExpiresAt) previous = null;
             else if (matching.LastOrDefault(r => r.SegmentId == previous.Segment) is { } older)
-                Refresh(previous, older, nowSeconds);
+            {
+                if (previous.Card?.StableSource.Length > 0 && !older.Source.StartsWith(previous.Card.StableSource, StringComparison.Ordinal) ||
+                    older.SourceState == "Final" && older.TranslationState == "Done" && previous.Segment == current?.Segment)
+                    previous = null;
+                else if (UnitStart(older) == previous.UnitStart) Refresh(previous, older, nowSeconds);
+            }
         }
         var latest = matching.MaxBy(r => r.SegmentId);
         if (latest is not null && (current is null || latest.SegmentId >= current.Segment))
         {
-            if (current is null || latest.SegmentId != current.Segment)
+            var unitStart = UnitStart(latest);
+            var nextUnit = latest.TranslationIsPreview && latest.TranslationState == "Done" &&
+                latest.AppliedSourceRevision == latest.SourceRevision && latest.TranslationRequestId is > 0 &&
+                current is not null && unitStart != current.UnitStart;
+            if (current is null || latest.SegmentId != current.Segment || nextUnit)
             {
                 // Keep the reading slot until its deadline. If both slots are occupied,
                 // replace only the newest draft; intermediate captions are not queued.
                 if (previous is null && current?.Card is not null && nowSeconds < current.ExpiresAt &&
-                    (ShowSource || !string.IsNullOrWhiteSpace(current.Card.Translation)))
+                    (ShowSource || !string.IsNullOrWhiteSpace(current.Card.Translation)) &&
+                    (!nextUnit || unitStart > current.UnitStart && latest.Source.StartsWith(current.Card.StableSource, StringComparison.Ordinal)))
                     previous = current;
-                current = new Entry(latest.SegmentId);
+                current = new Entry(latest.SegmentId, unitStart);
             }
             Refresh(current, latest, nowSeconds);
         }
@@ -77,8 +88,7 @@ public sealed class CaptionDeck
             context.Value.Session, context.Value.Epoch, true, nowSeconds, expire: false);
         if (source is null) { entry.Card = entry.Pending = null; return; }
         var stable = translation?.StartsWith("[임시 번역] ", StringComparison.Ordinal) == true
-            ? record.StableSource.Length > 0 ? record.StableSource : entry.Card?.StableSource ?? ""
-            : "";
+            ? entry.Presenter.PreviewPrefix : "";
         var next = new CaptionCard(source, translation,
             record.SourceState != "Final" || record.TranslationIsPreview || stable.Length > 0, stable);
         if (next == entry.Card) { entry.Pending = null; return; }
@@ -107,6 +117,8 @@ public sealed class CaptionDeck
 
     private static CaptionCard? Visible(Entry? entry, double nowSeconds) =>
         entry is not null && nowSeconds < entry.ExpiresAt ? entry.Card : null;
+    private static int UnitStart(HistoryRecord record) => record.TranslationIsPreview && record.TranslationSource.Length > 0
+        ? record.TranslationPrefix.Length - record.TranslationSource.Length : 0;
 
     private static string ReadingText(string text)
     {

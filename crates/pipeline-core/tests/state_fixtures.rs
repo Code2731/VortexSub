@@ -4,6 +4,119 @@ const ID: AudioIdentity = AudioIdentity {
     session_id: 1,
     epoch: 1,
 };
+#[test]
+fn sentence_units_advance_only_after_applied_http_and_reset_on_prefix_correction() {
+    let mut f = Fixture::new(1000, "ko");
+    f.core.set_partial_translation_enabled(true);
+    let text = "We should go left. Do not open the door until I return.";
+    partial(&mut f, 512, text, 0);
+    partial(&mut f, 1024, text, 500_000_000);
+    let first = f.core.next_translation(500_000_000).unwrap().unwrap();
+    assert_eq!(first.source, "We should go left.");
+    f.core
+        .complete_translation(
+            first.key,
+            Outcome::Text("왼쪽으로 가자.".into()),
+            600_000_000,
+        )
+        .unwrap();
+    assert!(f.core.preview_pending());
+    assert!(f.core.next_translation(900_000_000).unwrap().is_none());
+    let before_followup = f.core.version();
+    let second = f.core.next_translation(1_100_000_000).unwrap().unwrap();
+    assert!(f.core.version() > before_followup);
+    assert_eq!(second.source, "Do not open the door until I return.");
+    assert_eq!(second.context.last().unwrap(), "We should go left.");
+    assert_eq!(f.records()[0].translation_source, second.source);
+    assert!(f.records()[0].translation_prefix.ends_with(&second.source));
+    f.core
+        .complete_translation(
+            second.key,
+            Outcome::Text("돌아올 때까지 문을 열지 마라.".into()),
+            1_200_000_000,
+        )
+        .unwrap();
+    assert!(f.core.next_translation(1_700_000_000).unwrap().is_none());
+    partial(&mut f, 1536, text, 2_000_000_000);
+    assert!(f.core.next_translation(2_000_000_000).unwrap().is_none());
+    let correction = "We should go right. Do not open the door until I return.";
+    partial(&mut f, 2048, correction, 2_500_000_000);
+    partial(&mut f, 2560, correction, 3_000_000_000);
+    let corrected = f.core.next_translation(3_000_000_000).unwrap().unwrap();
+    assert_eq!(corrected.source, "We should go right.");
+}
+#[test]
+fn unfinished_units_are_bounded_and_decimal_points_are_not_sentence_ends() {
+    let mut f = Fixture::new(1000, "ko");
+    f.core.set_partial_translation_enabled(true);
+    let text = "Keep the value at 3.14 until I return. Take the left path.";
+    partial(&mut f, 512, text, 0);
+    partial(&mut f, 1024, text, 500_000_000);
+    assert_eq!(
+        f.core
+            .next_translation(500_000_000)
+            .unwrap()
+            .unwrap()
+            .source,
+        "Keep the value at 3.14 until I return."
+    );
+    let mut f = Fixture::new(1000, "ko");
+    f.core.set_partial_translation_enabled(true);
+    let text = "keep moving toward the bridge ".repeat(25);
+    partial(&mut f, 512, &text, 0);
+    partial(&mut f, 1024, &text, 500_000_000);
+    let job = f.core.next_translation(500_000_000).unwrap().unwrap();
+    assert!(job.source.len() <= MAX_UNIT_BYTES);
+    assert!(!job.source.ends_with("brid"));
+    let mut f = Fixture::new(1000, "ko");
+    f.core.set_translation_languages("ja", "ko").unwrap();
+    f.core.set_partial_translation_enabled(true);
+    let japanese = "左の道へ進もう。戻るまで扉を開けないで。";
+    partial(&mut f, 512, japanese, 0);
+    partial(&mut f, 1024, japanese, 500_000_000);
+    let first = f.core.next_translation(500_000_000).unwrap().unwrap();
+    assert_eq!(first.source, "左の道へ進もう。");
+    f.core
+        .complete_translation(
+            first.key,
+            Outcome::Text("왼쪽 길로 가자.".into()),
+            600_000_000,
+        )
+        .unwrap();
+    assert_eq!(
+        f.core
+            .next_translation(1_100_000_000)
+            .unwrap()
+            .unwrap()
+            .source,
+        "戻るまで扉を開けないで。"
+    );
+
+    let mut f = Fixture::new(1000, "ko");
+    f.core.set_partial_translation_enabled(true);
+    let text = "Take the left path. Do not open the door";
+    partial(&mut f, 512, text, 0);
+    partial(&mut f, 1024, text, 500_000_000);
+    let first = f.core.next_translation(500_000_000).unwrap().unwrap();
+    f.core
+        .complete_translation(first.key, Outcome::Text("첫 문장".into()), 600_000_000)
+        .unwrap();
+    let tail = f.core.next_translation(1_100_000_000).unwrap().unwrap();
+    f.core
+        .complete_translation(tail.key, Outcome::Text("임시 tail".into()), 1_200_000_000)
+        .unwrap();
+    let changed = "Take the left path. Do open the door";
+    partial(&mut f, 1536, changed, 1_700_000_000);
+    partial(&mut f, 2048, changed, 2_200_000_000);
+    assert_eq!(
+        f.core
+            .next_translation(2_200_000_000)
+            .unwrap()
+            .unwrap()
+            .source,
+        "Do open the"
+    );
+}
 fn partial(f: &mut Fixture, end: u64, text: &str, now: u64) {
     f.submit(1, AsrKind::Partial, end, now);
     let job = f.core.next_asr().unwrap();

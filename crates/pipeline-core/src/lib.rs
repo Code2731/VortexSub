@@ -5,6 +5,8 @@ use echosub_audio_core::{
 };
 use std::collections::VecDeque;
 mod agreement;
+mod units;
+pub use units::MAX_UNIT_BYTES;
 
 pub const MAX_HISTORY: usize = 1000;
 pub const MAX_TEXT_BYTES: usize = 4096;
@@ -71,6 +73,8 @@ pub struct Record {
     pub translation_request_id: Option<u64>,
     pub stable_source: String,
     pub translation_is_preview: bool,
+    pub translation_source: String,
+    pub translation_prefix: String,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AsrKind {
@@ -166,6 +170,9 @@ pub struct Pipeline {
     preview_queue: Option<TranslationJob>,
     agreement: agreement::Agreement,
     last_preview_ns: Option<u64>,
+    units: units::Units,
+    pending_unit: Option<(TranslationKey, units::Unit)>,
+    unit_followup: bool,
 }
 impl Pipeline {
     pub fn new(
@@ -207,6 +214,9 @@ impl Pipeline {
             preview_queue: None,
             agreement: agreement::Agreement::default(),
             last_preview_ns: None,
+            units: units::Units::default(),
+            pending_unit: None,
+            unit_followup: false,
         })
     }
     pub fn new_asr_only(
@@ -289,7 +299,9 @@ impl Pipeline {
     /// Preview work retains its reservation until the HTTP owner actually returns.
     /// Live partial admission can wait here without scanning or copying history.
     pub fn preview_pending(&self) -> bool {
-        self.preview_queue.is_some() || self.translation.is_some_and(|f| f.preview)
+        self.unit_followup
+            || self.preview_queue.is_some()
+            || self.translation.is_some_and(|f| f.preview)
     }
     /// At most two finals and one latest partial. Adapters can prune job metadata.
     pub fn pending_asr_keys(&self) -> impl Iterator<Item = JobIdentity> + '_ {
@@ -457,6 +469,8 @@ impl Pipeline {
                 translation_request_id: None,
                 stable_source: String::new(),
                 translation_is_preview: false,
+                translation_source: String::new(),
+                translation_prefix: String::new(),
             });
             self.records.len() - 1
         });
@@ -464,6 +478,9 @@ impl Pipeline {
         self.records[i].range = range;
         self.records[i].source_reason = None;
         self.records[i].stable_source.clear();
+        self.records[i].translation_source.clear();
+        self.records[i].translation_prefix.clear();
+        self.unit_followup = false;
         if self.records[i].translation_is_preview {
             self.records[i].translation_state = TranslationState::None;
             self.records[i].translation.clear();
@@ -559,6 +576,7 @@ impl Pipeline {
                 self.records[i].source_reason = None;
                 if flight.kind == AsrKind::Final {
                     self.agreement.reset();
+                    self.units.reset();
                     self.records[i].source_state = SourceState::Final;
                     self.enqueue_translation(i, now);
                 } else {
@@ -618,6 +636,21 @@ impl Pipeline {
             return;
         }
         let preview = self.records[i].source_state == SourceState::Partial;
+        let unit = if preview {
+            let Some(unit) = self.units.select(
+                SegmentIdentity {
+                    audio: self.records[i].key.audio,
+                    segment_id: self.records[i].key.segment_id,
+                },
+                &self.records[i].stable_source,
+                &self.source_language,
+            ) else {
+                return;
+            };
+            Some(unit)
+        } else {
+            None
+        };
         if !preview && self.translation_queue.len() == 2 {
             self.records[i].translation_state = TranslationState::Skipped;
             self.records[i].translation_reason = Some(Reason::QueueFull);
@@ -642,7 +675,7 @@ impl Pipeline {
             request_id: self.next_request,
         };
         self.next_request = next;
-        let context = self
+        let mut context: Vec<String> = self
             .records
             .iter()
             .take(i)
@@ -654,10 +687,21 @@ impl Pipeline {
             .into_iter()
             .rev()
             .collect();
+        if let Some(unit) = &unit {
+            let earlier = unit.prefix[..unit.prefix.len() - unit.source.len()].trim();
+            if !earlier.is_empty() {
+                context.push(earlier.into());
+                if context.len() > 2 {
+                    context.remove(0);
+                }
+            }
+            self.records[i].translation_source = unit.source.clone();
+            self.records[i].translation_prefix = unit.prefix.clone();
+        }
         let job = TranslationJob {
             key,
             source: if preview {
-                self.records[i].stable_source.clone()
+                unit.as_ref().unwrap().source.clone()
             } else {
                 self.records[i].source.clone()
             },
@@ -667,6 +711,7 @@ impl Pipeline {
             deadline_ns,
         };
         if preview {
+            self.pending_unit = unit.map(|unit| (key, unit));
             self.preview_queue = Some(job);
             self.last_preview_ns = Some(now);
         } else {
@@ -700,6 +745,28 @@ impl Pipeline {
     }
     pub fn poll(&mut self, now: u64) -> Result<Cancellation, CoreError> {
         self.time(now)?;
+        if self.unit_followup
+            && self.translation.is_none()
+            && self.preview_queue.is_none()
+            && self.translation_queue.is_empty()
+            && self.final_queue.is_empty()
+            && self
+                .last_preview_ns
+                .is_none_or(|last| now.saturating_sub(last) >= 500_000_000)
+        {
+            self.unit_followup = false;
+            if let Some(i) = self.records.iter().rposition(|r| {
+                r.key.audio == self.identity
+                    && r.source_state == SourceState::Partial
+                    && r.applied_source_revision == Some(r.key.source_revision)
+            }) {
+                let before = self.records[i].translation_request_id;
+                self.enqueue_translation(i, now);
+                if self.records[i].translation_request_id != before {
+                    self.changed();
+                }
+            }
+        }
         if self
             .preview_queue
             .as_ref()
@@ -768,6 +835,16 @@ impl Pipeline {
             Outcome::Text(text) if Self::valid_text(&text) => {
                 self.records[i].translation = text.into_boxed_str().into_string();
                 self.records[i].translation_state = TranslationState::Done;
+                if flight.preview {
+                    if let Some((unit_key, unit)) =
+                        self.pending_unit.take().filter(|(k, _)| *k == key)
+                    {
+                        debug_assert_eq!(unit_key, key);
+                        self.unit_followup = unit.closed;
+                        self.last_preview_ns = Some(now);
+                        self.units.applied(unit);
+                    }
+                }
             }
             Outcome::Cancelled => {
                 self.records[i].translation_state = TranslationState::Skipped;
@@ -798,6 +875,8 @@ impl Pipeline {
         self.time(now)?;
         self.cancel_preview(Reason::Interrupted);
         self.agreement.reset();
+        self.units.reset();
+        self.unit_followup = false;
         if let Some(i) = self.index(id) {
             self.records[i].source_state = SourceState::Discarded;
             self.records[i].source_reason = Some(Reason::Interrupted);
@@ -820,6 +899,9 @@ impl Pipeline {
         self.preview_queue = None;
         self.agreement.reset();
         self.last_preview_ns = None;
+        self.units.reset();
+        self.pending_unit = None;
+        self.unit_followup = false;
         self.final_queue.clear();
         self.partial = None;
         self.translation_queue.clear();

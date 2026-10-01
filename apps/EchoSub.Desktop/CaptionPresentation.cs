@@ -7,6 +7,11 @@ public sealed class CaptionPresentation
     private double since;
     private HistoryRecord? preview;
     private double previewSince;
+    public string PreviewPrefix => preview is null ? "" : Guard(preview);
+    public int PreviewUnitStart => preview is null || preview.TranslationSource.Length == 0 ? 0 :
+        preview.TranslationPrefix.Length - preview.TranslationSource.Length;
+    private static string Guard(HistoryRecord record) => record.TranslationPrefix.Length > 0
+        ? record.TranslationPrefix : record.StableSource;
     public bool IsExpired(double nowSeconds) => preview is not null
         ? nowSeconds - previewSince >= 5 : key is not null && nowSeconds - since >= 5;
     public void Clear() { key = null; preview = null; }
@@ -24,7 +29,7 @@ public sealed class CaptionPresentation
         if (preview is not null && (preview.ProductSessionId != record.ProductSessionId ||
             preview.SessionId != record.SessionId || preview.Epoch != record.Epoch ||
             preview.SegmentId != record.SegmentId ||
-            !record.Source.StartsWith(preview.StableSource, StringComparison.Ordinal))) preview = null;
+            !record.Source.StartsWith(Guard(preview), StringComparison.Ordinal))) preview = null;
         var next = (record.ProductSessionId, record.SessionId, record.Epoch, record.SegmentId, record.AppliedSourceRevision!.Value);
         if (key != next) { key = next; since = nowSeconds; }
         var prefix = record.SourceState == "Partial" ? "[인식 중] " : record.SourceState == "FinalPending" ? "[확정 처리 중] " : "";
@@ -47,18 +52,20 @@ public sealed class CaptionPresentation
         {
             // Keep an already displayed, matching caption while the next revision
             // is decoded/translated. This never accepts a stale worker response.
-            return ("[인식 중] " + preview.Source, "[임시 번역] " + preview.Translation);
+            return ("[인식 중] " + (preview.TranslationSource.Length > 0 ? preview.TranslationSource : preview.Source), "[임시 번역] " + preview.Translation);
         }
         else
         {
             preview = null;
             if (expire && nowSeconds - since >= 5) return (null, null);
         }
-        return (prefix + record.Source, translation);
+        return (prefix + (record.TranslationIsPreview && translation is not null && record.TranslationSource.Length > 0
+            ? record.TranslationSource : record.Source), translation);
     }
 
     public static string HistoryText(HistoryRecord record) =>
         $"[{record.ProductSessionId ?? record.SessionId.ToString()}/{record.Epoch}/{record.SegmentId} · {record.SessionAudioStartSeconds ?? record.AudioStartSeconds:F3}~{record.SessionAudioEndSeconds ?? record.AudioEndSeconds:F3}초 · {record.SourceState}] {record.SourceReason}\n{record.Source}\n" +
         $"{(record.TranslationIsPreview ? "임시 번역" : "번역")} {record.TranslationState}{(record.TranslationReason is null ? "" : " · " + record.TranslationReason)}" +
+        (record.TranslationIsPreview && record.TranslationSource.Length > 0 ? "\n번역 원문: " + record.TranslationSource : "") +
         (record.TranslationState == "Done" ? "\n" + record.Translation : "");
 }

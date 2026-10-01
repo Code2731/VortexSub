@@ -900,7 +900,7 @@ fn core_error(error: CoreError) -> (&'static str, &'static str) {
     }
 }
 pub fn record(r: &Record) -> Value {
-    json!({"session_id":r.key.audio.session_id,"epoch":r.key.audio.epoch,"segment_id":r.key.segment_id,"source_revision":r.key.source_revision,"applied_source_revision":r.applied_source_revision,"audio_start_sample":r.range.start,"audio_end_sample":r.range.end,"audio_start_s":r.range.start_s(),"audio_end_s":r.range.end_s(),"source_state":format!("{:?}",r.source_state),"source":r.source,"source_reason":r.source_reason.map(|s|format!("{s:?}")),"translation_state":format!("{:?}",r.translation_state),"translation":r.translation,"translation_reason":r.translation_reason.map(|s|format!("{s:?}")),"translation_request_id":r.translation_request_id,"stable_source":r.stable_source,"translation_is_preview":r.translation_is_preview})
+    json!({"session_id":r.key.audio.session_id,"epoch":r.key.audio.epoch,"segment_id":r.key.segment_id,"source_revision":r.key.source_revision,"applied_source_revision":r.applied_source_revision,"audio_start_sample":r.range.start,"audio_end_sample":r.range.end,"audio_start_s":r.range.start_s(),"audio_end_s":r.range.end_s(),"source_state":format!("{:?}",r.source_state),"source":r.source,"source_reason":r.source_reason.map(|s|format!("{s:?}")),"translation_state":format!("{:?}",r.translation_state),"translation":r.translation,"translation_reason":r.translation_reason.map(|s|format!("{s:?}")),"translation_request_id":r.translation_request_id,"stable_source":r.stable_source,"translation_is_preview":r.translation_is_preview,"translation_source":r.translation_source,"translation_prefix":r.translation_prefix})
 }
 
 impl Drop for Runtime {

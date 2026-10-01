@@ -293,6 +293,8 @@
       "properties": {
         "stable_source": {"type": "string", "maxLength": 1024, "description": "Provisional LocalAgreement-2 prefix; bounded to 1024 UTF-8 bytes, may retract."},
         "translation_is_preview": {"type": "boolean", "description": "Translation is provisional and is superseded on the next source admission/final."},
+        "translation_source": {"type": "string", "maxLength": 384, "description": "Current provisional text unit, bounded to 384 UTF-8 bytes; empty for final/older records."},
+        "translation_prefix": {"type": "string", "maxLength": 1024, "description": "Stable source prefix ending with translation_source; guards the unit against earlier source corrections."},
         "product_session_id": {"type": "string", "format": "uuid"},
         "session_started_at_utc": {"type": "string", "format": "date-time"},
         "session_audio_start_s": {"type": "number", "minimum": 0},

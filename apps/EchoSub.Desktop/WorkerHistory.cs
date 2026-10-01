@@ -26,7 +26,9 @@ public sealed record HistoryRecord(
     [property: JsonPropertyName("session_audio_end_s")] double? SessionAudioEndSeconds = null,
     [property: JsonPropertyName("session_started_at_utc")] string? SessionStartedAtUtc = null,
     [property: JsonPropertyName("stable_source")] string StableSource = "",
-    [property: JsonPropertyName("translation_is_preview")] bool TranslationIsPreview = false);
+    [property: JsonPropertyName("translation_is_preview")] bool TranslationIsPreview = false,
+    [property: JsonPropertyName("translation_source")] string TranslationSource = "",
+    [property: JsonPropertyName("translation_prefix")] string TranslationPrefix = "");
 public sealed record HistorySnapshot(ulong Version, ulong LastSequence, IReadOnlyList<HistoryRecord> Records);
 public sealed record WorkerEvent(ulong Sequence, string Name, JsonElement Payload);
 

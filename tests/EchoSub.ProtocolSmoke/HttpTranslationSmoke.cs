@@ -86,6 +86,7 @@ internal static class HttpTranslationSmoke
             await previewClient.SendAsync("mock_segment", new { source = "We should take the left path.", kind = "partial" });
             var previewRecord = await Terminal(previewClient, 1);
             Require(previewRecord is { SourceState: "Partial", TranslationIsPreview: true, TranslationState: "Done", StableSource: "We should take the left" }, "typed stable preview");
+            Require(previewRecord.TranslationSource == "We should take the left" && previewRecord.TranslationPrefix == "We should take the left", "typed preview text unit");
             await previewClient.SendAsync("mock_segment", new { source = "We should take the left path after sunset.", kind = "final" });
             var replaced = await Terminal(previewClient, 1);
             Require(replaced is { SourceState: "Final", TranslationIsPreview: false, SourceRevision: 3, TranslationState: "Done" }, "final replaces preview with current revision");
