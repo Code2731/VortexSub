@@ -643,6 +643,7 @@ impl Pipeline {
                     segment_id: self.records[i].key.segment_id,
                 },
                 &self.records[i].stable_source,
+                &self.records[i].source,
                 &self.source_language,
             ) else {
                 return;

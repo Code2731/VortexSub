@@ -18,7 +18,13 @@ impl Units {
     pub fn reset(&mut self) {
         *self = Self::default();
     }
-    pub fn select(&mut self, id: SegmentIdentity, stable: &str, language: &str) -> Option<Unit> {
+    pub fn select(
+        &mut self,
+        id: SegmentIdentity,
+        stable: &str,
+        observed: &str,
+        language: &str,
+    ) -> Option<Unit> {
         if self.identity != Some(id) || !stable.starts_with(&self.delivered) {
             self.reset();
             self.identity = Some(id);
@@ -94,6 +100,16 @@ impl Units {
             source: source.into(),
             closed,
         };
+        if language == "en"
+            && english_fragment(
+                &unit.source,
+                unit.closed,
+                observed.strip_prefix(&unit.prefix).unwrap_or(""),
+                source.len() < tail.trim_end().len(),
+            )
+        {
+            return None;
+        }
         if self
             .last
             .as_ref()
@@ -109,4 +125,133 @@ impl Units {
         }
         self.last = Some(unit);
     }
+}
+
+// A bounded lexical veto, not a grammar or meaning classifier. Only preview units
+// reach this function; final ASR always goes through whole-source translation.
+fn english_fragment(source: &str, closed: bool, remainder: &str, truncated: bool) -> bool {
+    let lower = source.to_ascii_lowercase();
+    let words: Vec<&str> = lower
+        .split_whitespace()
+        .map(|word| word.trim_matches(|c: char| c.is_ascii_punctuation()))
+        .collect();
+    let Some(&last) = words.last() else {
+        return false;
+    };
+    // Even Whisper punctuation must not close "until I" or "unless we can".
+    if let Some(condition) = words.iter().rposition(|word| condition_word(word)) {
+        let pending = &words[condition + 1..];
+        // "before"/"after" can also stand alone as adverbs, so require a tail.
+        if pending.is_empty() && !matches!(words[condition], "before" | "after")
+            || !pending.is_empty()
+                && pending.iter().all(|word| {
+                    matches!(
+                        *word,
+                        "i" | "you"
+                            | "he"
+                            | "she"
+                            | "it"
+                            | "we"
+                            | "they"
+                            | "can"
+                            | "could"
+                            | "will"
+                            | "would"
+                            | "shall"
+                            | "should"
+                            | "may"
+                            | "might"
+                            | "must"
+                            | "do"
+                            | "does"
+                            | "did"
+                            | "am"
+                            | "is"
+                            | "are"
+                            | "was"
+                            | "were"
+                            | "be"
+                            | "have"
+                            | "has"
+                            | "had"
+                            | "not"
+                    )
+                })
+        {
+            return true;
+        }
+    }
+    let numeric = last.parse::<f64>().is_ok_and(f64::is_finite)
+        || matches!(
+            last,
+            "zero"
+                | "one"
+                | "two"
+                | "three"
+                | "four"
+                | "five"
+                | "six"
+                | "seven"
+                | "eight"
+                | "nine"
+                | "ten"
+                | "eleven"
+                | "twelve"
+                | "thirteen"
+                | "fourteen"
+                | "fifteen"
+                | "sixteen"
+                | "seventeen"
+                | "eighteen"
+                | "nineteen"
+                | "twenty"
+                | "thirty"
+                | "forty"
+                | "fifty"
+                | "sixty"
+                | "seventy"
+                | "eighty"
+                | "ninety"
+                | "hundred"
+                | "thousand"
+                | "million"
+        );
+    // Punctuation alone does not provide the missing object in "There are three.".
+    if numeric && words.len() == 3 && words[0] == "there" && matches!(words[1], "is" | "are") {
+        return true;
+    }
+    if closed || truncated {
+        return false;
+    }
+    // Use an unstable continuation only to defer; never send it as source/context.
+    let following = remainder
+        .trim_start_matches(|c: char| c.is_whitespace() || c.is_ascii_punctuation())
+        .split_whitespace()
+        .next()
+        .unwrap_or("");
+    if condition_word(&following.to_ascii_lowercase()) {
+        return true;
+    }
+    numeric
+        || matches!(
+            last,
+            "a" | "an"
+                | "the"
+                | "of"
+                | "to"
+                | "with"
+                | "without"
+                | "near"
+                | "into"
+                | "and"
+                | "or"
+                | "because"
+        )
+}
+
+fn condition_word(word: &str) -> bool {
+    matches!(
+        word,
+        "until" | "unless" | "if" | "when" | "before" | "after"
+    )
 }

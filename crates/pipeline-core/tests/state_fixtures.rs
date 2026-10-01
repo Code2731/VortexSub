@@ -108,14 +108,8 @@ fn unfinished_units_are_bounded_and_decimal_points_are_not_sentence_ends() {
     let changed = "Take the left path. Do open the door";
     partial(&mut f, 1536, changed, 1_700_000_000);
     partial(&mut f, 2048, changed, 2_200_000_000);
-    assert_eq!(
-        f.core
-            .next_translation(2_200_000_000)
-            .unwrap()
-            .unwrap()
-            .source,
-        "Do open the"
-    );
+    // The corrected stable prefix ends in an article; defer its preview.
+    assert!(f.core.next_translation(2_200_000_000).unwrap().is_none());
 }
 fn partial(f: &mut Fixture, end: u64, text: &str, now: u64) {
     f.submit(1, AsrKind::Partial, end, now);
@@ -148,7 +142,7 @@ fn preview_is_bounded_and_final_supersedes_it_without_releasing_http_early() {
     let mut f = Fixture::new(1000, "ko");
     f.core.set_partial_translation_enabled(true);
     partial(&mut f, 512, "Do not open the door", 0);
-    partial(&mut f, 1024, "Do not open the door until", 500_000_000);
+    partial(&mut f, 1024, "Do not open the door right now", 500_000_000);
     let preview = f.core.next_translation(500_000_000).unwrap().unwrap();
     assert_eq!(preview.source, "Do not open the door");
     assert_eq!(preview.deadline_ns, 500_000_000 + PREVIEW_DEADLINE_NS);
