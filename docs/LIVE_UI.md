@@ -28,8 +28,9 @@ CUDA 전용이며 기본 꺼짐이다. 미완성 정보의 조기 노출과 GPU 
 늘 수 있다. [실제 ASR→Qwen 파일 측정](evidence/paced-translation-windows-20261001.md).
 
 현재 draft 수정은 0.25초 제한/0.1초 표시 timer를 사용하고 이전 읽기
-카드 보호는 유지한다. `-CaptionTiming`을 추가하면 텍스트 없이 수신→카드
-반영 metadata 로그를 `logs/`에 남긴다. [규칙·요약 명령](CAPTION_READING.md).
+카드 보호는 유지한다. 앱의 **자막 지연 기록** 옵션을 켜면 텍스트 없이
+수신→카드 반영 metadata 로그를 `logs/`에 남긴다. 실행 중 전환 가능하며
+저장 경로가 표시된다. 기본 꺼짐이다. [규칙·요약 명령](CAPTION_READING.md).
 
 1. 모델 상태가 Ready가 되면 출력 장치와 원문 언어(en/ja/ko)를 선택한다.
 2. **세션 시작**을 누르고 선택한 출력 장치에서 음성을 재생한다.

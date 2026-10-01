@@ -51,9 +51,13 @@ Windows에서 Desktop과 ProtocolSmoke 프로젝트 빌드(경고/오류 0)를 �
 
 ## 선택 진단
 
-`run-live-cuda-fast.bat -CaptionTiming`으로 실행하면
+앱의 **자막 지연 기록** 옵션을 켜면
 `logs/caption-timing-*.jsonl`에 번역 이벤트 수신, Deck 반영과 오버레이 속성
-대입 시점을 기록한다. 기본 꺼짐이다. 원문/번역은 기록하지 않으며 worker PID,
+대입 시점을 기록한다. 기본 꺼짐이며 세션 실행 중에도 켜고 끌 수 있다.
+켤 때마다 새 파일을 만들고 옵션 아래에 절대 경로를 표시한다. 끄면 기존
+파일을 유지한다. 저장 실패 시 옵션을 끄고 오류를 표시한다.
+`-CaptionTiming` 실행 인자는 시작 시 옵션을 켜는 호환 기능으로 유지한다.
+직접 실행 시에는 현재 작업 폴더의 `logs/`를 사용한다. 원문/번역은 기록하지 않으며 worker PID,
 session/epoch/segment/revision/request ID, 초 단위 시점과 대기만 남긴다.
 로그는 Git 제외, background writer/128개 대기로 처리하며 고갈 시 drop을 기록한다.
 정상 창 종료에서 최대 0.5초 동안 writer를 drain한다. 강제 종료/파일 오류나

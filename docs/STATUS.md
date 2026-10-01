@@ -1,5 +1,13 @@
 # 구현 상태
 
+## 자막 지연 기록 UI 옵션 (2026-10-01)
+
+앱에 **자막 지연 기록** 체크박스와 저장 경로/오류 표시를 추가했다.
+기본 꺼짐, 실행 중 전환 가능, 다시 켤 때 새 파일 생성이다.
+텍스트 없는 metadata·128개 비차단 대기·background 쓰기 정책을 유지한다.
+Windows `dotnet build apps/EchoSub.Desktop/EchoSub.Desktop.csproj --no-restore`
+PASS(경고/오류 0). 테스트 및 실제 UI 클릭·게임·macOS는 미실행이다.
+
 ## 현재 draft 갱신과 표시 계측 (2026-10-01)
 
 현재 draft 수정 간격 1.25→0.25초, 표시 timer 0.5→0.1초로 분리했다.

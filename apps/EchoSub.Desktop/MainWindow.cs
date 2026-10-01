@@ -33,6 +33,10 @@ public sealed class MainWindow : Window
     private readonly ComboBox language = new() { ItemsSource = new[] { "en", "ja", "ko" }, SelectedIndex = 0, Width = 80 };
     private readonly CheckBox partialEnabled = new() { Content = "부분 전사 켜기 · 실험 기능 / 기본 끔", IsChecked = false };
     private readonly CheckBox partialTranslationEnabled = new() { Content = "안정된 부분 먼저 번역 · 임시 결과 / 기본 끔", IsChecked = false };
+    private readonly CheckBox captionTimingEnabled = new() { Content = "자막 지연 기록 · 기본 끔", IsChecked = false };
+    private readonly TextBlock captionTimingStatus = new() { Text = "원문·번역 내용은 저장하지 않습니다. 실행 중에도 켜고 끌 수 있습니다.", TextWrapping = TextWrapping.Wrap };
+    private bool updatingCaptionTiming;
+    private readonly DispatcherTimer diagnosticsTimer = new() { Interval = TimeSpan.FromSeconds(0.5) };
     private bool partialTranslationSupported;
     private readonly ComboBox endpoint = new() { Width = 450 };
     private readonly ListBox history = new() { Height = 190 };
@@ -126,6 +130,7 @@ public sealed class MainWindow : Window
                     } },
                     new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { overlayButton, resetOverlay } },
                     overlaySourceEnabled,
+                    new StackPanel { IsVisible = live, Spacing = 4, Children = { captionTimingEnabled, captionTimingStatus } },
                     new TextBlock { Text = "오버레이 폭 / 배경 불투명도" },
                     overlayWidth, cardOpacity
                 }
@@ -233,6 +238,10 @@ public sealed class MainWindow : Window
             captions.ShowSource = overlaySourceEnabled.IsChecked == true;
             overlay?.SetSourceVisible(captions.ShowSource);
         };
+        captionTimingEnabled.IsCheckedChanged += async (_, _) =>
+        {
+            if (!updatingCaptionTiming && !closing) await ConfigureCaptionTimingAsync(captionTimingEnabled.IsChecked == true);
+        };
         partialTranslationEnabled.IsCheckedChanged += (_, _) =>
         {
             if (partialTranslationEnabled.IsChecked == true) partialEnabled.IsChecked = true;
@@ -245,6 +254,17 @@ public sealed class MainWindow : Window
         cardOpacity.ValueChanged += (_, _) => overlay?.SetCardOpacity(cardOpacity.Value);
         captions.Applied += RecordCaptionApplied;
         captionTimer.Tick += (_, _) => ExpireSource();
+        diagnosticsTimer.Tick += (_, _) =>
+        {
+            if (!updatingCaptionTiming && captionTimingEnabled.IsChecked == true && !CaptionDiagnostics.Enabled)
+            {
+                updatingCaptionTiming = true;
+                captionTimingEnabled.IsChecked = false;
+                captionTimingStatus.Text = "자막 지연 기록 중단: " + CaptionDiagnostics.LastError;
+                updatingCaptionTiming = false;
+            }
+        };
+        diagnosticsTimer.Start();
         timer.Tick += async (_, _) =>
         {
             if (pendingActions == 0 && !closing && client is not null) await PollAsync();
@@ -252,6 +272,8 @@ public sealed class MainWindow : Window
         Opened += async (_, _) =>
         {
             StartupDiagnostics.Write($"Main window opened; live={live}; visible={IsVisible}; native={WindowsOverlayPlatform.Inspect(this)}");
+            var requestedLog = Environment.GetEnvironmentVariable("ECHOSUB_CAPTION_TIMING_LOG");
+            if (!string.IsNullOrWhiteSpace(requestedLog)) await ConfigureCaptionTimingAsync(true, requestedLog);
             await ExecuteAsync(ConnectCoreAsync);
         };
         Closing += async (_, args) =>
@@ -260,6 +282,8 @@ public sealed class MainWindow : Window
             args.Cancel = true;
             if (closing) return;
             closing = true;
+            captionTimingEnabled.IsEnabled = false;
+            diagnosticsTimer.Stop();
             timer.Stop();
             captionTimer.Stop();
             ClearSource();
@@ -270,6 +294,29 @@ public sealed class MainWindow : Window
             Close();
         };
         UpdateButtons();
+    }
+
+    private async Task ConfigureCaptionTimingAsync(bool enabled, string? requestedPath = null)
+    {
+        updatingCaptionTiming = true;
+        captionTimingEnabled.IsEnabled = false;
+        try
+        {
+            var path = await CaptionDiagnostics.SetEnabledAsync(enabled, requestedPath);
+            captionTimingEnabled.IsChecked = enabled;
+            captionTimingStatus.Text = enabled ? $"기록 중: {path}" :
+                "기록 꺼짐 · 생성된 로그 파일은 유지됩니다.";
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            captionTimingEnabled.IsChecked = false;
+            captionTimingStatus.Text = "자막 지연 기록 실패: " + error.Message;
+        }
+        finally
+        {
+            updatingCaptionTiming = false;
+            captionTimingEnabled.IsEnabled = !closing;
+        }
     }
 
     private string OverlayLabel(bool shown) => (live ? "자막 오버레이 " : "샘플 오버레이 ") + (shown ? "숨기기" : "표시");
