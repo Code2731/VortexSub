@@ -105,7 +105,9 @@ Windows 제공 ASR의 언어·배포 의존성 때문에 현재 양 OS 엔진의
    뒤에 오는 부정·조건·숫자 때문에 의미가 바뀌면 draft를 수정한다.
    오디오 trim은 이미 수집하는 token 시간과 연결하며 문자 비율로 추정하지 않는다.
    텍스트 단위·중복 생략·후속 요청·수정/카드 이동 구현. [단위 계약](TRANSLATION_UNITS.md).
-   실제 Qwen 품질/지연 비교와 token 기반 오디오 trim은 아직 남아 있다.
+   실제 Qwen 파일 비교는 요청 감소와 오역을 확인했다. 첫 출력 가속은 없었다.
+   token trim은 길이 0인 단어 시간으로 거부했으며 라이브 적용은 남아 있다.
+   [실측](evidence/translation-units-trim-windows-20261001.md).
 4. **모델 비교:** 위 경로에서 Whisper CPU/CUDA·SenseVoice, 4B/1.7B를
    독립 비교한다. 첫 자막·확정 자막 지연, 조건/부정 오역, 수정 횟수,
    읽기 전 교체 비율, backlog, 게임과의 자원 경합을 각각 기록한다.

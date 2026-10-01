@@ -1,4 +1,4 @@
-param([string] $ServerPath, [string] $PythonPath, [switch] $NoBuild)
+param([string] $ServerPath, [string] $PythonPath, [string] $ReferenceWorker, [switch] $NoBuild)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
 $env:AVALONIA_TELEMETRY_OPTOUT = '1'
@@ -17,6 +17,7 @@ try {
     }
     $arguments = @((Join-Path $repo 'scripts/probe-streaming-translation.py'))
     if ($ServerPath) { $arguments += @('--server', $ServerPath) }
+    if ($ReferenceWorker) { $arguments += @('--reference-worker', (Resolve-Path -LiteralPath $ReferenceWorker).Path) }
     & $PythonPath @arguments
     if ($LASTEXITCODE -ne 0) { throw 'Streaming experiment failed; partial reports retained under benchmarks/results.' }
 } finally { Pop-Location }

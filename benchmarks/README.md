@@ -231,3 +231,17 @@ and 0.25 s intervals. JSON includes applied/ignored completions, source updates,
 decode time, first partial and final time in seconds. Results/transcripts stay
 under ignored `benchmarks/results/`; no models or runtimes are downloaded.
 Known file end replaces VAD; HTTP, capture and UI are outside this measurement.
+
+Add `-Trim` for the explicit timed-token feasibility probe using the existing
+7.605-second joined English fixture beginning “We should take the left path.”
+It compares exact token boundaries in 3/4-second prefixes and rejects missing,
+zero-length word or inconsistent times. A successful command means the diagnostic
+completed, not that trimming is safe; `trimmed: null` records rejection.
+Production audio ranges are unchanged.
+
+For actual Qwen translation using the same source trace on two worker versions,
+run `scripts/probe-streaming-translation.ps1 -ReferenceWorker <existing worker.exe>`.
+The reference binary must implement the same replay protocol. Reports include
+trace/binary hashes, final-only controls and execution order. This is offline
+MOCK ASR admission with actual HTTP, not native scheduling or screen latency.
+See [comparison and trim evidence](../docs/evidence/translation-units-trim-windows-20261001.md).

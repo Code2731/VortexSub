@@ -1,5 +1,16 @@
 # 구현 상태
 
+## 단위 번역 실측·trim 검토 (2026-10-01)
+
+같은 전사 trace와 실제 Qwen HTTP로 기존 prefix/단위 방식을 비교했다.
+긴 영어 7.605초에서 요청 9→5회, 첫 임시 3.352→3.409초, 확정
+8.942→8.918초다. 요청 중복은 감소했지만 첫 출력 가속은 관측하지 못했다.
+gate 오역·귀환 조건 누락을 확인해 품질 gate false·기본 꺼짐을 유지한다.
+CPU timed token 두 전사에서 단어 길이 0으로 trim 후보를 거부했다.
+라이브 trim은 미구현이며 다음은 기존 Whisper CPU/CUDA paced 비용 비교와
+품질 회귀 기준이다. 화면 지연·자연/일본어 ASR·게임·macOS는 미검증.
+[조건·오류·재현](evidence/translation-units-trim-windows-20261001.md).
+
 ## 문장·짧은 절 임시 번역 (2026-10-01)
 
 성공한 닫힌 단위 뒤의 원문만 최대 384 UTF-8 바이트로 번역한다. 앞부분은
@@ -7,9 +18,9 @@
 처리하며 원문 반박 시 되돌린다. unit/prefix IPC guard와 같은 segment의 카드
 이동을 연결했다. 최종은 전체 원문 번역이며 원문/오디오 범위는 유지한다.
 check(Rust 152개, C# 표시 29개 assertion·IPC/HTTP)와 native CPU/VAD 빌드 PASS.
-오디오 trim·실제 Qwen 품질/음성→화면 지연·게임·렌더링·macOS는 미실행.
-[계약과 한계](TRANSLATION_UNITS.md). 다음은 실제 품질/지연 비교와 token 시간
-기반 오디오 trim 검토이며, 그 결과와 함께 후보 모델 비교로 이어간다.
+실제 Qwen 파일 replay 비교와 token trim 가능성은 위 후속 측정에서 확인했다.
+음성→화면 지연·게임·렌더링·macOS 및 라이브 trim은 남아 있다.
+[계약과 한계](TRANSLATION_UNITS.md).
 
 ## 두 카드 읽기 정책 (2026-10-01)
 

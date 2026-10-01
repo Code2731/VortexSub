@@ -43,5 +43,10 @@
 Windows `scripts/check.ps1`(Rust 152개, C# IPC/HTTP·표시 fixture 29개 assertion)
 및 native CPU/VAD release 빌드 PASS. MOCK ASR와 로컬 HTTP fixture로 같은
 revision의 두 문장 요청/문맥/최종 전체 번역을 확인했다. 카드 단위 전환·앞부분
-수정·읽기 만료도 fixture로 확인했다. 실제 Qwen 품질·음성→화면 지연·게임
-경합·화면 렌더링·macOS는 이번에 측정하지 않았다.
+수정·읽기 만료도 fixture로 확인했다.
+
+후속 실제 Qwen 동일 trace 비교에서는 긴 음원 요청 9→5회, 첫 임시
+3.352→3.409초를 관측했다. 오역·조건 누락이 있어 품질 gate는 false다.
+timed token의 단어 길이가 0으로 기록돼 파일 trim 후보도 거부했다.
+[측정 조건과 원본 위치](evidence/translation-units-trim-windows-20261001.md).
+음성→화면 지연·게임 경합·화면 렌더링·macOS는 미측정이다.

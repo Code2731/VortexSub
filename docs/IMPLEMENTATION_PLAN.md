@@ -11,7 +11,9 @@
 부분 결과 지연은 거의 같았다. [검증 범위](evidence/partial-scheduling-windows-20261001.md).
 이전 읽기 카드와 현재 draft 분리도 구현했다. [표시 계약](CAPTION_READING.md).
 문장/짧은 절 임시 번역도 연결했다. [단위 계약](TRANSLATION_UNITS.md).
-실제 품질/지연 비교와 token 시간 기반 오디오 trim은 후속이다.
+실제 Qwen 동일 trace 비교에서 요청 9→5회, 첫 출력 가속은 없었고 오역이 남았다.
+token 시간 검토는 단어 길이 0으로 trim을 거부했다. 라이브 trim은 후속이다.
+[실측과 다음 작업](evidence/translation-units-trim-windows-20261001.md).
 화면/읽기 수용도 별도로 남아 있다.
 기본 ASR 요청 간격은 유지한다.
 

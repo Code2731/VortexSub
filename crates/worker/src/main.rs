@@ -10,6 +10,8 @@ mod runtime;
 #[cfg(any(feature = "native-asr", test))]
 mod token_reconcile;
 mod transport;
+#[cfg(all(test, feature = "native-asr"))]
+mod trim_probe;
 
 use serde_json::{json, Value};
 

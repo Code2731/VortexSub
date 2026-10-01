@@ -15,7 +15,9 @@ import wave
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--server")
+parser.add_argument("--reference-worker", help="Existing prefix-policy worker for a same-trace comparison")
 args = parser.parse_args()
+reference = Path(args.reference_worker).resolve(strict=True) if args.reference_worker else None
 repo = Path(__file__).resolve().parent.parent
 output = repo / "benchmarks/results" / (time.strftime("streaming-translation-%Y%m%d-%H%M%S") + "-" + secrets.token_hex(3))
 output.mkdir(parents=True)
@@ -126,6 +128,13 @@ try:
         endpoint = "http://127.0.0.1:18086/v1/"
         run([str(repo / "target/debug/translation-probe.exe"), endpoint, model["id"], str(repo / "benchmarks/translation-fixtures.json"), str(output / "http-warmup.json"), "1", "1"], output / "warmup.log", environment)
         run(["dotnet", str(client), "--streaming-translation", str(worker), endpoint, model["id"], str(trace), str(output / "report.json")], output / "replay.log", environment)
+        if reference:
+            run(["dotnet", str(client), "--streaming-translation", str(reference), endpoint, model["id"], str(trace), str(output / "prefix-reference.json")], output / "prefix-reference.log", environment)
+            save(output / "comparison.json", {"source_trace_sha256": sha256(trace),
+                "reference_worker_sha256": sha256(reference), "unit_worker_sha256": sha256(worker),
+                "unit_report": "report.json", "prefix_report": "prefix-reference.json",
+                "order": "unit replay then prefix replay; each includes final-only controls",
+                "quality_gate_passed": False, "note": "One run per condition, temperature 0.2; not deterministic or order-balanced. MOCK admission; no native scheduling or rendered UI."})
         save(output / "runtime.json", {"server_binary_sha256": sha256(Path(server_path)), "native_worker_sha256": sha256(native), "replay_worker_sha256": sha256(worker), "translation_weights_sha256": model["sha256"], "asr_weights_sha256": asr["sha256"], "source_trace_sha256": sha256(trace), "capture": False, "game_coexistence": None, "rendered_ui": False})
 finally:
     if server and server.poll() is None:
