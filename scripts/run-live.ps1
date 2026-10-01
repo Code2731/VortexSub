@@ -1,4 +1,5 @@
-param([string] $ServerPath, [switch] $NoBuild)
+param([string] $ServerPath, [switch] $NoBuild,
+    [ValidateSet('cpu', 'cuda')] [string] $AsrBackend = 'cpu')
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
 $server = $null
@@ -67,7 +68,7 @@ try {
     Write-Host '[3/3] Opening live UI; translation endpoint: http://127.0.0.1:1234/v1/'
     Write-Host 'In the UI, click server/model lookup, wait for translation Ready, then Start session.'
     Write-Host 'Closing the app also stops this launcher-owned translation server.'
-    $launcherArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $repo 'scripts/run.ps1'), '-Live', '-Offline', '-NoPause')
+    $launcherArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $repo 'scripts/run.ps1'), '-Live', '-Offline', '-NoPause', '-AsrBackend', $AsrBackend)
     if ($NoBuild) { $launcherArgs += '-NoBuild' }
     & (Join-Path $env:SystemRoot 'System32/WindowsPowerShell/v1.0/powershell.exe') @launcherArgs
     $exitCode = $LASTEXITCODE

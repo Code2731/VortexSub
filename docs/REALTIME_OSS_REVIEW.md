@@ -111,6 +111,9 @@ Windows 제공 ASR의 언어·배포 의존성 때문에 현재 양 OS 엔진의
 4. **모델 비교:** 위 경로에서 Whisper CPU/CUDA·SenseVoice, 4B/1.7B를
    독립 비교한다. 첫 자막·확정 자막 지연, 조건/부정 오역, 수정 횟수,
    읽기 전 교체 비율, backlog, 게임과의 자원 경합을 각각 기록한다.
+   Whisper CPU/CUDA ASR 단독 paced 파일 비교 완료. CUDA 선택 실행을
+   제공하되 Qwen 동시 경쟁·화면/품질과 새 후보 모델 비교는 남아 있다.
+   [실측](evidence/partial-backends-windows-20261001.md).
 
 LLM SSE 스트리밍은 이후 선택 사항이다. 현재 짧은 번역의 HTTP 평균이
 약 0.12~0.13초인 관측 범위에서는, 전체 지연을 크게 줄일 첫 작업으로

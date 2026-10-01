@@ -313,6 +313,21 @@ mod tests {
         let model = std::env::var("ECHOSUB_SCHEDULE_MODEL").unwrap();
         let wav = std::env::var("ECHOSUB_SCHEDULE_WAV").unwrap();
         let output = std::env::var("ECHOSUB_SCHEDULE_REPORT").unwrap();
+        let backend = std::env::var("ECHOSUB_SCHEDULE_BACKEND").unwrap_or("cpu".into());
+        assert!(matches!(backend.as_str(), "cpu" | "cuda"));
+        let gpu = backend == "cuda";
+        assert!(!gpu || cfg!(feature = "cuda"), "CUDA build required");
+        let rounds: usize = std::env::var("ECHOSUB_SCHEDULE_ROUNDS")
+            .unwrap_or("1".into())
+            .parse()
+            .unwrap();
+        assert!((1..=10).contains(&rounds));
+        let first_request_s: f64 = std::env::var("ECHOSUB_SCHEDULE_FIRST")
+            .unwrap_or("0.8".into())
+            .parse()
+            .unwrap();
+        assert!((0.8..=2.).contains(&first_request_s));
+        let current_only = std::env::var("ECHOSUB_SCHEDULE_CURRENT").as_deref() == Ok("1");
         let model_hash = format!("{:x}", Sha256::digest(std::fs::read(&model).unwrap()));
         let wav_hash = format!("{:x}", Sha256::digest(std::fs::read(&wav).unwrap()));
         let pcm = load_wav(&wav, &wav_hash).unwrap();
@@ -321,110 +336,121 @@ mod tests {
             "use a 1–8 second fixture"
         );
         let mut reports = Vec::new();
-        for interval_s in [1.0, 0.25] {
-            for legacy in [true, false] {
-                let mut r = Runtime::new(
-                    false,
-                    Some(ModelConfig {
-                        path: model.clone(),
-                        hash: model_hash.clone(),
-                        gpu: false,
-                        threads: 8,
-                        vad: None,
-                    }),
-                    false,
-                );
-                r.partial_enabled = true;
-                let q = Outbox::default();
-                let load_start = Instant::now();
-                while r.model_state != "Ready" {
-                    r.poll_native(&q).unwrap();
-                    assert!(load_start.elapsed().as_secs_f64() < 30. && r.model_state != "Failed");
-                    std::thread::sleep(Duration::from_millis(5));
-                }
-                let start = Instant::now();
-                let mut cursor = 0;
-                let mut next_partial_s = 0.8;
-                let mut final_sent = false;
-                let mut first_partial_s = None;
-                let mut admitted = 0;
-                let mut updates = Vec::new();
-                let mut last_revision = None;
-                let final_s = loop {
-                    let elapsed = start.elapsed().as_secs_f64();
-                    assert!(
-                        elapsed < pcm.len() as f64 / 16000. + 30.,
-                        "native replay did not drain"
+        for round in 1..=rounds {
+            for interval_s in [1.0, 0.25] {
+                for legacy in [true, false]
+                    .into_iter()
+                    .filter(|legacy| !current_only || !legacy)
+                {
+                    let mut r = Runtime::new(
+                        false,
+                        Some(ModelConfig {
+                            path: model.clone(),
+                            hash: model_hash.clone(),
+                            gpu,
+                            threads: 8,
+                            vad: None,
+                        }),
+                        false,
                     );
-                    let available = ((elapsed * 16000.) as usize).min(pcm.len());
-                    if available > cursor {
-                        r.ring
-                            .append(r.epoch, cursor as u64, &pcm[cursor..available])
-                            .unwrap();
-                        cursor = available;
+                    r.partial_enabled = true;
+                    let q = Outbox::default();
+                    let load_start = Instant::now();
+                    while r.model_state != "Ready" {
+                        r.poll_native(&q).unwrap();
+                        assert!(
+                            load_start.elapsed().as_secs_f64() < 30. && r.model_state != "Failed"
+                        );
+                        std::thread::sleep(Duration::from_millis(5));
                     }
-                    if cursor == pcm.len() && !final_sent {
-                        r.live_event(
-                            SpeechEvent::Final {
-                                segment: segment(&r, 1, cursor as u64),
-                                reason: FinalReason::Silence,
-                            },
-                            &q,
-                        )
-                        .unwrap();
-                        final_sent = true;
-                    } else if !final_sent && elapsed >= next_partial_s {
-                        admitted += 1;
-                        if legacy {
-                            r.live_asr_segment(
-                                segment(&r, 1, cursor as u64),
-                                AsrKind::Partial,
-                                "LegacyProbe",
+                    let load_s = load_start.elapsed().as_secs_f64();
+                    let start = Instant::now();
+                    let mut cursor = 0;
+                    let mut next_partial_s = first_request_s;
+                    let mut final_sent = false;
+                    let mut first_partial_s = None;
+                    let mut admitted = 0;
+                    let mut updates = Vec::new();
+                    let mut last_revision = None;
+                    let final_s = loop {
+                        let elapsed = start.elapsed().as_secs_f64();
+                        assert!(
+                            elapsed < pcm.len() as f64 / 16000. + 30.,
+                            "native replay did not drain"
+                        );
+                        let available = ((elapsed * 16000.) as usize).min(pcm.len());
+                        if available > cursor {
+                            r.ring
+                                .append(r.epoch, cursor as u64, &pcm[cursor..available])
+                                .unwrap();
+                            cursor = available;
+                        }
+                        if cursor == pcm.len() && !final_sent {
+                            r.live_event(
+                                SpeechEvent::Final {
+                                    segment: segment(&r, 1, cursor as u64),
+                                    reason: FinalReason::Silence,
+                                },
                                 &q,
                             )
                             .unwrap();
-                        } else {
-                            r.live_event(SpeechEvent::Partial(segment(&r, 1, cursor as u64)), &q)
+                            final_sent = true;
+                        } else if !final_sent && elapsed >= next_partial_s {
+                            admitted += 1;
+                            if legacy {
+                                r.live_asr_segment(
+                                    segment(&r, 1, cursor as u64),
+                                    AsrKind::Partial,
+                                    "LegacyProbe",
+                                    &q,
+                                )
                                 .unwrap();
+                            } else {
+                                r.live_event(
+                                    SpeechEvent::Partial(segment(&r, 1, cursor as u64)),
+                                    &q,
+                                )
+                                .unwrap();
+                            }
+                            next_partial_s += interval_s;
                         }
-                        next_partial_s += interval_s;
-                    }
-                    r.poll_native(&q).unwrap();
-                    if let Some(record) = r.core.record(SegmentIdentity {
-                        audio: r.epoch,
-                        segment_id: 1,
-                    }) {
-                        if record.applied_source_revision != last_revision {
-                            last_revision = record.applied_source_revision;
-                            if last_revision.is_some() {
-                                updates.push(json!({"at_s":elapsed,"revision":last_revision,"state":format!("{:?}",record.source_state),"source":record.source}));
-                                if record.source_state == SourceState::Partial
-                                    && first_partial_s.is_none()
-                                {
-                                    first_partial_s = Some(elapsed);
+                        r.poll_native(&q).unwrap();
+                        if let Some(record) = r.core.record(SegmentIdentity {
+                            audio: r.epoch,
+                            segment_id: 1,
+                        }) {
+                            if record.applied_source_revision != last_revision {
+                                last_revision = record.applied_source_revision;
+                                if last_revision.is_some() {
+                                    updates.push(json!({"at_s":elapsed,"revision":last_revision,"state":format!("{:?}",record.source_state),"source":record.source}));
+                                    if record.source_state == SourceState::Partial
+                                        && first_partial_s.is_none()
+                                    {
+                                        first_partial_s = Some(elapsed);
+                                    }
                                 }
                             }
+                            if record.source_state == SourceState::Final {
+                                break elapsed;
+                            }
+                            assert!(
+                                !matches!(
+                                    record.source_state,
+                                    SourceState::Failed | SourceState::Skipped
+                                ),
+                                "native source failed"
+                            );
                         }
-                        if record.source_state == SourceState::Final {
-                            break elapsed;
-                        }
-                        assert!(
-                            !matches!(
-                                record.source_state,
-                                SourceState::Failed | SourceState::Skipped
-                            ),
-                            "native source failed"
-                        );
-                    }
-                    std::thread::sleep(Duration::from_millis(5));
-                };
-                let report = json!({"legacy_admission":legacy,"interval_s":interval_s,"partial_events":admitted,"audio_s":pcm.len() as f64/16000.,"first_partial_s":first_partial_s,"final_s":final_s,"scheduler":r.partial_schedule.value(),"updates":updates});
-                println!("{}", report);
-                reports.push(report);
-                r.finish();
+                        std::thread::sleep(Duration::from_millis(5));
+                    };
+                    let report = json!({"round":round,"load_s":load_s,"legacy_admission":legacy,"interval_s":interval_s,"partial_events":admitted,"audio_s":pcm.len() as f64/16000.,"first_partial_s":first_partial_s,"final_s":final_s,"scheduler":r.partial_schedule.value(),"updates":updates});
+                    println!("{}", report);
+                    reports.push(report);
+                    r.finish();
+                }
             }
         }
-        std::fs::write(output, serde_json::to_vec_pretty(&json!({"model":model,"model_sha256":model_hash,"wav":wav,"wav_sha256":wav_hash,"backend":"cpu","threads":8,"note":"Known file end; ASR-only, no VAD/HTTP/capture/overlay. 0.25 s is stress, not the production default.","runs":reports})).unwrap()).unwrap();
+        std::fs::write(output, serde_json::to_vec_pretty(&json!({"model":model,"model_sha256":model_hash,"wav":wav,"wav_sha256":wav_hash,"backend":backend,"threads":8,"first_request_s":first_request_s,"rounds":rounds,"current_only":current_only,"note":"Fresh owner each run, no warmup; load excluded from replay timing. Known file end; ASR-only, no VAD/HTTP/capture/overlay. 0.25 s is stress, not the production default.","runs":reports})).unwrap()).unwrap();
     }
     #[test]
     fn continuation_context_is_product_identity_and_pending_metadata_stays_bounded() {

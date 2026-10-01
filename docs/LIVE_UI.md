@@ -9,6 +9,15 @@ Whisper base, Silero v6.0, ONNX Runtime CPU 파일은 기존 manifest 경로에
 기존 바이너리를 사용하려면 `-NoBuild`를 추가한다. 이때 장치 열거 probe가
 없으면 기본 출력 장치만 선택할 수 있다.
 
+CUDA 전사 선택 실행은 `run-live-cuda.bat` 더블클릭 또는
+`./run-live.bat -AsrBackend cuda`다. 기본 `run-live.bat`은 CPU 전사다.
+CUDA worker는 별도 `target/model-probe-cuda/`에 빌드하며 설치된 NVIDIA
+GPU/CUDA Toolkit이 필요하다. 이미 빌드한 경우 `-NoBuild`로 재사용한다.
+선택한 backend 실패는 오류로 표시하며 CPU로 자동 전환하지 않는다.
+Whisper와 Qwen이 같은 GPU를 사용한다. ASR 단독 파일 속도 개선을
+게임·번역 동시 실행이나 화면 지연 개선으로 확대하지 않는다.
+[CPU/CUDA 파일 비교](evidence/partial-backends-windows-20261001.md).
+
 1. 모델 상태가 Ready가 되면 출력 장치와 원문 언어(en/ja/ko)를 선택한다.
 2. **세션 시작**을 누르고 선택한 출력 장치에서 음성을 재생한다.
 3. 최근 100개 구간과 **원문 오버레이 표시**로 확정 원문을 확인한다.

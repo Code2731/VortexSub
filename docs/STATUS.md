@@ -1,5 +1,16 @@
 # 구현 상태
 
+## Whisper CPU/CUDA 부분 전사 비교 (2026-10-01)
+
+동일 7.605초 합성 영어 파일을 backend/간격별 3회, 총 12회 측정했다.
+1초 간격 중앙값은 첫 텍스트 CPU 2.781→CUDA 2.182초, 확정 완료
+8.554→7.810초, 누적 decode 5.410→1.115초다. 모든 확정 원문은 같았다.
+0.25초 CUDA는 첫 텍스트 1.363초지만 partial 25회와 비용 증가가 있어
+기본 간격은 유지한다. Qwen/게임 경합·화면/품질 수용은 미검증이다.
+`run-live-cuda.bat` 선택 경로를 추가했고 기본 CPU를 유지했다.
+native CPU/CUDA 파일 측정·빌드·fmt/스크립트 구문 PASS; 실제 CUDA UI는 미실행.
+[조건·한계·다음 작업](evidence/partial-backends-windows-20261001.md).
+
 ## 단위 번역 실측·trim 검토 (2026-10-01)
 
 같은 전사 trace와 실제 Qwen HTTP로 기존 prefix/단위 방식을 비교했다.

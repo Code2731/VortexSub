@@ -232,6 +232,16 @@ decode time, first partial and final time in seconds. Results/transcripts stay
 under ignored `benchmarks/results/`; no models or runtimes are downloaded.
 Known file end replaces VAD; HTTP, capture and UI are outside this measurement.
 
+Use `-Backend cpu|cuda -CurrentOnly -Rounds 3 -FirstPartialSeconds 1.0` to compare
+the current scheduler with repeated native owners. Separate target directories
+keep CPU and CUDA builds independent. CUDA requires the installed toolkit and
+CUDA-capable build; verify `using CUDA0 backend` in native output before interpreting
+the report as GPU execution. `load_s` is excluded from replay timings. There is no
+warmup, and first-request timing is a file-probe control, not a product setting.
+The default first request remains 0.8 seconds and default rounds remain one.
+Final-source correctness, partial corrections, HTTP/game contention and rendered
+caption latency must be assessed separately from decode throughput.
+
 Add `-Trim` for the explicit timed-token feasibility probe using the existing
 7.605-second joined English fixture beginning “We should take the left path.”
 It compares exact token boundaries in 3/4-second prefixes and rejects missing,
