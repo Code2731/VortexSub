@@ -1,5 +1,24 @@
 # 구현 상태
 
+## 실시간 번역 대안 논문·배포 조사 (2026-10-02)
+
+사용자 요청으로 Exa 검색 결과 63건(URL 중복 제거 61개)과 핵심 논문·공식
+코드/카드·라이선스·파일 메타데이터를 검토했다. 최신 Hy-MT2 1.8B는 한국어/일본어와
+공식 GGUF를 지원하고 고정 weight 라이선스가 Apache-2.0이므로 첫 엔진 비교 후보로
+제안했다. 1.25-bit/440 MB/1.5배 주장은 Apple A15 조건이며 3080 보장은 아니다.
+영어→한국어 OPUS-MT 209M
+(FP16 weight 418 MB, CC-BY-4.0), 한국어 QE 진단용 MetricX-24 Large
+(BF16 weight 2.46 GB, Apache-2.0), 다국어 MADLAD-400 3B를 비교 후보로 제안했다.
+성능 채택은 아니며 새 모델/runtime 다운로드·설치·추론은 하지 않았다.
+COMETKiwi/XCOMET 공개 weight 비상업 조건, lite의 한국어/QE/라이선스 미확인,
+HY-MT1.5 배포의 한국 지역 제외(MT2에는 적용하지 않음), Qwen3-ASR streaming의
+vLLM/Windows 제약을 확인했다.
+재번역/분할/SimulStreaming/AlignAtt4LLM 논문을 근거로 기존 원문 단위와 별도로
+한국어 target 안정성/수정 정책을 평가하는 방안을 제안했다. 기존 정상 로그를
+재집계한 ASR 처리 중앙값 0.1083초·번역 0.1733초는 전체 음성→자막 지연이 아니다.
+최초 admission 앞단의 대기는 미측정으로 남는다.
+[대안·논문·비교 순서·종료 조건](TRANSLATION_ALTERNATIVES_RESEARCH.md).
+
 ## Laya 출력 검증 실험 (2026-10-02)
 
 사용자 동의 후 다국어 모델/토크나이저 678.20 MB와 SDK 0.29 MB를 다운로드·
