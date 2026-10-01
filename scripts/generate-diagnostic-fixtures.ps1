@@ -1,9 +1,11 @@
+param([string] $TextsPath, [string] $OutputDirectory, [switch] $NoSilence)
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Speech
 $repo = Split-Path $PSScriptRoot -Parent
-$root = Join-Path $repo 'benchmarks/fixtures/local-tts'
+$root = if ($OutputDirectory) { [IO.Path]::GetFullPath($OutputDirectory) } else { Join-Path $repo 'benchmarks/fixtures/local-tts' }
+if (-not $TextsPath) { $TextsPath = Join-Path $repo 'benchmarks/diagnostic-texts.json' }
 New-Item -ItemType Directory -Force -Path $root | Out-Null
-$texts = Get-Content (Join-Path $repo 'benchmarks/diagnostic-texts.json') -Encoding UTF8 -Raw | ConvertFrom-Json
+$texts = Get-Content -LiteralPath $TextsPath -Encoding UTF8 -Raw | ConvertFrom-Json
 $synthesizer = New-Object System.Speech.Synthesis.SpeechSynthesizer
 $format = New-Object System.Speech.AudioFormat.SpeechAudioFormatInfo(16000, [System.Speech.AudioFormat.AudioBitsPerSample]::Sixteen, [System.Speech.AudioFormat.AudioChannel]::Mono)
 $fixtures = @()
@@ -35,18 +37,20 @@ try {
             kind='synthetic_tts'; speech_segments_ms=,@(0,$durationMs)
         }
     }
-    $silenceFile = Join-Path $root 'silence.wav'
-    $stream = [IO.File]::Create($silenceFile)
-    $writer = New-Object IO.BinaryWriter($stream)
-    try {
-        $writer.Write([Text.Encoding]::ASCII.GetBytes('RIFF')); $writer.Write([uint32](36 + 96000))
-        $writer.Write([Text.Encoding]::ASCII.GetBytes('WAVEfmt ')); $writer.Write([uint32]16)
-        $writer.Write([uint16]1); $writer.Write([uint16]1); $writer.Write([uint32]16000)
-        $writer.Write([uint32]32000); $writer.Write([uint16]2); $writer.Write([uint16]16)
-        $writer.Write([Text.Encoding]::ASCII.GetBytes('data')); $writer.Write([uint32]96000)
-        $writer.Write((New-Object byte[] 96000))
-    } finally { $writer.Dispose(); $stream.Dispose() }
-    $fixtures += [ordered]@{id='silence';path='silence.wav';sha256=(Get-FileHash $silenceFile -Algorithm SHA256).Hash.ToLowerInvariant();language='en';reference='';source='generated zero PCM';usage='Project-generated diagnostic data';kind='silence';speech_segments_ms=@()}
+    if (-not $NoSilence) {
+        $silenceFile = Join-Path $root 'silence.wav'
+        $stream = [IO.File]::Create($silenceFile)
+        $writer = New-Object IO.BinaryWriter($stream)
+        try {
+            $writer.Write([Text.Encoding]::ASCII.GetBytes('RIFF')); $writer.Write([uint32](36 + 96000))
+            $writer.Write([Text.Encoding]::ASCII.GetBytes('WAVEfmt ')); $writer.Write([uint32]16)
+            $writer.Write([uint16]1); $writer.Write([uint16]1); $writer.Write([uint32]16000)
+            $writer.Write([uint32]32000); $writer.Write([uint16]2); $writer.Write([uint16]16)
+            $writer.Write([Text.Encoding]::ASCII.GetBytes('data')); $writer.Write([uint32]96000)
+            $writer.Write((New-Object byte[] 96000))
+        } finally { $writer.Dispose(); $stream.Dispose() }
+        $fixtures += [ordered]@{id='silence';path='silence.wav';sha256=(Get-FileHash $silenceFile -Algorithm SHA256).Hash.ToLowerInvariant();language='en';reference='';source='generated zero PCM';usage='Project-generated diagnostic data';kind='silence';speech_segments_ms=@()}
+    }
     $manifestJson = [ordered]@{schema_version=1;note='Synthetic TTS only. Whole-utterance speech ranges include TTS padding; not a human-annotated quality corpus.';fixtures=$fixtures} | ConvertTo-Json -Depth 6
     [IO.File]::WriteAllText((Join-Path $root 'manifest.json'), $manifestJson, (New-Object Text.UTF8Encoding($false)))
     Write-Host "Generated $($fixtures.Count) diagnostic fixtures in $root"

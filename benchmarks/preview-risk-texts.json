@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "note": "Authored synthetic English controls; review flags are not automatic translation error scores.",
+  "texts": [
+    {"id":"complete-object","language":"en","text":"We should take the left path.","category":"complete_object","review":"왼쪽 길이라는 목적어가 첫 번역에서 보존되는지 확인한다."},
+    {"id":"until-condition","language":"en","text":"Do not open the door until I return.","category":"condition","review":"돌아오기 전까지라는 조건이 없는 금지 문장을 중간 번역하는지 확인한다."},
+    {"id":"if-condition","language":"en","text":"Attack the enemy only if the shield is down.","category":"condition","review":"보호막이 내려간 경우에만 공격한다는 조건 없이 공격을 지시하는지 확인한다."},
+    {"id":"negation","language":"en","text":"You must not attack the guard.","category":"negation","review":"공격하지 말라는 부정이 ASR와 번역에서 보존되는지 확인한다."},
+    {"id":"number-repair","language":"en","text":"There are thirteen enemies near the gate, not thirty.","category":"number","review":"thirteen과 thirty를 혼동하거나 수정 뒤 두 숫자의 관계가 뒤집히는지 확인한다."},
+    {"id":"direction-repair","language":"en","text":"Take the left path, no, take the right path.","category":"direction","review":"처음의 왼쪽 지시를 오른쪽으로 수정한 의미가 최종 번역에 반영되는지 확인한다."},
+    {"id":"object-contrast","language":"en","text":"Turn off the engine, not the shield.","category":"object","review":"끄는 대상이 엔진이며 보호막은 제외한다는 대조가 유지되는지 확인한다."}
+  ]
+}

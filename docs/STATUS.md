@@ -1,5 +1,16 @@
 # 구현 상태
 
+## 조건·부정·정정 통제 비교와 보류 수정 (2026-10-02)
+
+7개 합성 영어 음성에서 기존/관측 꼬리 정책 각 3회, 수정 전후 총 84회 비교했다.
+기존 정책에도 있던 `only if the shield is`의 반대 조건 번역과 `You must not`의
+행동 없는 번역을 발견해 공통 preview 보류를 수정했다. 재비교 각 6/6에서 해당
+중간 결과가 사라졌고 해당 문장의 첫 번역은 약 0.54~0.64초 늦어졌다.
+전체 원문을 받은 `until I return` 오역과 이전 정정 문맥의 “아니요” 혼입은 남는다.
+품질 gate false·SupportedPreview 기본 off. 다음은 전체 원문/이전 문맥/프롬프트 비교다.
+실제 파일/HTTP·CUDA release·문법/fmt/workspace build 확인; 일반 테스트·live/UI/Mac 미실행.
+[재현·문장별 검토](evidence/preview-risk-controls-windows-20261002.md).
+
 ## 문장 끝 관측 꼬리 preview 비교 (2026-10-02)
 
 영어 첫 문장의 관측된 1~2단어 꼬리만 임시 번역 입력에 넣는 실험 옵션을 연결했다.

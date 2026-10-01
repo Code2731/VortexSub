@@ -1,5 +1,18 @@
 # Model baseline probes (T00-04.1)
 
+## Controlled preview risk comparison
+
+Run `scripts/probe-preview-risks.ps1 -Rounds 3` for seven authored English
+condition, negation, number, direction, and correction fixtures. It generates
+System.Speech audio only when missing, verifies fixture text and hashes, and
+compares padded adaptive native CUDA/HTTP owners with SupportedPreview off/on.
+Existing Whisper/Qwen/llama.cpp assets and the local Python runtime are required.
+It downloads nothing. Set `CMAKE_CUDA_ARCHITECTURES` for the actual GPU when needed.
+Raw audio/results stay ignored; the catalog is `preview-risk-texts.json`.
+`scripts/summarize-preview-risks.py` retains applied previews/finals for manual
+review; exact source matching is not semantic grading. See
+[results and remaining translation errors](../docs/evidence/preview-risk-controls-windows-20261002.md).
+
 For the growing-prefix CPU Whisper and actual HTTP partial-translation experiment,
 run `scripts/probe-streaming-translation.ps1`. It uses existing assets and Python 3.12
 without downloads, capture, playback, or UI rendering. Source admission is a

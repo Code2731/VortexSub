@@ -166,6 +166,18 @@ fn english_fragment(
     let Some(&last) = words.last() else {
         return None;
     };
+    // A punctuation mark cannot supply a missing action or condition predicate.
+    if words.len() >= 3 && matches!(last, "not" | "never") {
+        return Some("DanglingWord");
+    }
+    if words.iter().any(|w| condition_word(w))
+        && matches!(
+            last,
+            "am" | "is" | "are" | "was" | "were" | "be" | "been" | "being" | "has" | "have" | "had"
+        )
+    {
+        return Some("IncompleteCondition");
+    }
     // Even Whisper punctuation must not close "until I" or "unless we can".
     if let Some(condition) = words.iter().rposition(|word| condition_word(word)) {
         let pending = &words[condition + 1..];
