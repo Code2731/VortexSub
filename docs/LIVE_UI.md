@@ -17,6 +17,9 @@ CUDA 빌드는 `nvidia-smi`의 compute capability로 현재 GPU 대상을 선택
 직접 지정한 `CMAKE_CUDA_ARCHITECTURES`는 유지한다(예: RTX 3080은 `86`).
 전체 빌드 출력은 `logs/native-build-날짜-프로세스ID.log`에 저장하며,
 빌드 실패 메시지에서 해당 로그 경로를 확인할 수 있다.
+새 자막이 멈추는 문제를 조사할 때는 앱의 자막 지연 기록 옵션을 켠다.
+지연 로그에는 worker 상태(5초 간격)와 기록 조회/화면 적용 identity가 남으며,
+desktop 로그에는 세션·캡처 상태 전환과 캡처 오류 코드가 남는다.
 선택한 backend 실패는 오류로 표시하며 CPU로 자동 전환하지 않는다.
 Whisper와 Qwen이 같은 GPU를 사용한다. ASR 단독 파일 속도 개선을
 게임·번역 동시 실행이나 화면 지연 개선으로 확대하지 않는다.

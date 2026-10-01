@@ -10,6 +10,7 @@ internal static class CaptionDiagnostics
     private static readonly SemaphoreSlim lifecycle = new(1, 1);
     private static Recording? active;
     private static string? lastError;
+    private static double lastStatePoll;
     public static bool Enabled => Volatile.Read(ref active) is not null;
     public static string? LastError => Volatile.Read(ref lastError);
     public static double Now => (double)Stopwatch.GetTimestamp() / Stopwatch.Frequency;
@@ -51,6 +52,15 @@ internal static class CaptionDiagnostics
 
     public static void Received(int workerPid, string name, JsonElement payload)
     {
+        if (name is "capture.state" or "session.state")
+        {
+            var state = MetadataToken(payload, "state");
+            var error = MetadataToken(payload, "error");
+            StartupDiagnostics.Write($"Worker {name}; PID={workerPid}; state={state}; error={error ?? "none"}; elapsed_s={Seconds(payload, "elapsed_s")}; accepted_audio_s={Seconds(payload, "accepted_audio_s")}");
+            if (Enabled) Write(new { phase = "worker_state_received", at_s = Now, worker_pid = workerPid,
+                event_name = name, state, error, epoch = Number(payload, "epoch"),
+                elapsed_s = Seconds(payload, "elapsed_s"), accepted_audio_s = Seconds(payload, "accepted_audio_s") });
+        }
         if (!Enabled) return;
         if (name is "capture.partial_requested" or "capture.segmented" or "asr.started" or "asr.completed"
             or "source.partial" or "source.final" or "translation.started" or "translation.completed" or "translation.updated")
@@ -79,6 +89,42 @@ internal static class CaptionDiagnostics
             session_id = Number(record, "session_id"), epoch = Number(record, "epoch"),
             segment_id = Number(record, "segment_id"), source_revision = Number(record, "source_revision"),
             translation_request_id = Number(record, "translation_request_id") });
+    }
+
+    // State names and error codes only: never retain subtitle text or endpoint names.
+    private static string? MetadataToken(JsonElement payload, string name)
+    {
+        if (!payload.TryGetProperty(name, out var value) || value.ValueKind != JsonValueKind.String) return null;
+        var token = value.GetString();
+        return token is { Length: > 0 and <= 80 } && token.All(c => char.IsAsciiLetterOrDigit(c) || c == '_') ? token : null;
+    }
+
+    public static void SnapshotApplied(int workerPid, HistorySnapshot snapshot, ulong internalSession, ulong epoch)
+    {
+        if (!Enabled) return;
+        var latest = snapshot.Records.LastOrDefault(r => r.SessionId == internalSession && r.Epoch == epoch);
+        Write(new { phase = "history_snapshot_applied", at_s = Now, worker_pid = workerPid,
+            history_version = snapshot.Version, records = snapshot.Records.Count,
+            session_id = internalSession, epoch, segment_id = latest?.SegmentId,
+            source_revision = latest?.SourceRevision, applied_source_revision = latest?.AppliedSourceRevision,
+            source_state = latest?.SourceState, translation_state = latest?.TranslationState,
+            translation_request_id = latest?.TranslationRequestId, preview = latest?.TranslationIsPreview });
+    }
+
+    public static void StatePolled(int workerPid, JsonElement state, ulong? snapshotVersion)
+    {
+        if (!Enabled || Now - lastStatePoll < 5) return;
+        lastStatePoll = Now;
+        var capture = state.GetProperty("diagnostic_capture");
+        var session = state.GetProperty("session");
+        var translator = state.GetProperty("translator");
+        var asr = state.GetProperty("diagnostic_asr");
+        Write(new { phase = "worker_state_polled", at_s = Now, worker_pid = workerPid,
+            session_state = MetadataToken(session, "state"), capture_state = MetadataToken(capture, "state"),
+            capture_error = MetadataToken(capture, "error"), accepted_audio_s = Seconds(capture, "accepted_audio_s"),
+            history_version = Number(state, "history_version"), snapshot_version = snapshotVersion,
+            decoding = Flag(asr, "decoding"), native_running = Flag(asr, "native_running"),
+            translator_state = MetadataToken(translator, "state"), translation_in_flight = Flag(translator, "in_flight") });
     }
 
     private static string? AdaptivePolicy(JsonElement payload)

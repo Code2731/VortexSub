@@ -197,6 +197,7 @@ public sealed class MainWindow : Window
         });
         stopCaptureButton.Click += async (_, _) =>
         {
+            StartupDiagnostics.Write("User requested stop_session");
             ClearSource();
             await ExecuteAsync(async () =>
             {
@@ -210,6 +211,7 @@ public sealed class MainWindow : Window
         };
         pauseButton.Click += async (_, _) =>
         {
+            StartupDiagnostics.Write("User requested pause_session");
             ClearSource();
             await ExecuteAsync(async () =>
             {
@@ -533,7 +535,8 @@ public sealed class MainWindow : Window
         }
         // An interrupted background read must not repaint source text after Stop was clicked.
         deadline.Token.ThrowIfCancellationRequested();
-        if (!ReferenceEquals(snapshot, refreshedSnapshot))
+        var historyChanged = !ReferenceEquals(snapshot, refreshedSnapshot);
+        if (historyChanged)
         {
             snapshot = refreshedSnapshot;
             history.ItemsSource = snapshot?.Records.TakeLast(100).Reverse().Select(CaptionPresentation.HistoryText).ToArray();
@@ -597,6 +600,10 @@ public sealed class MainWindow : Window
             details.Text += "\n모델 읽기 실패: 모델/DLL 경로·해시와 native CPU 빌드를 확인하세요.";
         while (client.Events.TryRead(out _)) { }
         var epoch = state.GetProperty("diagnostic_asr").GetProperty("epoch").GetUInt64();
+        if (historyChanged && snapshot is not null)
+            CaptionDiagnostics.SnapshotApplied(client.ProcessId, snapshot,
+                sessionId is not null ? session.GetProperty("internal_session_id").GetUInt64() : 0, epoch);
+        CaptionDiagnostics.StatePolled(client.ProcessId, state, snapshot?.Version);
         captions.ShowSource = overlaySourceEnabled.IsChecked == true;
         SetCaptionCards(captions.Update(snapshot?.Records ?? [], sessionId,
             sessionId is not null ? session.GetProperty("internal_session_id").GetUInt64() : 0, epoch,
