@@ -317,6 +317,10 @@ impl NativeOwner {
                 let nonzero_samples = task.job.pcm.samples().iter().filter(|s| **s != 0.0).count();
                 let outcome = if task.cancellation.snapshot().requested {
                     Outcome::Cancelled
+                } else if task.job.product_range != task.job.pcm.range() {
+                    // Window jobs require complete-source reconstruction. Never publish a tail
+                    // as the complete caption while that owner integration is not enabled.
+                    Outcome::Failed
                 } else if nonzero_samples == 0 {
                     Outcome::NoSpeech
                 } else {

@@ -5,6 +5,85 @@ const ID: AudioIdentity = AudioIdentity {
     epoch: 1,
 };
 #[test]
+fn decode_window_preserves_product_range_revision_and_final_priority() {
+    let mut f = Fixture::new(1000, "ko");
+    let id = SegmentIdentity {
+        audio: ID,
+        segment_id: 1,
+    };
+    let product = SampleRange {
+        start: 0,
+        end: 1024,
+    };
+    let version = f.core.version();
+    for window in [
+        SampleRange {
+            start: 1024,
+            end: 1024,
+        },
+        SampleRange { start: 0, end: 512 },
+        SampleRange {
+            start: 2048,
+            end: 3072,
+        },
+    ] {
+        assert_eq!(
+            f.core.submit_asr_window(
+                id,
+                product,
+                window,
+                AsrKind::Partial,
+                &f.ring,
+                &mut f.pool,
+                0
+            ),
+            Err(CoreError::InvalidRange)
+        );
+    }
+    assert_eq!(f.core.version(), version);
+    let window = SampleRange {
+        start: 512,
+        end: 1024,
+    };
+    f.core
+        .submit_asr_window(
+            id,
+            product,
+            window,
+            AsrKind::Partial,
+            &f.ring,
+            &mut f.pool,
+            0,
+        )
+        .unwrap();
+    let partial = f.core.next_asr().unwrap();
+    assert_eq!(partial.product_range, product);
+    assert_eq!(partial.pcm.range(), window);
+    assert_eq!(partial.pcm.samples().len(), 512);
+    assert_eq!(f.records()[0].range, product);
+    let final_admission = f.submit(1, AsrKind::Final, 1024, 1);
+    assert_eq!(final_admission.cancel_asr, Some(partial.key()));
+    assert_eq!(
+        f.core
+            .complete_asr(partial.key(), Outcome::Text("late tail".into()), 2)
+            .unwrap(),
+        Apply::Ignored
+    );
+    drop(partial);
+    let final_job = f.core.next_asr().unwrap();
+    assert_eq!(final_job.product_range, product);
+    assert_eq!(final_job.pcm.range(), product);
+    assert_eq!(final_job.key().source_revision, 2);
+    f.core
+        .complete_asr(
+            final_job.key(),
+            Outcome::Text("complete sentence".into()),
+            3,
+        )
+        .unwrap();
+    assert_eq!(f.records()[0].source, "complete sentence");
+}
+#[test]
 fn sentence_units_advance_only_after_applied_http_and_reset_on_prefix_correction() {
     let mut f = Fixture::new(1000, "ko");
     f.core.set_partial_translation_enabled(true);

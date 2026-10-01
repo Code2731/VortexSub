@@ -1,5 +1,14 @@
 # 구현 상태
 
+## Decode window 기반 분리 (2026-10-02)
+
+제품 range/PCM window를 core API와 job에서 분리했다. 정렬·overlap 재결합은
+fixture/파일 probe에 연결했고 라이브는 전체 입력을 유지한다. CUDA 실제 파일의
+3초/4초 전사 모두 `path`의 길이 0 시간으로 후보를 거부해 추가 속도 개선은
+확인하지 못했다. 관련 Rust 93개 PASS, native CUDA/VAD 빌드·파일 probe 완료.
+단어 시간 정렬과 owner 재결합/fallback 연결이 남았다.
+[구조와 다음](DECODE_WINDOWS.md) · [근거](evidence/decode-window-windows-20261002.md).
+
 ## 적응형 부분 전사 스케줄 (2026-10-02)
 
 첫 요청을 0.8초로 복구하고 빠른 모드의 실제 재전사를 결과별 새 오디오

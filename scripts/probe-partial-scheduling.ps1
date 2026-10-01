@@ -24,7 +24,6 @@ $oldReport = $env:ECHOSUB_SCHEDULE_REPORT
 $probeEnvNames = @('ECHOSUB_SCHEDULE_BACKEND','ECHOSUB_SCHEDULE_ROUNDS','ECHOSUB_SCHEDULE_FIRST','ECHOSUB_SCHEDULE_CURRENT','ECHOSUB_SCHEDULE_ENDPOINT','ECHOSUB_SCHEDULE_TRANSLATION_MODEL')
 $oldProbeEnv = @{}
 foreach ($probeEnvName in $probeEnvNames) { $oldProbeEnv[$probeEnvName] = [Environment]::GetEnvironmentVariable($probeEnvName) }
-if ($Trim -and $Backend -ne 'cpu') { throw 'The trim feasibility probe supports CPU only' }
 if ($TranslationEndpoint -and ($Trim -or -not $TranslationModel)) { throw 'Translation comparison requires -TranslationModel and cannot use -Trim' }
 Push-Location $repo
 try {

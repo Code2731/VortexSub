@@ -5,6 +5,8 @@ mod adaptive_partial;
 #[cfg(any(feature = "native-asr", test))]
 mod asr_reconcile;
 mod capture_runtime;
+#[cfg(test)]
+mod decode_window;
 mod live_owner;
 mod native_owner;
 mod runtime;

@@ -1,5 +1,11 @@
 # EchoSub 단계별 구현 계획
 
+2026-10-02 두 번째 단계의 기반인 product range/decode window를 분리하고
+정렬·overlap 재결합을 fixture/파일 probe로 연결했다. 실제 CUDA에서도 길이 0인
+단어 시간으로 cut을 거부했다. 다음은 단어 시간 정렬 확보와 적용 revision의
+mapping, owner 재결합 실패 시 전체 입력 fallback이다. 라이브 trim과 추가 속도
+개선은 아직 미완료다. [구현 범위](DECODE_WINDOWS.md).
+
 2026-10-02 사용자와 고도화 순서를 합의했다: **결과별 적응형 전사 → 안정된
 구간 이후 재인식 → 스트리밍 ASR 후보 비교**. 첫 단계는 빠른 모드에 연결했고
 실제 CUDA/HTTP 파일 비교에서 첫 번역 2.016→1.738초를 관측했다.

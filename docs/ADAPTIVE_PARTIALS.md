@@ -48,4 +48,6 @@ Windows·RTX 3080·기존 Whisper base CUDA와 Qwen3 4B Q4_K_M, 동일 7.605초
 다음은 안정된 구간 이후의 오디오를 재인식하는 구조다. 제품 오디오 범위와
 실제 decode window를 분리하고, 검증된 시간 정렬·overlap 재결합을 먼저 갖춘다.
 기존 zero-length token 문제를 해결하지 않은 채 오디오를 자르지 않는다.
+범위 분리와 파일 정렬/재결합의 첫 구현은 [입력 구간 문서](DECODE_WINDOWS.md)에
+기록했다. 실제 CUDA에서도 길이 0인 단어 시간은 거부되므로 라이브 trim은 보류한다.
 그 이후 스트리밍 ASR 후보를 같은 입력/지연/품질 기준으로 비교한다.

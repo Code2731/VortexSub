@@ -84,6 +84,8 @@ pub enum AsrKind {
 }
 pub struct AsrJob {
     pub kind: AsrKind,
+    /// Complete caption range; PCM may contain only a validated decode window.
+    pub product_range: SampleRange,
     pub pcm: PcmSnapshot,
 }
 impl AsrJob {
@@ -396,13 +398,33 @@ impl Pipeline {
         pool: &mut SnapshotPool,
         now: u64,
     ) -> Result<Admission, CoreError> {
+        self.submit_asr_window(id, range, range, kind, ring, pool, now)
+    }
+    /// Snapshot a suffix without changing caption history identity or audio range.
+    /// The caller must reconstruct a complete source before completing this job.
+    #[allow(clippy::too_many_arguments)]
+    pub fn submit_asr_window(
+        &mut self,
+        id: SegmentIdentity,
+        range: SampleRange,
+        window: SampleRange,
+        kind: AsrKind,
+        ring: &RollingAudio,
+        pool: &mut SnapshotPool,
+        now: u64,
+    ) -> Result<Admission, CoreError> {
         if !self.running {
             return Err(CoreError::Closed);
         }
         if id.audio != self.identity {
             return Err(CoreError::StaleIdentity);
         }
-        if range.start >= range.end || range.end - range.start > 128000 {
+        if range.start >= range.end
+            || range.end - range.start > 128000
+            || window.start < range.start
+            || window.start >= window.end
+            || window.end != range.end
+        {
             return Err(CoreError::InvalidRange);
         }
         if now < self.clock {
@@ -495,12 +517,16 @@ impl Pipeline {
         let snapshot = if full {
             Err(AudioError::ResourceExhausted)
         } else {
-            pool.snapshot(ring, key, range)
+            pool.snapshot(ring, key, window)
         };
         let queued = snapshot.is_ok();
         match snapshot {
             Ok(pcm) => {
-                let job = AsrJob { kind, pcm };
+                let job = AsrJob {
+                    kind,
+                    product_range: range,
+                    pcm,
+                };
                 if kind == AsrKind::Final {
                     self.records[i].source_state = SourceState::FinalPending;
                     self.final_queue.push_back(job);
