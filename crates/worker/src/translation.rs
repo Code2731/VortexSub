@@ -5,7 +5,7 @@ use echosub_pipeline_core::{Apply, Outcome};
 use echosub_translation::{
     http::{select_model, Failure},
     owner::{Output, Owner},
-    Endpoint,
+    Endpoint, PromptPolicy,
 };
 use serde_json::{json, Value};
 use std::time::{Duration, Instant};
@@ -13,6 +13,7 @@ use std::time::{Duration, Instant};
 pub struct Translator {
     pub enabled: bool,
     pub owner: Option<Owner>,
+    pub prompt_policy: PromptPolicy,
     state: &'static str,
     selected: Option<String>,
     requested: Option<String>,
@@ -29,6 +30,7 @@ impl Default for Translator {
         Self {
             enabled: false,
             owner: None,
+            prompt_policy: PromptPolicy::Original,
             state: "Unavailable",
             selected: None,
             requested: None,
@@ -113,8 +115,9 @@ impl Runtime {
                 _ => return Err(("INVALID_REQUEST", "Invalid model ID")),
             };
             let token = std::env::var("ECHOSUB_TRANSLATION_TOKEN").ok();
-            let mut owner = Owner::new(endpoint, token.as_deref())
-                .map_err(|_| ("INVALID_CONFIG", "HTTP client configuration rejected"))?;
+            let mut owner =
+                Owner::new_with_policy(endpoint, token.as_deref(), self.translator.prompt_policy)
+                    .map_err(|_| ("INVALID_CONFIG", "HTTP client configuration rejected"))?;
             owner
                 .models(Duration::from_secs(8))
                 .map_err(|_| ("INTERNAL_ERROR", "HTTP owner unavailable"))?;

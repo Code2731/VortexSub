@@ -1,4 +1,4 @@
-param([ValidateRange(1, 10)] [int] $Rounds = 3, [switch] $NoBuild)
+param([ValidateRange(1, 10)] [int] $Rounds = 3, [switch] $NoBuild, [switch] $IsolatedTranslationContext)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
 Push-Location $repo
@@ -25,7 +25,9 @@ try {
     New-Item -ItemType Directory -Path $output | Out-Null
     foreach ($item in (Get-Content -LiteralPath $texts -Encoding UTF8 -Raw | ConvertFrom-Json).texts) {
         $caseOutput = Join-Path $output $item.id
-        & $python -X utf8 "$PSScriptRoot/probe-paced-translation.py" --backend cuda --rounds $Rounds --supported-preview --fixture-manifest $manifest --fixture-id $item.id --output-dir $caseOutput
+        $probeArgs = @('--backend', 'cuda', '--rounds', "$Rounds", '--supported-preview', '--fixture-manifest', $manifest, '--fixture-id', $item.id, '--output-dir', $caseOutput)
+        if ($IsolatedTranslationContext) { $probeArgs += '--isolated-translation-context' }
+        & $python -X utf8 "$PSScriptRoot/probe-paced-translation.py" @probeArgs
         if ($LASTEXITCODE -ne 0) { throw "Comparison failed for $($item.id); completed reports retained: $output" }
     }
     & $python -X utf8 "$PSScriptRoot/summarize-preview-risks.py" $output --catalog $texts

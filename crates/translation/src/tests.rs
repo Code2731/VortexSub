@@ -25,8 +25,14 @@ fn payload(job: &TranslationJob) -> (Request, Value) {
     let Prepared::Send(request) = prepare(job, "model/id", 1_000_000_000).unwrap() else {
         panic!()
     };
-    let value =
-        serde_json::from_str(request.body["messages"][1]["content"].as_str().unwrap()).unwrap();
+    let messages = request.body["messages"].as_array().unwrap();
+    let mut value: Value =
+        serde_json::from_str(messages.last().unwrap()["content"].as_str().unwrap()).unwrap();
+    if value.get("context").is_none() {
+        let reference: Value =
+            serde_json::from_str(messages[1]["content"].as_str().unwrap()).unwrap();
+        value["context"] = reference["context"].clone();
+    }
     (request, value)
 }
 fn reply(message: Value, reason: &str) -> Vec<u8> {

@@ -1,5 +1,18 @@
 # Model baseline probes (T00-04.1)
 
+## Prompt and reference-context comparison
+
+Run `scripts/probe-translation-context.ps1 -Rounds 3` to compare the frozen
+original prompt with the opt-in isolated production request on 12 authored
+English/Japanese sources, each with/without previous source context.
+`-Profiles baseline,strict,isolated` compares wording and separation individually;
+`-Rounds 1 -OwnerCheck` also exercises the actual Rust HTTP owner for both policies.
+The probe exports bounded requests from Rust, uses existing local Qwen/llama.cpp
+and Python assets, and saves raw requests/results under ignored `results/`.
+No downloads, ASR, capture or UI are involved. Semantic review is manual.
+The candidate remains default off because regressions remain. See
+[contract and measurements](../docs/TRANSLATION_PROMPT_CONTEXT.md).
+
 ## Controlled preview risk comparison
 
 Run `scripts/probe-preview-risks.ps1 -Rounds 3` for seven authored English

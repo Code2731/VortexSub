@@ -1,5 +1,5 @@
 param([string] $ServerPath, [switch] $NoBuild,
-    [ValidateSet('cpu', 'cuda')] [string] $AsrBackend = 'cpu', [switch] $FastPartials, [switch] $CaptionTiming, [switch] $DecodeWindow, [switch] $PadShortPartials, [switch] $SupportedPreview)
+    [ValidateSet('cpu', 'cuda')] [string] $AsrBackend = 'cpu', [switch] $FastPartials, [switch] $CaptionTiming, [switch] $DecodeWindow, [switch] $PadShortPartials, [switch] $SupportedPreview, [switch] $IsolatedTranslationContext)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
 $server = $null
@@ -78,6 +78,7 @@ try {
     if ($DecodeWindow) { $launcherArgs += '-DecodeWindow' }
     if ($PadShortPartials) { $launcherArgs += '-PadShortPartials' }
     if ($SupportedPreview) { $launcherArgs += '-SupportedPreview' }
+    if ($IsolatedTranslationContext) { $launcherArgs += '-IsolatedTranslationContext' }
     if ($CaptionTiming) { $launcherArgs += '-CaptionTiming' }
     & (Join-Path $env:SystemRoot 'System32/WindowsPowerShell/v1.0/powershell.exe') @launcherArgs
     $exitCode = $LASTEXITCODE

@@ -72,9 +72,15 @@ impl Server {
                 let (status, body) = if headers.starts_with("GET /v1/models ") {
                     (200, json!({"data":[{"id":"fixture/model"}]}).to_string())
                 } else {
-                    let payload: Value =
-                        serde_json::from_str(body["messages"][1]["content"].as_str().unwrap())
+                    let messages = body["messages"].as_array().unwrap();
+                    let mut payload: Value =
+                        serde_json::from_str(messages.last().unwrap()["content"].as_str().unwrap())
                             .unwrap();
+                    if payload.get("context").is_none() {
+                        let reference: Value =
+                            serde_json::from_str(messages[1]["content"].as_str().unwrap()).unwrap();
+                        payload["context"] = reference["context"].clone();
+                    }
                     observed.lock().unwrap().push(payload.clone());
                     let text = payload["source_text"].as_str().unwrap();
                     if text.starts_with("slow") {

@@ -49,6 +49,8 @@ fn native_paced_translation_probe() {
     let window_compare = std::env::var("ECHOSUB_WINDOW_COMPARE").as_deref() == Ok("1");
     let padding_compare = std::env::var("ECHOSUB_PADDING_COMPARE").as_deref() == Ok("1");
     let supported_compare = std::env::var("ECHOSUB_SUPPORTED_COMPARE").as_deref() == Ok("1");
+    let isolated_context =
+        std::env::var("ECHOSUB_ISOLATED_TRANSLATION_CONTEXT").as_deref() == Ok("1");
     assert!(!(supported_compare && (padding_compare || window_compare || adaptive_compare)));
     assert!(!(padding_compare && (window_compare || adaptive_compare)));
     let mut reports = Vec::new();
@@ -94,6 +96,9 @@ fn native_paced_translation_probe() {
                 std::thread::sleep(Duration::from_millis(5));
             }
             r.enable_http_translation();
+            if isolated_context {
+                r.translator.prompt_policy = echosub_translation::PromptPolicy::IsolatedContext;
+            }
             r.translation_command(
                 "configure_translation",
                 &json!({"endpoint":endpoint,"model_id":translation_model}),
@@ -219,7 +224,7 @@ fn native_paced_translation_probe() {
                     segment_id: 1,
                 })
                 .unwrap();
-            reports.push(json!({"round":round,"interval_s":interval_s,"effective_interval_s":effective_interval_s,"adaptive":r.fast_partials,"supported_preview":supported_preview,"pad_short_partials":pad_short_partials,"decode_window":decode_window,"window_attempts":r.window_state.attempts,"window_fallbacks":r.window_state.fallbacks,"setup_s":setup_s,
+            reports.push(json!({"round":round,"interval_s":interval_s,"effective_interval_s":effective_interval_s,"adaptive":r.fast_partials,"isolated_translation_context":isolated_context,"supported_preview":supported_preview,"pad_short_partials":pad_short_partials,"decode_window":decode_window,"window_attempts":r.window_state.attempts,"window_fallbacks":r.window_state.fallbacks,"setup_s":setup_s,
                 "audio_s":pcm.len() as f64/16000.,"first_text_s":first_text_s,"first_stable_s":first_stable_s,
                 "first_translation_s":first_translation_s,"final_asr_s":final_asr_s,
                 "final_translation_s":final_translation_s,"scheduler":r.partial_schedule.value(),

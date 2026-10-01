@@ -1,0 +1,246 @@
+{
+  "schema_version": 1,
+  "source": "Project-authored full-source diagnostics; paired prior source context; manual semantic review required.",
+  "cases": [
+    {
+      "id": "until-return-none",
+      "language": "en",
+      "source": "Do not open the door until I return.",
+      "reference": "내가 돌아올 때까지 문을 열지 마.",
+      "context": [],
+      "pair": "until-return",
+      "context_condition": "none"
+    },
+    {
+      "id": "until-return-previous",
+      "language": "en",
+      "source": "Do not open the door until I return.",
+      "reference": "내가 돌아올 때까지 문을 열지 마.",
+      "context": [
+        "I am leaving the room."
+      ],
+      "pair": "until-return",
+      "context_condition": "previous"
+    },
+    {
+      "id": "until-arrive-none",
+      "language": "en",
+      "source": "Wait here until the captain arrives.",
+      "reference": "대장이 도착할 때까지 여기서 기다려.",
+      "context": [],
+      "pair": "until-arrive",
+      "context_condition": "none"
+    },
+    {
+      "id": "until-arrive-previous",
+      "language": "en",
+      "source": "Wait here until the captain arrives.",
+      "reference": "대장이 도착할 때까지 여기서 기다려.",
+      "context": [
+        "The captain is still outside."
+      ],
+      "pair": "until-arrive",
+      "context_condition": "previous"
+    },
+    {
+      "id": "before-leave-none",
+      "language": "en",
+      "source": "Close the gate before you leave.",
+      "reference": "떠나기 전에 문을 닫아.",
+      "context": [],
+      "pair": "before-leave",
+      "context_condition": "none"
+    },
+    {
+      "id": "before-leave-previous",
+      "language": "en",
+      "source": "Close the gate before you leave.",
+      "reference": "떠나기 전에 문을 닫아.",
+      "context": [
+        "We will return tomorrow."
+      ],
+      "pair": "before-leave",
+      "context_condition": "previous"
+    },
+    {
+      "id": "only-if-none",
+      "language": "en",
+      "source": "Attack the enemy only if the shield is down.",
+      "reference": "방어막이 내려갔을 때만 적을 공격해.",
+      "context": [],
+      "pair": "only-if",
+      "context_condition": "none"
+    },
+    {
+      "id": "only-if-previous",
+      "language": "en",
+      "source": "Attack the enemy only if the shield is down.",
+      "reference": "방어막이 내려갔을 때만 적을 공격해.",
+      "context": [
+        "The shield is active now."
+      ],
+      "pair": "only-if",
+      "context_condition": "previous"
+    },
+    {
+      "id": "unless-none",
+      "language": "en",
+      "source": "Do not move unless I give the signal.",
+      "reference": "내가 신호를 주지 않으면 움직이지 마.",
+      "context": [],
+      "pair": "unless",
+      "context_condition": "none"
+    },
+    {
+      "id": "unless-previous",
+      "language": "en",
+      "source": "Do not move unless I give the signal.",
+      "reference": "내가 신호를 주지 않으면 움직이지 마.",
+      "context": [
+        "The route is dangerous."
+      ],
+      "pair": "unless",
+      "context_condition": "previous"
+    },
+    {
+      "id": "negation-none",
+      "language": "en",
+      "source": "You must not attack the guard.",
+      "reference": "경비원을 공격하면 안 돼.",
+      "context": [],
+      "pair": "negation",
+      "context_condition": "none"
+    },
+    {
+      "id": "negation-previous",
+      "language": "en",
+      "source": "You must not attack the guard.",
+      "reference": "경비원을 공격하면 안 돼.",
+      "context": [
+        "Attack the enemy now."
+      ],
+      "pair": "negation",
+      "context_condition": "previous"
+    },
+    {
+      "id": "numbers-none",
+      "language": "en",
+      "source": "There are thirteen enemies near the gate, not thirty.",
+      "reference": "문 근처의 적은 서른 명이 아니라 열세 명이야.",
+      "context": [],
+      "pair": "numbers",
+      "context_condition": "none"
+    },
+    {
+      "id": "numbers-previous",
+      "language": "en",
+      "source": "There are thirteen enemies near the gate, not thirty.",
+      "reference": "문 근처의 적은 서른 명이 아니라 열세 명이야.",
+      "context": [
+        "I counted thirty enemies earlier."
+      ],
+      "pair": "numbers",
+      "context_condition": "previous"
+    },
+    {
+      "id": "correction-unit-none",
+      "language": "en",
+      "source": "Take the right path.",
+      "reference": "오른쪽 길로 가.",
+      "context": [],
+      "pair": "correction-unit",
+      "context_condition": "none"
+    },
+    {
+      "id": "correction-unit-previous",
+      "language": "en",
+      "source": "Take the right path.",
+      "reference": "오른쪽 길로 가.",
+      "context": [
+        "Take the left path. No."
+      ],
+      "pair": "correction-unit",
+      "context_condition": "previous"
+    },
+    {
+      "id": "contrast-none",
+      "language": "en",
+      "source": "Turn off the engine, not the shield.",
+      "reference": "방어막은 끄지 말고 엔진만 꺼.",
+      "context": [],
+      "pair": "contrast",
+      "context_condition": "none"
+    },
+    {
+      "id": "contrast-previous",
+      "language": "en",
+      "source": "Turn off the engine, not the shield.",
+      "reference": "방어막은 끄지 말고 엔진만 꺼.",
+      "context": [
+        "The shield protects us."
+      ],
+      "pair": "contrast",
+      "context_condition": "previous"
+    },
+    {
+      "id": "pronoun-none",
+      "language": "en",
+      "source": "He is ready.",
+      "reference": "그는 준비됐어.",
+      "context": [],
+      "pair": "pronoun",
+      "context_condition": "none"
+    },
+    {
+      "id": "pronoun-previous",
+      "language": "en",
+      "source": "He is ready.",
+      "reference": "그는 준비됐어.",
+      "context": [
+        "The captain checked his equipment."
+      ],
+      "pair": "pronoun",
+      "context_condition": "previous"
+    },
+    {
+      "id": "ja-until-none",
+      "language": "ja",
+      "source": "戻るまでドアを開けないで。",
+      "reference": "돌아올 때까지 문을 열지 마.",
+      "context": [],
+      "pair": "ja-until",
+      "context_condition": "none"
+    },
+    {
+      "id": "ja-until-previous",
+      "language": "ja",
+      "source": "戻るまでドアを開けないで。",
+      "reference": "돌아올 때까지 문을 열지 마.",
+      "context": [
+        "今から部屋を出る。"
+      ],
+      "pair": "ja-until",
+      "context_condition": "previous"
+    },
+    {
+      "id": "ja-correction-none",
+      "language": "ja",
+      "source": "右の道へ進んで。",
+      "reference": "오른쪽 길로 가.",
+      "context": [],
+      "pair": "ja-correction",
+      "context_condition": "none"
+    },
+    {
+      "id": "ja-correction-previous",
+      "language": "ja",
+      "source": "右の道へ進んで。",
+      "reference": "오른쪽 길로 가.",
+      "context": [
+        "左の道へ進んで。いや。"
+      ],
+      "pair": "ja-correction",
+      "context_condition": "previous"
+    }
+  ]
+}

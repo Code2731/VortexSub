@@ -35,10 +35,16 @@ fn poll(owner: &mut Owner) -> Result<echosub_translation::owner::Completion, Str
     }
 }
 fn run() -> Result<(), String> {
-    let args: Vec<_> = std::env::args().collect();
+    let mut args: Vec<_> = std::env::args().collect();
+    let policy = if args.last().is_some_and(|arg| arg == "--isolated-context") {
+        args.pop();
+        echosub_translation::PromptPolicy::IsolatedContext
+    } else {
+        echosub_translation::PromptPolicy::Original
+    };
     if !matches!(args.len(), 5 | 7) {
         return Err(
-            "Usage: <http://127.0.0.1:PORT/v1/> <model-id or -> <fixtures.json> <report.json> [warmup-rounds measured-rounds]"
+            "Usage: <http://127.0.0.1:PORT/v1/> <model-id or -> <fixtures.json> <report.json> [warmup-rounds measured-rounds]; or --prepare <model-id> <fixtures.json> <requests.json>"
                 .into(),
         );
     }
@@ -53,7 +59,6 @@ fn run() -> Result<(), String> {
     if warmup > 5 || !(1..=10).contains(&rounds) {
         return Err("Expected warmup 0..5 and measured rounds 1..10".into());
     }
-    let endpoint = Endpoint::parse(&args[1]).map_err(|e| format!("endpoint: {e:?}"))?;
     let mut bytes = Vec::new();
     fs::File::open(&args[3])
         .map_err(|_| "Cannot open fixtures")?
@@ -93,8 +98,33 @@ fn run() -> Result<(), String> {
             }
         }
     }
+    // Export the production request contract without loading models or using HTTP.
+    if args[1] == "--prepare" {
+        let mut requests = Vec::new();
+        for (index, case) in cases.iter().enumerate() {
+            let job = fixture_job(case, index as u64 + 1, index as u64 + 1, 0)?;
+            let Prepared::Send(request) =
+                echosub_translation::prepare_with_policy(&job, &args[2], 0, policy)
+                    .map_err(|e| format!("prepare: {e:?}"))?
+            else {
+                return Err("Request export requires different source/target languages".into());
+            };
+            requests.push(json!({"id":case["id"],"body":request.body}));
+        }
+        fs::write(
+            &args[4],
+            serde_json::to_vec_pretty(&json!({
+                "fixture_sha256":fixture_sha256,"requests":requests
+            }))
+            .map_err(|_| "Request serialization failed")?,
+        )
+        .map_err(|_| "Request write failed")?;
+        return Ok(());
+    }
+    let endpoint = Endpoint::parse(&args[1]).map_err(|e| format!("endpoint: {e:?}"))?;
     let token = std::env::var("ECHOSUB_TRANSLATION_TOKEN").ok();
-    let mut owner = Owner::new(endpoint, token.as_deref()).map_err(|e| format!("owner: {e:?}"))?;
+    let mut owner = Owner::new_with_policy(endpoint, token.as_deref(), policy)
+        .map_err(|e| format!("owner: {e:?}"))?;
     owner
         .models(Duration::from_secs(8))
         .map_err(|e| format!("catalog submit: {e:?}"))?;
@@ -112,48 +142,28 @@ fn run() -> Result<(), String> {
     for round in 0..warmup + rounds {
         for (index, case) in cases.iter().enumerate() {
             let now_ns = u64::try_from(clock.elapsed().as_nanos()).map_err(|_| "Clock overflow")?;
-            let job = TranslationJob {
-                key: TranslationKey {
-                    source: JobIdentity {
-                        audio: AudioIdentity {
-                            session_id: 1,
-                            epoch: 0,
-                        },
-                        segment_id: index as u64 + 1,
-                        source_revision: 1,
-                    },
-                    request_id: (round * cases.len() + index) as u64 + 1,
-                },
-                source: case["source"].as_str().unwrap().into(),
-                context: case
-                    .get("context")
-                    .and_then(Value::as_array)
-                    .map(|values| {
-                        values
-                            .iter()
-                            .map(|v| v.as_str().unwrap().to_owned())
-                            .collect()
-                    })
-                    .unwrap_or_default(),
-                source_language: case["language"].as_str().unwrap().into(),
-                target_language: "ko".into(),
-                deadline_ns: now_ns.checked_add(8_000_000_000).ok_or("Clock overflow")?,
-            };
-            let fingerprint = match echosub_translation::prepare(&job, &model, now_ns)
-                .map_err(|e| format!("prepare: {e:?}"))?
-            {
-                Prepared::Send(mut request) => {
-                    request.body["model"] = json!("<selected-model>");
-                    format!(
-                        "{:x}",
-                        Sha256::digest(
-                            serde_json::to_vec(&request.body)
-                                .map_err(|_| "Request fingerprint failed")?
+            let job = fixture_job(
+                case,
+                index as u64 + 1,
+                (round * cases.len() + index) as u64 + 1,
+                now_ns,
+            )?;
+            let fingerprint =
+                match echosub_translation::prepare_with_policy(&job, &model, now_ns, policy)
+                    .map_err(|e| format!("prepare: {e:?}"))?
+                {
+                    Prepared::Send(mut request) => {
+                        request.body["model"] = json!("<selected-model>");
+                        format!(
+                            "{:x}",
+                            Sha256::digest(
+                                serde_json::to_vec(&request.body)
+                                    .map_err(|_| "Request fingerprint failed")?
+                            )
                         )
-                    )
-                }
-                Prepared::Bypass(_) => "bypass".into(),
-            };
+                    }
+                    Prepared::Bypass(_) => "bypass".into(),
+                };
             let start = Instant::now();
             let (translation, error) = match owner.translate(&job, &model, now_ns) {
                 Ok(()) => {
@@ -201,4 +211,39 @@ fn run() -> Result<(), String> {
         ));
     }
     Ok(())
+}
+
+fn fixture_job(
+    case: &Value,
+    segment_id: u64,
+    request_id: u64,
+    now_ns: u64,
+) -> Result<TranslationJob, String> {
+    Ok(TranslationJob {
+        key: TranslationKey {
+            source: JobIdentity {
+                audio: AudioIdentity {
+                    session_id: 1,
+                    epoch: 0,
+                },
+                segment_id,
+                source_revision: 1,
+            },
+            request_id,
+        },
+        source: case["source"].as_str().unwrap().into(),
+        context: case
+            .get("context")
+            .and_then(Value::as_array)
+            .map(|values| {
+                values
+                    .iter()
+                    .map(|v| v.as_str().unwrap().to_owned())
+                    .collect()
+            })
+            .unwrap_or_default(),
+        source_language: case["language"].as_str().unwrap().into(),
+        target_language: "ko".into(),
+        deadline_ns: now_ns.checked_add(8_000_000_000).ok_or("Clock overflow")?,
+    })
 }

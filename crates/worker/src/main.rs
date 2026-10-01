@@ -45,6 +45,14 @@ fn serve() -> io::Result<()> {
     });
     let mut writer = transport::ResponseWriter::new(&outbox);
     let args = std::env::args().collect::<Vec<_>>();
+    let isolated_context = args
+        .iter()
+        .any(|a| a == "--experimental-isolated-translation-context");
+    if isolated_context && !args.iter().any(|a| a == "--diagnostic-translation") {
+        return Err(io::Error::other(
+            "Isolated translation context requires diagnostic translation",
+        ));
+    }
     let config = native_owner::config_from_args(&args).map_err(io::Error::other)?;
     let capture = args.iter().any(|a| a == "--diagnostic-capture");
     let live = args.iter().any(|a| a == "--live-asr");
@@ -107,6 +115,9 @@ fn serve() -> io::Result<()> {
         .core
         .set_supported_preview_enabled(supported_preview);
     runtime.session.mock = mock_sessions;
+    if isolated_context {
+        runtime.translator.prompt_policy = echosub_translation::PromptPolicy::IsolatedContext;
+    }
     if args.iter().any(|a| a == "--diagnostic-translation") {
         runtime.enable_http_translation();
     }

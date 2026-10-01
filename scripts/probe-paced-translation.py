@@ -25,6 +25,7 @@ parser.add_argument('--supported-preview', action='store_true', help='Compare pa
 parser.add_argument('--fixture-manifest', type=Path)
 parser.add_argument('--fixture-id')
 parser.add_argument('--output-dir', type=Path)
+parser.add_argument('--isolated-translation-context', action='store_true')
 args = parser.parse_args()
 if sum((args.pad_short_partials, args.adaptive, args.decode_window, args.supported_preview)) > 1:
     parser.error('padding comparison cannot combine with other comparisons')
@@ -88,6 +89,7 @@ environment['ECHOSUB_SUPPORTED_COMPARE'] = '1' if args.supported_preview else '0
 environment['ECHOSUB_PADDING_COMPARE'] = '1' if args.pad_short_partials else '0'
 environment['ECHOSUB_ADAPTIVE_COMPARE'] = '1' if args.adaptive else '0'
 environment['ECHOSUB_TRANSLATION_TOKEN'] = key_file.read_text(encoding='utf-8')
+environment['ECHOSUB_ISOLATED_TRANSLATION_CONTEXT'] = '1' if args.isolated_translation_context else '0'
 server = None
 stop = threading.Event()
 
@@ -142,6 +144,7 @@ try:
                    '-ReportPath', str(out / 'report.json'), '-TranslationEndpoint', 'http://127.0.0.1:18087/v1/',
                    '-TranslationModel', model['id']]
         save('runtime.json', {'backend': args.backend, 'adaptive_compare': args.adaptive, 'padding_compare': args.pad_short_partials, 'supported_compare': args.supported_preview, 'decode_window_compare': args.decode_window, 'asr_weights_sha256': asr['sha256'],
+                             'isolated_translation_context': args.isolated_translation_context,
                              'fixture_id': args.fixture_id, 'fixture_manifest_sha256': sha(fixtures_path),
                              'fixture_reference': item['reference'] if args.fixture_id else None,
                              'translation_weights_sha256': model['sha256'], 'server_sha256': sha(server_path),

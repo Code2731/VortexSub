@@ -37,7 +37,8 @@ internal static class HttpTranslationSmoke
                     {
                         Interlocked.Increment(ref posts);
                         using var request = JsonDocument.Parse(new string(chars));
-                        using var payload = JsonDocument.Parse(request.RootElement.GetProperty("messages")[1].GetProperty("content").GetString()!);
+                        var messages = request.RootElement.GetProperty("messages");
+                        using var payload = JsonDocument.Parse(messages[messages.GetArrayLength() - 1].GetProperty("content").GetString()!);
                         if (payload.RootElement.GetProperty("source_text").GetString() == "fail") { status = 401; body = "server-private-detail"; }
                         else body = "{\"choices\":[{\"finish_reason\":\"stop\",\"message\":{\"content\":\"번역 완료\",\"tool_calls\":null}}]}";
                     }

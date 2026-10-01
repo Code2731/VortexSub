@@ -23,6 +23,8 @@ def main():
         if runtime["fixture_reference"] != item["text"]:
             raise ValueError(f"Fixture text differs: {item['id']}")
         runs = report["runs"]
+        if len({r.get("isolated_translation_context", False) for r in runs}) != 1:
+            raise ValueError("Mixed prompt policies within a case")
         if len(runs) != 2 * report["rounds_requested"]:
             raise ValueError(f"Incomplete case: {item['id']}")
         groups = {}
@@ -64,7 +66,7 @@ def main():
                 "previews": [{"source":s,"translation":t,"occurrences":v} for (s,t),v in previews.items()],
                 "finals": finals,
             }
-        cases.append({**item,"audio_s":runs[0]["audio_s"],"groups":groups,"manual_review":"PENDING"})
+        cases.append({**item,"audio_s":runs[0]["audio_s"],"isolated_translation_context":runs[0].get("isolated_translation_context", False),"groups":groups,"manual_review":"PENDING"})
     summary = {"quality_gate_passed":False,"note":"Synthetic controls; exact-source matching is not semantic grading; applied previews and finals require review.","cases":cases}
     (args.directory / "summary.json").write_text(json.dumps(summary,ensure_ascii=False,indent=2),encoding="utf-8")
     for case in cases:

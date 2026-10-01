@@ -1,7 +1,7 @@
 //! One dedicated HTTP thread; one command/result slot, reservation until poll.
 use crate::{
     http::{Cancellation, Failure, HttpClient},
-    prepare, Endpoint, Prepared,
+    prepare_with_policy, Endpoint, Prepared, PromptPolicy,
 };
 use echosub_pipeline_core::{TranslationJob, TranslationKey};
 use std::{
@@ -39,9 +39,17 @@ pub struct Owner {
     receiver: mpsc::Receiver<Completion>,
     active: Option<(Cancellation, Option<TranslationKey>)>,
     thread: Option<JoinHandle<()>>,
+    prompt_policy: PromptPolicy,
 }
 impl Owner {
     pub fn new(endpoint: Endpoint, token: Option<&str>) -> Result<Self, Failure> {
+        Self::new_with_policy(endpoint, token, PromptPolicy::Original)
+    }
+    pub fn new_with_policy(
+        endpoint: Endpoint,
+        token: Option<&str>,
+        prompt_policy: PromptPolicy,
+    ) -> Result<Self, Failure> {
         let client = HttpClient::new(endpoint, token)?;
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
@@ -88,6 +96,7 @@ impl Owner {
             receiver,
             active: None,
             thread: Some(thread),
+            prompt_policy,
         })
     }
     pub fn models(&mut self, budget: Duration) -> Result<(), SubmitError> {
@@ -103,7 +112,8 @@ impl Owner {
             return Err(SubmitError::Busy);
         }
         let submitted = Instant::now();
-        let request = prepare(job, model, now_ns).map_err(|e| SubmitError::Invalid(e.into()))?;
+        let request = prepare_with_policy(job, model, now_ns, self.prompt_policy)
+            .map_err(|e| SubmitError::Invalid(e.into()))?;
         self.submit(Operation::Translate(request), submitted)
     }
     fn submit(&mut self, operation: Operation, submitted: Instant) -> Result<(), SubmitError> {

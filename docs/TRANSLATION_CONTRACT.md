@@ -23,6 +23,11 @@ same-epoch context; this crate performs no scheduling or history application.
   translation only, preserving numbers and negation. Stream=false,
   temperature=0.2, max_tokens=256; no tools. Prompt wording does not guarantee
   semantic correctness or resistance to misleading subtitle content.
+- Opt-in `PromptPolicy::IsolatedContext` strengthens current-source-only rules
+  and sends reference context as an earlier user JSON, followed by the current
+  source/languages JSON. It retains the same budgets, sampling and identity.
+  `prepare` and `Owner::new` keep the original policy; see
+  [comparison and experimental launcher](TRANSLATION_PROMPT_CONTEXT.md).
 
 ## Response and transport boundary
 

@@ -1,5 +1,5 @@
 param([switch] $NoBuild, [switch] $Offline, [switch] $NoPause, [switch] $Live,
-    [ValidateSet('cpu', 'cuda')] [string] $AsrBackend = 'cpu', [switch] $FastPartials, [switch] $CaptionTiming, [switch] $DecodeWindow, [switch] $PadShortPartials, [switch] $SupportedPreview)
+    [ValidateSet('cpu', 'cuda')] [string] $AsrBackend = 'cpu', [switch] $FastPartials, [switch] $CaptionTiming, [switch] $DecodeWindow, [switch] $PadShortPartials, [switch] $SupportedPreview, [switch] $IsolatedTranslationContext)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
 $env:AVALONIA_TELEMETRY_OPTOUT = '1'
@@ -43,6 +43,7 @@ try {
     if ($DecodeWindow -and -not $FastPartials) { throw '-DecodeWindow requires -FastPartials' }
     if ($PadShortPartials -and (-not $FastPartials -or $DecodeWindow)) { throw '-PadShortPartials requires -FastPartials and cannot combine with -DecodeWindow' }
     if ($SupportedPreview -and (-not $FastPartials -or $DecodeWindow)) { throw '-SupportedPreview requires -FastPartials and cannot combine with -DecodeWindow' }
+    if ($IsolatedTranslationContext -and -not $Live) { throw '-IsolatedTranslationContext requires -Live' }
     if ($Live) {
         if (-not [Environment]::Is64BitProcess) { throw 'Live diagnostics require Windows x64 PowerShell' }
         $catalogue = Get-Content -LiteralPath (Join-Path $repo 'benchmarks/model-downloads.json') -Raw | ConvertFrom-Json
@@ -58,6 +59,10 @@ try {
         }
         $workerArguments = @('--diagnostic-translation', '--diagnostic-capture','--live-asr','--session-control','--diagnostic-asr','--asr-model',$asrPath,'--asr-sha256',$asr.sha256,'--asr-backend',$AsrBackend,
             '--diagnostic-vad','--vad-model',$vadPath,'--vad-sha256',$vad.sha256,'--vad-runtime',$runtimePath,'--vad-runtime-sha256',$runtime.sha256)
+        if ($IsolatedTranslationContext) {
+            $workerArguments += '--experimental-isolated-translation-context'
+            Write-Host 'Experimental isolated translation context enabled; semantic quality gate remains pending.'
+        }
         $env:ECHOSUB_WORKER_ARGUMENTS = ConvertTo-Json -InputObject $workerArguments -Compress
         if ($FastPartials) {
             $workerArguments += '--fast-partials'
