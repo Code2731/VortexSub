@@ -7,6 +7,8 @@ Exa Search로 품질 검증·동시 번역·번역/ASR 모델 세 영역에 총 
 취급했다. 아래 판단은 핵심 논문·저자 코드·모델 카드와 공식 배포 메타데이터를
 확인한 결과다. 새 모델/런타임 다운로드·설치·추론 비교는 하지 않았다.
 가중치 크기는 메타데이터 조회값이고 VRAM이나 전체 설치 용량은 아니다.
+아래 EXAONE 보완 조사는 사용자의 후속 후보 제안에 따른 별도 검색/원문 확인이며
+위 최초 조사 건수에는 포함하지 않는다.
 
 ## 1. 결론과 우선순위
 
@@ -90,6 +92,7 @@ lite의 ref 없는 실행 가능성과 배포 허용 조건은 추가 확인 사
 | 후보 | 언어·구조 | 확인된 weight 크기/라이선스 | 비교 목적과 제한 |
 |---|---|---|---|
 | Hy-MT2 1.8B | 번역 특화 decoder-only, 한국어/일본어 포함 | 공식 Q4_K_M/Q6_K/Q8_0 GGUF; Apache-2.0. 개별 GGUF 크기는 이번 조회에서 미확정 | **첫 엔진 후보**. 현재 llama.cpp 호환성과 짧은 입력 품질은 미검증 |
+| EXAONE 3.5 2.4B Instruct | 영어/한국어 범용 instruction 모델 | 공식 Q4_K_M 1,644,918,272 bytes; EXAONE 1.1-NC | 한국어 품질 연구 대조군. 상용 사용 별도 계약, 일본어/실시간 번역 우위 미검증 |
 | OPUS-MT `opus-mt-tc-big-en-ko` | 영어→한국어, Marian transformer-big, 209,158,401 parameters | FP16 safetensors 418,346,322 bytes; CC-BY-4.0 | 영어 전용 소형 대조군. 품질/지연 우위는 미측정. 일본어 경로를 대체하지 않음 |
 | MADLAD-400 3B | 한국어 포함 다국어, T5 encoder-decoder, 약 2.94B | 원본 F32 safetensors 11,761,587,872 bytes; Apache-2.0 | 영어/일본어→한국어 통합 후보. INT8 변환과 동시 VRAM을 검증해야 함 |
 | M2M100 418M | 일본어/한국어 포함 100개 언어, many-to-many | weight bin 1,935,796,948 bytes; MIT | 작은 다국어 속도 대조군. 최신 품질 우위 근거는 없음 |
@@ -147,6 +150,30 @@ checkpoint의 변환 성공이나 3080 처리시간을 단정하지 않는다.
 
 MADLAD 원본 다운로드 11.76 GB와 변환 후 INT8 파일·추론 메모리는 별개다.
 다운로드/설치 규모와 모델/runtime 해시를 확정한 뒤 기존 동의 절차를 따른다.
+
+### EXAONE 3.5 2.4B: 한국어 품질 연구 후보 추가
+
+사용자 제안 후 [공식 카드](https://huggingface.co/LGAI-EXAONE/EXAONE-3.5-2.4B-Instruct),
+[기술 보고서](https://arxiv.org/abs/2412.04862),
+[공식 배포 코드](https://github.com/LG-AI-EXAONE/EXAONE-3.5)를 확인했다.
+영어/한국어 bilingual 모델이며 한국어 지시 수행/대화 평가에서 강점을 보고한다.
+카드의 KoMT-Bench 7.24와 Qwen2.5 3B의 5.68은 한국어 다중 턴 대화 평가다.
+MT-Bench의 MT는 multi-turn이며 기계 번역 평가가 아니다. 현재 Qwen3 4B와의
+직접 비교나 게임 번역의 부정/조건 보존, 일본어 입력 우위를 증명하지 않는다.
+개발 국가보다 실제 언어별 번역 자료로 비교한다.
+
+[공식 GGUF](https://huggingface.co/LGAI-EXAONE/EXAONE-3.5-2.4B-Instruct-GGUF)
+revision `142acae803a41c206e8d0fa978c6102c748911bb`의 Q4_K_M 파일은
+1,644,918,272 bytes(약 1.64 GB)다. llama.cpp 경로가 공식 문서에 있으며
+system prompt와 자체 chat template, EOS `[|endofturn|]`, repetition penalty 1.0
+권장을 반영해야 한다. 현 빌드 호환성/속도는 실행하지 않아 미검증이다.
+
+[모델 라이선스](https://huggingface.co/LGAI-EXAONE/EXAONE-3.5-2.4B-Instruct/blob/main/LICENSE)는
+EXAONE AI Model License Agreement 1.1-NC로 연구 평가를 허용하지만 상용 사용은
+별도 계약을 요구한다. 모델/출력으로 다른 모델을 개선하는 용도도 제한한다.
+무료 배포만으로 제품 사용 권한을 충족한다고 가정하지 않는다. 따라서 EXAONE은
+영어→한국어 품질 비교용 연구 대조군으로 추가하고 Apache-2.0인 Hy-MT2의
+제품 후보 우선순위는 유지한다. 실제 모델 다운로드/설치/추론은 하지 않았다.
 
 ## 5. 실시간 구조 대안: 원문 안정성과 번역 안정성을 분리
 
@@ -211,6 +238,10 @@ ASR 교체가 가장 큰 이득이라고 결정할 수 없다. 기존 SenseVoice
 [해당 환경에서는 가속을 확인하지 못했다](MODEL_CANDIDATES.md).
 
 ## 7. 다음 실험의 구체적인 순서와 종료 조건
+
+후속 사용자 제안과 개인 개발 목적을 반영한 실제 작업 순서는
+[번역 개선 실행 계획](TRANSLATION_IMPROVEMENT_PLAN.md)을 따른다.
+EXAONE은 한국어 비교군으로 추가하며 아래 초기 제안보다 최신 계획을 우선한다.
 
 ### A. 다운로드 없이 입력·대기·번역 안정성 확인
 

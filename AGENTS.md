@@ -23,3 +23,26 @@ For IPC changes, extend `crates/worker/tests/protocol.rs` and `tests/EchoSub.Pro
 ## Commits and Pull Requests
 
 Use short imperative Conventional Commit subjects such as `feat: add worker handshake` or `fix: reject stale translations`. Pull requests should explain scope and affected requirement IDs, list exact validation commands and results, identify untested platforms, and include screenshots for UI changes.
+
+## Progress and Handoff
+
+작업 시작 시 `docs/HANDOFF.md`와 `docs/STATUS.md`의 최신 항목을 읽는다.
+이어서 관련 계획과 근거 문서를 확인한다. 대화 이력만으로 현재 상태를 판단하지 않는다.
+매 라운드 종료 시 두 문서를 갱신한다. 중단하거나 차단된 작업도 기록한다.
+`HANDOFF.md`에는 갱신 날짜, 현재 목표, 완료·진행·미착수 작업, 다음 구체적 작업,
+검증 명령·결과·미검증 범위, 브랜치·기준 커밋·미커밋 상태를 기록한다.
+`STATUS.md`에는 이번 변경과 검증 요약을 추가하고 상세 근거에 연결한다.
+예전 기록을 최신 결과로 오해하지 않도록 날짜와 검증 범위를 구분한다.
+
+다른 PC에서 실행할 명령은 저장소 루트 기준 경로를 사용한다.
+필요한 도구, 모델·런타임 매니페스트, 로컬 설정과 Git 제외 산출물을 명시한다.
+모델·로그·캐시가 Git으로 전달된다고 가정하지 않는다. 비밀값은 문서에 기록하지 않는다.
+커밋·푸시 또는 파일 전달이 완료되지 않았으면 다른 PC에서 재개 가능하다고 표시하지 않는다.
+문서 갱신 요청을 커밋·푸시 승인으로 해석하지 않는다.
+
+### Current Focus (2026-10-04)
+
+현재 작업은 배포를 위한 UI/UX 정리다. 설정 복원과 번역 연결 실패 복구의
+Windows 검증 60개 항목이 통과했다. 실제 음성·모델 추론은 이 검증에 포함하지 않았다.
+구현 변경은 미커밋 상태다. 다음 작업과 환경 준비는 `docs/HANDOFF.md`를 따른다.
+이 요약도 작업 단계가 바뀌면 함께 갱신한다.

@@ -2,6 +2,11 @@
 
 **한국어** | [English](README.en.md)
 
+**Hy-MT2 실험 번역:** `run-live-hymt2.bat`으로 설치된 모델과 CUDA 빠른 부분 전사를
+실행할 수 있습니다. 앱에서 서버 연결 후 입력 방식과 Ready를 확인하세요.
+기본 모델은 Qwen이며 모델을 바꾸려면 앱을 종료하고 런처를 다시 실행합니다.
+[실행 방법과 확인 범위](docs/TRANSLATION_MODEL_SELECTION.md).
+
 EchoSub는 Windows/macOS의 시스템 오디오를 전사하고 한국어로 번역하는 데스크톱 앱을 목표로 합니다.
 
 **현재는 M2 전사와 M3 번역 통합을 개발하는 단계입니다.** 진단 worker에서 실제 Windows loopback→Silero VAD→Whisper→원문 history를 연결했습니다. 파일 전사도 지원합니다. 진단 원문 history·오버레이 UI, UUID 세션 시작·일시정지·재개·종료와 세션별 history를 연결했습니다. opt-in worker의 파일 전사→로컬 HTTP 번역→history도 확인했습니다. 로컬 서버 설정·번역 history/오버레이 표시도 연결했습니다. 실제 화면 수용과 전체 제품 wire 전환은 후속이며 macOS는 실기기에서 검증하지 않았습니다.

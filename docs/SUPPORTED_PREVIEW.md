@@ -29,6 +29,13 @@ preview 번역에만 사용한다. 완료 시 그 문장을 확정 문맥으로 
 
 ## 판단
 
+안정 구간을 사용하는 기본 preview에도 영어 정정 단위 보호가 적용된다.
+처리된 문장 뒤 `No.`는 안정된 다음 절을 기다렸다가 직전 단위를 포함해 다시
+번역한다. 쉼표 정정이 미완성이면 `IncompleteRepair`, 묶은 단위가 384 bytes를
+넘으면 `RepairTooLong`으로 보류한다. final 전체 번역과 identity reset은 유지한다.
+관측 꼬리는 보류에만 사용하며 안정 구간을 추가 확장하지 않는다.
+[구현·실제 재생과 적용 한계](evidence/repair-units-windows-20261003.md).
+
 후속 7문장 통제 비교와 미완성 조건/부정의 공통 보류 수정은
 [통제 비교 기록](evidence/preview-risk-controls-windows-20261002.md)을 따른다.
 전체 원문 조건 오역과 이전 정정 문맥 혼입이 남아 기본 off를 유지한다.

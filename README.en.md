@@ -2,6 +2,12 @@
 
 [한국어](README.md) | **English**
 
+**Experimental Hy-MT2 translation:** `run-live-hymt2.bat` uses the installed model
+with fast CUDA partial ASR. Connect to the server in the app and check the applied
+input profile and Ready state. Qwen remains the default; close the app and restart
+the appropriate launcher to change model weights.
+[Setup and validation scope (Korean)](docs/TRANSLATION_MODEL_SELECTION.md).
+
 EchoSub aims to provide system-audio transcription and Korean translation in a Windows/macOS desktop app.
 
 **M2 transcription and M3 translation integration are in development.** A diagnostic worker connects real Windows loopback→Silero VAD→Whisper→source history. File transcription, source history/overlay UI and UUID session controls/history are connected. An opt-in worker path also verifies file ASR→local HTTP translation→history. Local server/model settings and translated history/overlay presentation are connected; rendered UI acceptance and full product wire migration are pending. macOS has not been verified on a real device.

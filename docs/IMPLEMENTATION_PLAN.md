@@ -1,5 +1,15 @@
 # EchoSub 단계별 구현 계획
 
+2026-10-02 P3.1 선택형 Hy-MT2 런처와 모델별 입력 설정을 연결했다.
+기본 모델 전환은 보류하며 다음은 설정/세션 재시작과 실제 사용 확인이다.
+[현재 사용법](TRANSLATION_MODEL_SELECTION.md), [실행 기록](evidence/model-selection-windows-20261002.md).
+
+2026-10-02 리서치 후속으로 [한국어 번역 개선 실행 계획](TRANSLATION_IMPROVEMENT_PLAN.md)을
+작성했다. 개인 개발·평가 목적의 EXAONE 3.5 2.4B, 번역 특화 Hy-MT2 1.8B와 현재
+Qwen4B를 비교한다. 순서는 비교 기반/대기 계측 → 모델 비교 → 번역 수정 정책 →
+앱 연결이며 MetricX는 조건부 비동기 진단이다. 계획만 작성했으며 구현·다운로드·
+추론 검증은 미착수다. 기존 M0~M5 및 미검증 플랫폼 gate를 대체하지 않는다.
+
 2026-10-02 문맥 분리 실험을 앱 체크박스로 연결했다. Idle 설정 요청에 boolean을
 전달하고 적용 상태/실패 복원/실행 중 잠금을 추가했다. Windows check script의
 Rust/C# IPC와 빌드를 확인했으며 기본 off·번역 의미 품질 gate false는 유지한다.

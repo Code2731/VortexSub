@@ -29,6 +29,19 @@ jobs drained. `disable_translation` takes `{}` and disables future admissions;
 retained translations remain in history. Invalid parameters preserve the current
 configuration. Reconfigure after a failed catalog lookup to retry preparation.
 
+## Explicit input profiles (P3.1)
+
+`configure_translation.input_profile` accepts `standard`, `qwen-greedy` or
+`hymt2-greedy`; omission preserves the current profile. Candidate profiles require
+their exact manifest model ID and cannot combine with `isolated_context: true`.
+The old owner/model/profile remain available until the staged catalog and profile
+check succeed. A failed replacement reports an error and returns to the previous
+Ready connection, or Failed if no previous connection exists. Session/fixture/mock
+admission is blocked while configuration is pending.
+`translation_input_profiles` advertises support; `translator.input_profile` and
+`pending_input_profile` expose applied and staged policy. See
+[launcher and desktop selection](TRANSLATION_MODEL_SELECTION.md).
+
 ## Source and results
 
 Only final source admits a translation. Native decode language is captured into

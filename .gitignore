@@ -10,4 +10,8 @@
 /logs/
 /benchmarks/fixtures/local-tts/
 /benchmarks/results/
+__pycache__/
+*.pyc
+/cargo-test.log
+/fmt.log
 
