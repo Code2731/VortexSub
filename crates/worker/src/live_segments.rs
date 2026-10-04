@@ -6,8 +6,22 @@ use echosub_pipeline_core::AsrKind;
 use serde_json::json;
 use std::io;
 
+#[derive(Clone, Copy)]
+struct AdmissionTiming {
+    id: SegmentIdentity,
+    voice_observed_ns: u64,
+    voice_vad_started_ns: Option<u64>,
+    first_frame_sample: Option<u64>,
+    eligible_ns: Option<u64>,
+    first_admitted_ns: Option<u64>,
+    deferred_asr: u64,
+    deferred_preview: u64,
+    deferred_adaptive: u64,
+}
+
 #[derive(Default)]
 pub(super) struct PartialSchedule {
+    timing: Option<AdmissionTiming>,
     pending: Option<(SegmentInfo, u64)>,
     requested: u64,
     deferred: u64,
@@ -24,6 +38,7 @@ impl PartialSchedule {
     pub(super) fn clear(&mut self) {
         self.pending = None;
         self.adaptive.reset();
+        self.timing = None;
     }
     pub(super) fn value(&self) -> serde_json::Value {
         json!({"pending":self.pending.is_some(),"requested":self.requested,
@@ -36,6 +51,62 @@ impl PartialSchedule {
 }
 
 impl Runtime {
+    pub(super) fn observe_live_timing(
+        &mut self,
+        event: SpeechEvent,
+        observed_ns: Option<u64>,
+        processing_started_ns: Option<u64>,
+        frame_start_sample: Option<u64>,
+        q: &Outbox,
+    ) -> io::Result<()> {
+        let Some(observed) = observed_ns else {
+            return Ok(());
+        };
+        let processing_started = processing_started_ns.filter(|start| *start <= observed);
+        let (id, name) = match event {
+            SpeechEvent::Started(id) => (id, "capture.voice_observed"),
+            SpeechEvent::Partial(segment) if self.partial_enabled => {
+                (segment.id, "capture.asr_eligible")
+            }
+            SpeechEvent::Final { segment, .. } => (segment.id, "capture.asr_eligible"),
+            _ => return Ok(()),
+        };
+        if id.audio != self.epoch {
+            return Ok(());
+        }
+        if name == "capture.voice_observed" {
+            self.partial_schedule.timing = Some(AdmissionTiming {
+                id,
+                voice_observed_ns: observed,
+                voice_vad_started_ns: processing_started,
+                first_frame_sample: frame_start_sample,
+                eligible_ns: None,
+                first_admitted_ns: None,
+                deferred_asr: 0,
+                deferred_preview: 0,
+                deferred_adaptive: 0,
+            });
+        } else if let Some(timing) = self.partial_schedule.timing.as_mut().filter(|t| t.id == id) {
+            if timing.eligible_ns.is_some() {
+                return Ok(());
+            }
+            timing.eligible_ns = Some(observed);
+        }
+        let timing = self.partial_schedule.timing.filter(|t| t.id == id);
+        q.publish(name, json!({"worker_at_s":self.now() as f64/1e9,
+            "observed_worker_s":observed as f64/1e9,"session_id":id.audio.session_id,
+            "processing_started_worker_s":processing_started.map(|n|n as f64/1e9),
+            "processing_kind":if frame_start_sample.is_some() {"push"} else {"poll"},
+            "vad_processing_s":processing_started.map(|n|(observed-n) as f64/1e9),
+            "epoch":id.audio.epoch,"vad_segment_id":id.segment_id,
+            "voice_observed_worker_s":timing.map(|t| t.voice_observed_ns as f64/1e9),
+            "voice_vad_started_worker_s":timing.and_then(|t|t.voice_vad_started_ns).map(|n|n as f64/1e9),
+            "first_eligible_worker_s":timing.and_then(|t| t.eligible_ns).map(|n| n as f64/1e9),
+            "first_voiced_frame_audio_s":timing.and_then(|t| t.first_frame_sample).map(|n| n as f64/16000.),
+            "partial_enabled":self.partial_enabled}), None)?;
+        Ok(())
+    }
+
     pub(super) fn live_event(&mut self, event: SpeechEvent, q: &Outbox) -> io::Result<()> {
         match event {
             SpeechEvent::Partial(segment) if self.partial_enabled => {
@@ -52,6 +123,23 @@ impl Runtime {
                     self.partial_schedule.adaptive_deferred += 1;
                 }
                 if self.partial_busy() || adaptive_wait {
+                    let asr_busy = self.flight.is_some() || self.core.queue_lengths().0 > 0;
+                    let preview_busy = self.core.preview_pending();
+                    if let Some(timing) = self
+                        .partial_schedule
+                        .timing
+                        .as_mut()
+                        .filter(|t| t.id == segment.id)
+                    {
+                        timing.deferred_asr += u64::from(asr_busy);
+                        timing.deferred_preview += u64::from(preview_busy);
+                        timing.deferred_adaptive += u64::from(adaptive_wait);
+                    }
+                    q.publish("capture.partial_deferred", json!({
+                        "worker_at_s":self.now() as f64/1e9,"session_id":segment.id.audio.session_id,
+                        "epoch":segment.id.audio.epoch,"vad_segment_id":segment.id.segment_id,
+                        "asr_busy":asr_busy,"preview_busy":preview_busy,"adaptive_wait":adaptive_wait}),
+                        Some(format!("partial-deferred/{}/{}/{}",segment.id.audio.session_id,segment.id.audio.epoch,segment.id.segment_id)))?;
                     self.partial_schedule.deferred += 1;
                     if self
                         .partial_schedule
@@ -70,9 +158,12 @@ impl Runtime {
                 if segment.id.audio != self.epoch {
                     return Ok(());
                 }
+                let timing = self.partial_schedule.timing;
                 self.partial_schedule.clear();
+                self.partial_schedule.timing = timing;
                 self.window_state.clear();
                 self.live_asr_segment(segment, AsrKind::Final, &format!("{reason:?}"), q)?;
+                self.partial_schedule.timing = None;
             }
             SpeechEvent::Discarded { segment, reason } => {
                 if segment.id.audio != self.epoch {
@@ -91,7 +182,7 @@ impl Runtime {
                         .map_err(|_| io::Error::other("Live discard event unavailable"))?;
                     debug_assert_eq!(vad, segment.id);
                 }
-                q.publish("capture.segment_discarded",json!({"epoch":self.epoch.epoch,"vad_segment_id":segment.id.segment_id,"reason":format!("{reason:?}")}),None)?;
+                q.publish("capture.segment_discarded",json!({"worker_at_s":self.now() as f64/1e9,"session_id":self.epoch.session_id,"epoch":self.epoch.epoch,"vad_segment_id":segment.id.segment_id,"reason":format!("{reason:?}")}),None)?;
             }
             _ => {}
         }
@@ -160,6 +251,17 @@ impl Runtime {
             .core
             .submit_asr(id, segment.pcm_range, kind, &self.ring, &mut self.pool, now)
             .map_err(|_| io::Error::other("Live ASR range rejected"))?;
+        if admitted.queued {
+            if let Some(timing) = self
+                .partial_schedule
+                .timing
+                .as_mut()
+                .filter(|t| t.id == segment.id)
+            {
+                timing.first_admitted_ns.get_or_insert(now);
+            }
+        }
+        let timing = self.partial_schedule.timing.filter(|t| t.id == segment.id);
         self.live_segment = if kind == AsrKind::Partial {
             Some((segment.id, id))
         } else {
@@ -200,7 +302,15 @@ impl Runtime {
                 id.audio.session_id, id.audio.epoch, id.segment_id
             )
         });
-        q.publish(event,json!({"worker_at_s":now as f64/1e9,"session_id":id.audio.session_id,"adaptive_growth_s":if self.fast_partials {Some(self.partial_schedule.adaptive.growth_s())} else {None},"adaptive_policy":if self.fast_partials {self.partial_schedule.adaptive.decision} else {"Fixed"},"partial_deferred_wait_s":if reason == "DeferredLatest" {self.partial_schedule.wait_s} else {0.},"voice_start_s":segment.voice_range.start_s(),"voice_end_s":segment.voice_range.end_s(),"epoch":id.audio.epoch,"segment_id":id.segment_id,"source_revision":admitted.key.source_revision,"vad_segment_id":segment.id.segment_id,"continued_from":segment.continued_from.map(|s|s.segment_id),"queued":admitted.queued,"reason":reason,"audio_start_s":segment.pcm_range.start_s(),"audio_end_s":segment.pcm_range.end_s()}),coalesce)?;
+        q.publish(event,json!({"worker_at_s":now as f64/1e9,"session_id":id.audio.session_id,"adaptive_growth_s":if self.fast_partials {Some(self.partial_schedule.adaptive.growth_s())} else {None},"adaptive_policy":if self.fast_partials {self.partial_schedule.adaptive.decision} else {"Fixed"},"partial_deferred_wait_s":if reason == "DeferredLatest" {self.partial_schedule.wait_s} else {0.},"voice_start_s":segment.voice_range.start_s(),"voice_end_s":segment.voice_range.end_s(),"epoch":id.audio.epoch,"segment_id":id.segment_id,"source_revision":admitted.key.source_revision,"vad_segment_id":segment.id.segment_id,"continued_from":segment.continued_from.map(|s|s.segment_id),"queued":admitted.queued,"reason":reason,"audio_start_s":segment.pcm_range.start_s(),"audio_end_s":segment.pcm_range.end_s(),
+            "voice_observed_worker_s":timing.map(|t| t.voice_observed_ns as f64/1e9),
+            "voice_vad_started_worker_s":timing.and_then(|t|t.voice_vad_started_ns).map(|n|n as f64/1e9),
+            "first_eligible_worker_s":timing.and_then(|t|t.eligible_ns).map(|n|n as f64/1e9),
+            "first_admitted_worker_s":timing.and_then(|t|t.first_admitted_ns).map(|n|n as f64/1e9),
+            "first_voiced_frame_audio_s":timing.and_then(|t|t.first_frame_sample).map(|n|n as f64/16000.),
+            "deferred_asr_observations":timing.map(|t|t.deferred_asr),
+            "deferred_preview_observations":timing.map(|t|t.deferred_preview),
+            "deferred_adaptive_observations":timing.map(|t|t.deferred_adaptive)}),coalesce)?;
         Ok(())
     }
     fn cancel_native_if_requested(&self) {
@@ -226,6 +336,70 @@ mod tests {
     use echosub_asr_whisper::Cancellation;
     use echosub_audio_core::{FinalReason, SampleRange};
     use echosub_pipeline_core::{Apply, Outcome, SourceState};
+    #[test]
+    fn timing_separates_vad_processing_from_receipt_and_poll_keeps_frame_identity() {
+        let mut runtime = Runtime::new(false, None, false);
+        let q = Outbox::default();
+        let identity = segment(&runtime, 1, 16000).id;
+        runtime
+            .observe_live_timing(
+                SpeechEvent::Started(identity),
+                Some(120_000_000),
+                Some(100_000_000),
+                Some(512),
+                &q,
+            )
+            .unwrap();
+        let event = q.drain_probe_events().pop().unwrap();
+        let payload = &event["payload"];
+        assert_eq!(payload["voice_observed_worker_s"], 0.12);
+        assert_eq!(payload["voice_vad_started_worker_s"], 0.1);
+        assert_eq!(payload["vad_processing_s"], 0.02);
+        assert_eq!(payload["processing_kind"], "push");
+        runtime
+            .observe_live_timing(
+                SpeechEvent::Final {
+                    segment: segment(&runtime, 1, 16000),
+                    reason: FinalReason::Silence,
+                },
+                Some(201_000_000),
+                Some(200_000_000),
+                None,
+                &q,
+            )
+            .unwrap();
+        let event = q.drain_probe_events().pop().unwrap();
+        let payload = &event["payload"];
+        assert_eq!(payload["processing_kind"], "poll");
+        assert_eq!(payload["vad_processing_s"], 0.001);
+        assert_eq!(payload["first_voiced_frame_audio_s"], 512.0 / 16000.0);
+        assert_eq!(payload["voice_observed_worker_s"], 0.12);
+        assert_eq!(payload["first_eligible_worker_s"], 0.201);
+        let mut stale = identity;
+        stale.audio.epoch += 1;
+        runtime
+            .observe_live_timing(
+                SpeechEvent::Started(stale),
+                Some(300_000_000),
+                Some(290_000_000),
+                Some(1024),
+                &q,
+            )
+            .unwrap();
+        assert!(q.drain_probe_events().is_empty());
+        runtime
+            .observe_live_timing(
+                SpeechEvent::Started(identity),
+                Some(300_000_000),
+                Some(310_000_000),
+                Some(1024),
+                &q,
+            )
+            .unwrap();
+        let event = q.drain_probe_events().pop().unwrap();
+        assert!(event["payload"]["processing_started_worker_s"].is_null());
+        assert!(event["payload"]["vad_processing_s"].is_null());
+    }
     fn segment(r: &Runtime, vad_id: u64, end: u64) -> SegmentInfo {
         SegmentInfo {
             id: SegmentIdentity {

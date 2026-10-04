@@ -1,5 +1,16 @@
 # Model baseline probes (T00-04.1)
 
+## Real-time app session fixture
+
+After `scripts/check.ps1`, run `dotnet run --project apps/EchoSub.Desktop --no-build --no-restore -- --caption-session-probe-worker J:/MyProject/VortexSub/target/debug/echosub-worker.exe --caption-session-probe-report J:/MyProject/VortexSub/benchmarks/results/caption-session/report.json`.
+Use `models/tabby/venv/Scripts/python.exe -X utf8 scripts/check-caption-session-render.py benchmarks/results/caption-session/report.json`
+for saved render checks. This explicitly starts a mock pipeline/session worker and the
+real MainWindow buttons, IPC/history refresh and overlay timers. It tests pause/resume,
+new UUID, worker death/reconnect and pending-caption cleanup with wall time.
+Model/capture readiness and ASR/translation text are synthetic; no native audio,
+HTTP inference or continuous physical-frame claim. See
+[scope and evidence](../docs/evidence/caption-session-realtime-windows-20261003.md).
+
 ## Laya output validation
 
 Run `scripts/probe-laya-translation.ps1 -Rounds 3 -Device cuda` with the approved,
@@ -337,3 +348,60 @@ It cannot combine with other comparison switches. Use the summary script's
 to distinguish first output from the applied translation of the authored complete
 first sentence. Source matching is not automatic semantic quality grading.
 See [policy and evidence](../docs/SUPPORTED_PREVIEW.md).
+
+For fixed source-revision Qwen/Hy-MT2 comparison, use
+`scripts/compare-fixed-translation.ps1 -Trace <source-trace.json> -Rounds 3`.
+It uses the production worker scheduler and actual HTTP with MOCK ASR admission;
+it does not capture audio or render the overlay. See
+[scope, metrics and trace format](../docs/FIXED_TRANSLATION_REPLAY.md).
+
+For overlay reading checks, run `dotnet run --project apps/EchoSub.Desktop
+--no-restore -- --caption-line-probe-report <absolute-report.json>` on Windows.
+This renders the production overlay with synthetic text and a virtual reading clock,
+saving each append and long-text transition. With an existing Pillow environment,
+run `python scripts/check-caption-render.py <report.json>` to compare glyph pixels.
+Outputs belong under ignored `benchmarks/results/`; no audio or models are required.
+These are saved-render checks, not continuous Windows compositor capture.
+See [results and limits](../docs/evidence/caption-line-stream-windows-20261002.md).
+
+`scripts/probe-paced-translation.ps1 -TranslationModel qwen|hymt2` now selects
+the existing installed model and its production input profile. Use
+`-FixtureManifest <manifest.json> -FixtureId <id> -OutputDir <ignored-directory>`
+for one consented synthetic PCM fixture. Hy-MT2 defaults to the installed b11146
+server and verifies weights; the probe downloads nothing. Native owners and HTTP
+are real, while file end is known and VAD/capture/rendered UI are excluded.
+See [paced model results](../docs/evidence/paced-models-windows-20261003.md).
+
+Add `-AsrModel base|small` to choose existing verified Whisper weights for the
+same native paced PCM comparison (default: base). No downloads are performed.
+`scripts/summarize-asr-stability.py <report.json> [...] --output-dir <ignored-dir>`
+classifies observed English source transitions, negation/condition token changes,
+and preview hold counts. Counts are not durations or semantic judgments.
+Run its stdlib tests with `python tests/test_asr_stability.py`.
+See [ASR comparison and condition guard](../docs/evidence/asr-stability-whisper-small-windows-20261003.md).
+
+`scripts/summarize-paced-asr-comparison.py <report.json> [...] --output-dir <ignored-dir>`
+compares up to 32 reports with adjacent `runtime.json` files. It checks matching
+translation/runtime/scheduler hashes, ASR weights per model, and audio/reference
+per fixture. It saves timing sample counts/ranges/medians and a text-bearing
+`translation-review.csv` for manual review. Missing timings remain null; source
+surface agreement is not semantic quality. Run `python tests/test_paced_asr_comparison.py`.
+See [expanded comparison and repair-unit findings](../docs/evidence/asr-expanded-windows-20261003.md).
+
+To replay saved native source/translation records through the production deck and
+overlay, build the desktop app then run `dotnet run --project apps/EchoSub.Desktop
+--no-build --no-restore -- --caption-replay-input <native-report.json>
+--caption-replay-report <ignored-output/report.json>`. This is a bounded,
+virtual-clock render diagnostic; it does not start audio/models or exercise live IPC.
+Use the existing Pillow environment to run `python scripts/check-caption-replay-render.py
+<render-report.json>` for held-text/append glyph pixel comparisons.
+Reports contain text and PNGs; keep them under ignored `benchmarks/results/`.
+See [recorded repair render results](../docs/evidence/caption-repair-replay-windows-20261003.md).
+
+Review follow-up: the reading queue keeps four distinct units for at most ten seconds.
+Enable CaptionTiming to record `caption_reading` first-line waits, coalescing,
+invalidation and capacity/age drops, plus cumulative `caption_event_buffer` losses.
+The timing summary reports these separately from deck assignment. First-line admission
+is not compositor presentation. VAD push/poll processing starts are additive fields;
+legacy `voice_observed_worker_s` remains processing completion.
+See [review implementation and validation](../docs/evidence/review-improvements-windows-20261003.md).

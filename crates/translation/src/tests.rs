@@ -1,6 +1,32 @@
 use super::*;
 use echosub_audio_core::{AudioIdentity, JobIdentity};
 
+#[test]
+fn model_profiles_match_download_manifests_and_document_standard_compatibility() {
+    let baseline: Value =
+        serde_json::from_str(include_str!("../../../benchmarks/model-downloads.json")).unwrap();
+    let research: Value = serde_json::from_str(include_str!(
+        "../../../benchmarks/translation-research-models.json"
+    ))
+    .unwrap();
+    assert!(baseline["models"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|model| model["id"] == QWEN_GREEDY_MODEL_ID));
+    assert!(research["models"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|model| model["id"] == HY_MT2_GREEDY_MODEL_ID));
+    assert!(PromptPolicy::Original.accepts_model(QWEN_GREEDY_MODEL_ID));
+    assert!(PromptPolicy::IsolatedContext.accepts_model(QWEN_GREEDY_MODEL_ID));
+    assert!(!PromptPolicy::Original.accepts_model(HY_MT2_GREEDY_MODEL_ID));
+    assert!(!PromptPolicy::IsolatedContext.accepts_model(HY_MT2_GREEDY_MODEL_ID));
+    assert!(PromptPolicy::QwenGreedy.accepts_model(QWEN_GREEDY_MODEL_ID));
+    assert!(PromptPolicy::HyMt2Greedy.accepts_model(HY_MT2_GREEDY_MODEL_ID));
+}
+
 fn job() -> TranslationJob {
     TranslationJob {
         key: TranslationKey {

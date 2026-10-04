@@ -1,12 +1,19 @@
-param([ValidateSet('all', 'asr')] [string] $Scope = 'all')
+param(
+    [ValidateSet('all', 'asr')] [string] $Scope = 'all',
+    [string] $Catalog = 'benchmarks/model-downloads.json',
+    [string] $ModelId
+)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
-$catalog = Get-Content (Join-Path $repo 'benchmarks/model-downloads.json') -Raw | ConvertFrom-Json
+$manifest = Get-Content (Join-Path $repo $Catalog) -Raw | ConvertFrom-Json
+$entries = @($manifest.models | Where-Object { -not $ModelId -or $_.id -eq $ModelId })
+if ($ModelId -and $entries.Count -ne 1) { throw 'Select a unique model ID' }
 $destinationRoot = Join-Path $repo 'models'
 New-Item -ItemType Directory -Force -Path $destinationRoot | Out-Null
 $curl = Join-Path $env:SystemRoot 'System32/curl.exe'
-foreach ($entry in $catalog.models) {
+foreach ($entry in $entries) {
     if ($Scope -eq 'asr' -and $entry.role -ne 'asr') { continue }
+    if ($entry.asset_status -eq 'pending_consent') { throw "Download consent is pending: $($entry.id)" }
     if ($entry.file -match '[/\\]' -or $entry.revision -notmatch '^[0-9a-f]{40}$' -or
         $entry.sha256 -notmatch '^[0-9a-f]{64}$' -or $entry.repository -notmatch '^[\w.-]+/[\w.-]+$') {
         throw "Invalid pinned download entry: $($entry.id)"

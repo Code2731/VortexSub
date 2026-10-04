@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "scope": "EXAONE and Hy-MT2 download/comparison authorized; only installed_verified assets may infer.",
+  "models": [
+    {
+      "id": "exaone-3.5-2.4b-q4_k_m",
+      "role": "translation",
+      "repository": "LGAI-EXAONE/EXAONE-3.5-2.4B-Instruct-GGUF",
+      "revision": "142acae803a41c206e8d0fa978c6102c748911bb",
+      "file": "EXAONE-3.5-2.4B-Instruct-Q4_K_M.gguf",
+      "bytes": 1644918272,
+      "sha256": "1660a3794acc33437137faab5cb3fb2b2c4191d0a4ec991d4c31a7197cb2cdbf",
+      "path": "../models/EXAONE-3.5-2.4B-Instruct-Q4_K_M.gguf",
+      "comparison_profile": "exaone",
+      "asset_status": "installed_verified",
+      "consent_record": "User authorized download, input compatibility and Qwen comparison on 2026-10-02",
+      "metadata_source": "https://huggingface.co/LGAI-EXAONE/EXAONE-3.5-2.4B-Instruct-GGUF/blob/142acae803a41c206e8d0fa978c6102c748911bb/EXAONE-3.5-2.4B-Instruct-Q4_K_M.gguf",
+      "license": "EXAONE AI Model License Agreement 1.1-NC",
+      "license_source": "https://huggingface.co/LGAI-EXAONE/EXAONE-3.5-2.4B-Instruct/blob/main/LICENSE",
+      "scope_note": "English/Korean research comparison; Japanese capability remains exploratory."
+    },
+    {
+      "id": "hy-mt2-1.8b-q4_k_m",
+      "role": "translation",
+      "repository": "tencent/Hy-MT2-1.8B-GGUF",
+      "revision": "a0c709d9fac510f2c807aa3af52872340dc37a4a",
+      "file": "Hy-MT2-1.8B-Q4_K_M.gguf",
+      "bytes": 1133080448,
+      "sha256": "dc5f44fcf1fa496ee7ad725982c0c8c553a4de00259b53af84c4b89fb0c06699",
+      "path": "../models/Hy-MT2-1.8B-Q4_K_M.gguf",
+      "metadata_source": "https://huggingface.co/tencent/Hy-MT2-1.8B-GGUF/blob/a0c709d9fac510f2c807aa3af52872340dc37a4a/Hy-MT2-1.8B-Q4_K_M.gguf",
+      "comparison_profile": "hymt2",
+      "asset_status": "installed_verified",
+      "license": "Apache-2.0",
+      "license_source": "https://huggingface.co/tencent/Hy-MT2-1.8B/blob/9a341cd1b679d3efd23b46e847b01745a71ed792/LICENSE.txt",
+      "scope_note": "Official Q4_K_M size/SHA verified on 2026-10-02; runtime compatibility/comparison in progress.",
+      "consent_record": "User authorized model plus separate runtime installation and actual comparison on 2026-10-02"
+    }
+  ]
+}

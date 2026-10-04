@@ -113,6 +113,7 @@ impl Runtime {
         }
         if method == "start_session" {
             if self.session.state != "Idle"
+                || self.translator.configuring()
                 || (!self.session.mock
                     && (self.model_state != "Ready"
                         || !self.capture.startable()

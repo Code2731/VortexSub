@@ -1,4 +1,4 @@
-"""Existing consented assets only; paced native ASR and actual local Qwen HTTP."""
+"""Existing consented assets only; paced native ASR and actual local translation HTTP."""
 import argparse
 import hashlib
 import json
@@ -18,6 +18,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--backend', choices=['cpu', 'cuda'], default='cuda')
 parser.add_argument('--rounds', type=int, default=3)
 parser.add_argument('--server')
+parser.add_argument('--translation-model', choices=['qwen', 'hymt2'], default='qwen')
+parser.add_argument('--asr-model', choices=['base', 'small'], default='base')
 parser.add_argument('--adaptive', action='store_true', help='Compare fixed 0.5 s with feedback scheduling; both first requests at 0.8 s')
 parser.add_argument("--decode-window", action="store_true", help="Compare adaptive baseline with experimental DTW decode windows")
 parser.add_argument('--pad-short-partials', action='store_true', help='Compare adaptive baseline with short partial zero-padding')
@@ -53,8 +55,15 @@ def save(name, value):
 
 
 catalog = json.loads((repo / 'benchmarks/model-downloads.json').read_text(encoding='utf-8'))
-asr = next(m for m in catalog['models'] if m['id'] == 'whisper-base')
-model = next(m for m in catalog['models'] if m['role'] == 'translation')
+asr = next(m for m in catalog['models'] if m['id'] == 'whisper-' + args.asr_model)
+if args.translation_model == 'hymt2':
+    translation_catalog = json.loads((repo / 'benchmarks/translation-research-models.json').read_text(encoding='utf-8'))
+    model = next(m for m in translation_catalog['models'] if m['id'] == 'hy-mt2-1.8b-q4_k_m')
+    if model['asset_status'] != 'installed_verified' or args.isolated_translation_context:
+        raise RuntimeError('Hy-MT2 requires verified installed weights and its own context profile')
+else:
+    model = next(m for m in catalog['models'] if m['role'] == 'translation')
+input_profile = 'hymt2-greedy' if args.translation_model == 'hymt2' else 'standard'
 asr_path = (repo / 'benchmarks' / asr['path']).resolve()
 model_path = (repo / 'benchmarks' / model['path']).resolve()
 if sha(asr_path) != asr['sha256'] or sha(model_path) != model['sha256']:
@@ -77,7 +86,7 @@ wav = out / 'en-joined.wav'
 with wave.open(str(wav), 'wb') as f:
     f.setparams((1, 2, 16000, 0, 'NONE', 'not compressed'))
     f.writeframes(b''.join(pcm))
-server_path = Path(args.server or shutil.which('llama-server.exe') or
+server_path = Path(args.server or (str(repo / 'models/runtime-b11146/llama-server.exe') if args.translation_model == 'hymt2' else None) or shutil.which('llama-server.exe') or
                    str(Path(os.environ['LOCALAPPDATA']) / 'Microsoft/WinGet/Links/llama-server.exe')).resolve(strict=True)
 with socket.socket() as check:
     check.bind(('127.0.0.1', 18087))
@@ -90,6 +99,7 @@ environment['ECHOSUB_PADDING_COMPARE'] = '1' if args.pad_short_partials else '0'
 environment['ECHOSUB_ADAPTIVE_COMPARE'] = '1' if args.adaptive else '0'
 environment['ECHOSUB_TRANSLATION_TOKEN'] = key_file.read_text(encoding='utf-8')
 environment['ECHOSUB_ISOLATED_TRANSLATION_CONTEXT'] = '1' if args.isolated_translation_context else '0'
+environment['ECHOSUB_PACED_TRANSLATION_PROFILE'] = input_profile
 server = None
 stop = threading.Event()
 
@@ -113,7 +123,8 @@ try:
         server = subprocess.Popen([str(server_path), '-m', str(model_path), '--alias', model['id'],
                                    '-c', '4096', '-ngl', '99', '--parallel', '1', '--top-k', '40',
                                    '--top-p', '.9', '--min-p', '.1', '--repeat-penalty', '1',
-                                   '--host', '127.0.0.1', '--port', '18087', '--api-key-file', str(key_file)],
+                                   '--host', '127.0.0.1', '--port', '18087', '--api-key-file', str(key_file)] +
+                                  (['--jinja'] if args.translation_model == 'hymt2' else []),
                                   cwd=repo, env=environment, stdout=log, stderr=subprocess.STDOUT, **hidden)
         opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
         ready_start = time.monotonic()
@@ -132,7 +143,8 @@ try:
         warmup = repo / 'target/debug/translation-probe.exe'
         with (out / 'warmup.log').open('w', encoding='utf-8') as warm_log:
             result = subprocess.run([str(warmup), 'http://127.0.0.1:18087/v1/', model['id'],
-                                     str(repo / 'benchmarks/translation-fixtures.json'), str(out / 'warmup.json'), '1', '1'],
+                                     str(repo / 'benchmarks/translation-fixtures.json'), str(out / 'warmup.json'), '1', '1'] +
+                                    (['--hymt2-greedy'] if args.translation_model == 'hymt2' else []),
                                     cwd=repo, env=environment, stdout=warm_log, stderr=subprocess.STDOUT, timeout=90, **hidden)
         if result.returncode:
             raise RuntimeError('HTTP warmup failed')
@@ -142,8 +154,8 @@ try:
                    str(repo / 'scripts/probe-partial-scheduling.ps1'), '-Backend', args.backend,
                    '-Rounds', str(args.rounds), '-FirstPartialSeconds', '0.8' if args.adaptive or args.decode_window or args.pad_short_partials or args.supported_preview else '1.0', '-WavPath', str(wav),
                    '-ReportPath', str(out / 'report.json'), '-TranslationEndpoint', 'http://127.0.0.1:18087/v1/',
-                   '-TranslationModel', model['id']]
-        save('runtime.json', {'backend': args.backend, 'adaptive_compare': args.adaptive, 'padding_compare': args.pad_short_partials, 'supported_compare': args.supported_preview, 'decode_window_compare': args.decode_window, 'asr_weights_sha256': asr['sha256'],
+                   '-TranslationModel', model['id'], '-ModelPath', str(asr_path)]
+        save('runtime.json', {'backend': args.backend, 'asr_model': asr['id'], 'translation_model': model['id'], 'input_profile': input_profile, 'adaptive_compare': args.adaptive, 'padding_compare': args.pad_short_partials, 'supported_compare': args.supported_preview, 'decode_window_compare': args.decode_window, 'asr_weights_sha256': asr['sha256'],
                              'isolated_translation_context': args.isolated_translation_context,
                              'fixture_id': args.fixture_id, 'fixture_manifest_sha256': sha(fixtures_path),
                              'fixture_reference': item['reference'] if args.fixture_id else None,

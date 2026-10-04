@@ -34,7 +34,7 @@ fn encoded(value: Value) -> io::Result<Vec<u8>> {
     Ok(bytes)
 }
 impl Outbox {
-    #[cfg(all(test, feature = "native-asr"))]
+    #[cfg(test)]
     pub(crate) fn drain_probe_events(&self) -> Vec<Value> {
         self.state
             .lock()

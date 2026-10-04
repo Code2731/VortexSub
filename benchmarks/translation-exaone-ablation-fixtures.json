@@ -1,0 +1,1141 @@
+{
+  "schema_version": 1,
+  "quality_gate_passed": false,
+  "source": "Frozen EXAONE input ablation: 66 regression/calibration rows plus 24 new heldout rows. Keep partitions separate. Only one prompt revision; no tuning after heldout outputs.",
+  "cases": [
+    {
+      "context_condition": "none",
+      "source": "Do not open the door until I return.",
+      "context": [],
+      "id": "until-return-negative-none",
+      "pair": "until-return-negative",
+      "reference": "내가 돌아올 때까지 문을 열지 마.",
+      "language": "en",
+      "partition": "regression",
+      "category": "condition"
+    },
+    {
+      "context_condition": "related",
+      "source": "Do not open the door until I return.",
+      "context": [
+        "I will come back in five minutes."
+      ],
+      "id": "until-return-negative-related",
+      "pair": "until-return-negative",
+      "reference": "내가 돌아올 때까지 문을 열지 마.",
+      "language": "en",
+      "partition": "regression",
+      "category": "condition"
+    },
+    {
+      "context_condition": "irrelevant",
+      "source": "Do not open the door until I return.",
+      "context": [
+        "The weather is sunny today."
+      ],
+      "id": "until-return-negative-irrelevant",
+      "pair": "until-return-negative",
+      "reference": "내가 돌아올 때까지 문을 열지 마.",
+      "language": "en",
+      "partition": "regression",
+      "category": "condition"
+    },
+    {
+      "context_condition": "none",
+      "source": "Keep the door closed until I return.",
+      "context": [],
+      "id": "until-return-positive-none",
+      "pair": "until-return-positive",
+      "reference": "내가 돌아올 때까지 문을 닫아 둬.",
+      "language": "en",
+      "partition": "regression",
+      "category": "condition"
+    },
+    {
+      "context_condition": "related",
+      "source": "Keep the door closed until I return.",
+      "context": [
+        "I will come back in five minutes."
+      ],
+      "id": "until-return-positive-related",
+      "pair": "until-return-positive",
+      "reference": "내가 돌아올 때까지 문을 닫아 둬.",
+      "language": "en",
+      "partition": "regression",
+      "category": "condition"
+    },
+    {
+      "context_condition": "irrelevant",
+      "source": "Keep the door closed until I return.",
+      "context": [
+        "The weather is sunny today."
+      ],
+      "id": "until-return-positive-irrelevant",
+      "pair": "until-return-positive",
+      "reference": "내가 돌아올 때까지 문을 닫아 둬.",
+      "language": "en",
+      "partition": "regression",
+      "category": "condition"
+    },
+    {
+      "context_condition": "none",
+      "source": "Do not open the door before I return.",
+      "context": [],
+      "id": "before-return-negative-none",
+      "pair": "before-return-negative",
+      "reference": "내가 돌아오기 전에 문을 열지 마.",
+      "language": "en",
+      "partition": "regression",
+      "category": "condition"
+    },
+    {
+      "context_condition": "related",
+      "source": "Do not open the door before I return.",
+      "context": [
+        "I will come back in five minutes."
+      ],
+      "id": "before-return-negative-related",
+      "pair": "before-return-negative",
+      "reference": "내가 돌아오기 전에 문을 열지 마.",
+      "language": "en",
+      "partition": "regression",
+      "category": "condition"
+    },
+    {
+      "context_condition": "irrelevant",
+      "source": "Do not open the door before I return.",
+      "context": [
+        "The weather is sunny today."
+      ],
+      "id": "before-return-negative-irrelevant",
+      "pair": "before-return-negative",
+      "reference": "내가 돌아오기 전에 문을 열지 마.",
+      "language": "en",
+      "partition": "regression",
+      "category": "condition"
+    },
+    {
+      "context_condition": "none",
+      "source": "Attack only if the shield is down.",
+      "context": [],
+      "id": "only-if-shield-none",
+      "pair": "only-if-shield",
+      "reference": "방어막이 내려갔을 때만 공격해.",
+      "language": "en",
+      "partition": "regression",
+      "category": "condition"
+    },
+    {
+      "context_condition": "related",
+      "source": "Attack only if the shield is down.",
+      "context": [
+        "If the shield is still up, wait."
+      ],
+      "id": "only-if-shield-related",
+      "pair": "only-if-shield",
+      "reference": "방어막이 내려갔을 때만 공격해.",
+      "language": "en",
+      "partition": "regression",
+      "category": "condition"
+    },
+    {
+      "context_condition": "irrelevant",
+      "source": "Attack only if the shield is down.",
+      "context": [
+        "The weather is sunny today."
+      ],
+      "id": "only-if-shield-irrelevant",
+      "pair": "only-if-shield",
+      "reference": "방어막이 내려갔을 때만 공격해.",
+      "language": "en",
+      "partition": "regression",
+      "category": "condition"
+    },
+    {
+      "context_condition": "none",
+      "source": "右ではなく、左の扉を開けてください。",
+      "context": [],
+      "id": "direction-correction-none",
+      "pair": "direction-correction",
+      "reference": "오른쪽이 아니라 왼쪽 문을 열어 주세요.",
+      "language": "ja",
+      "partition": "regression",
+      "category": "correction"
+    },
+    {
+      "context_condition": "related",
+      "source": "右ではなく、左の扉を開けてください。",
+      "context": [
+        "さっき右と言いましたが、間違いでした。"
+      ],
+      "id": "direction-correction-related",
+      "pair": "direction-correction",
+      "reference": "오른쪽이 아니라 왼쪽 문을 열어 주세요.",
+      "language": "ja",
+      "partition": "regression",
+      "category": "correction"
+    },
+    {
+      "context_condition": "irrelevant",
+      "source": "右ではなく、左の扉を開けてください。",
+      "context": [
+        "今日は天気がいいですね。"
+      ],
+      "id": "direction-correction-irrelevant",
+      "pair": "direction-correction",
+      "reference": "오른쪽이 아니라 왼쪽 문을 열어 주세요.",
+      "language": "ja",
+      "partition": "regression",
+      "category": "correction"
+    },
+    {
+      "context_condition": "none",
+      "source": "Take two potions only if you have fewer than three hearts.",
+      "context": [],
+      "id": "number-condition-none",
+      "pair": "number-condition",
+      "reference": "하트가 세 개 미만일 때만 물약 두 개를 가져가.",
+      "language": "en",
+      "partition": "regression",
+      "category": "condition"
+    },
+    {
+      "context_condition": "related",
+      "source": "Take two potions only if you have fewer than three hearts.",
+      "context": [
+        "Count your hearts before taking any potions."
+      ],
+      "id": "number-condition-related",
+      "pair": "number-condition",
+      "reference": "하트가 세 개 미만일 때만 물약 두 개를 가져가.",
+      "language": "en",
+      "partition": "regression",
+      "category": "condition"
+    },
+    {
+      "context_condition": "irrelevant",
+      "source": "Take two potions only if you have fewer than three hearts.",
+      "context": [
+        "The weather is sunny today."
+      ],
+      "id": "number-condition-irrelevant",
+      "pair": "number-condition",
+      "reference": "하트가 세 개 미만일 때만 물약 두 개를 가져가.",
+      "language": "en",
+      "partition": "regression",
+      "category": "condition"
+    },
+    {
+      "id": "fresh-en-negation-01-none",
+      "pair": "fresh-en-negation-01",
+      "partition": "calibration",
+      "category": "negation",
+      "language": "en",
+      "source": "Do not touch the red switch, even if the alarm stops.",
+      "context": [],
+      "context_condition": "none",
+      "reference": "경보가 멈추더라도 빨간 스위치를 만지지 마.",
+      "review_note": "Accept alternate natural wording that preserves all actions, participants, polarity, conditions and quantities."
+    },
+    {
+      "id": "fresh-en-negation-01-related",
+      "pair": "fresh-en-negation-01",
+      "partition": "calibration",
+      "category": "negation",
+      "language": "en",
+      "source": "Do not touch the red switch, even if the alarm stops.",
+      "context": [
+        "The red switch is dangerous."
+      ],
+      "context_condition": "related",
+      "reference": "경보가 멈추더라도 빨간 스위치를 만지지 마.",
+      "review_note": "Accept alternate natural wording that preserves all actions, participants, polarity, conditions and quantities."
+    },
+    {
+      "id": "fresh-en-negation-02-none",
+      "pair": "fresh-en-negation-02",
+      "partition": "calibration",
+      "category": "negation",
+      "language": "en",
+      "source": "You must not heal the enemy standing beside the medic.",
+      "context": [],
+      "context_condition": "none",
+      "reference": "의무병 옆에 서 있는 적을 치료하면 안 돼.",
+      "review_note": "Accept alternate natural wording that preserves all actions, participants, polarity, conditions and quantities."
+    },
+    {
+      "id": "fresh-en-negation-02-related",
+      "pair": "fresh-en-negation-02",
+      "partition": "calibration",
+      "category": "negation",
+      "language": "en",
+      "source": "You must not heal the enemy standing beside the medic.",
+      "context": [
+        "The medic and an enemy are standing together."
+      ],
+      "context_condition": "related",
+      "reference": "의무병 옆에 서 있는 적을 치료하면 안 돼.",
+      "review_note": "Accept alternate natural wording that preserves all actions, participants, polarity, conditions and quantities."
+    },
+    {
+      "id": "fresh-en-condition-03-none",
+      "pair": "fresh-en-condition-03",
+      "partition": "calibration",
+      "category": "condition",
+      "language": "en",
+      "source": "Raise the gate only after both guards have left.",
+      "context": [],
+      "context_condition": "none",
+      "reference": "경비병 두 명이 모두 떠난 뒤에만 문을 올려.",
+      "review_note": "Accept alternate natural wording that preserves all actions, participants, polarity, conditions and quantities."
+    },
+    {
+      "id": "fresh-en-condition-03-related",
+      "pair": "fresh-en-condition-03",
+      "partition": "calibration",
+      "category": "condition",
+      "language": "en",
+      "source": "Raise the gate only after both guards have left.",
+      "context": [
+        "Two guards are watching the gate."
+      ],
+      "context_condition": "related",
+      "reference": "경비병 두 명이 모두 떠난 뒤에만 문을 올려.",
+      "review_note": "Accept alternate natural wording that preserves all actions, participants, polarity, conditions and quantities."
+    },
+    {
+      "id": "fresh-en-condition-04-none",
+      "pair": "fresh-en-condition-04",
+      "partition": "calibration",
+      "category": "condition",
+      "language": "en",
+      "source": "If the torch goes out, stay where you are.",
+      "context": [],
+      "context_condition": "none",
+      "reference": "횃불이 꺼지면 그 자리에 있어.",
+      "review_note": "Accept alternate natural wording that preserves all actions, participants, polarity, conditions and quantities."
+    },
+    {
+      "id": "fresh-en-condition-04-related",
+      "pair": "fresh-en-condition-04",
+      "partition": "calibration",
+      "category": "condition",
+      "language": "en",
+      "source": "If the torch goes out, stay where you are.",
+      "context": [
+        "The passage becomes dark without a torch."
+      ],
+      "context_condition": "related",
+      "reference": "횃불이 꺼지면 그 자리에 있어.",
+      "review_note": "Accept alternate natural wording that preserves all actions, participants, polarity, conditions and quantities."
+    },
+    {
+      "id": "fresh-en-target-05-none",
+      "pair": "fresh-en-target-05",
+      "partition": "calibration",
+      "category": "target",
+      "language": "en",
+      "source": "Give the shield to Mira, not to the knight behind her.",
+      "context": [],
+      "context_condition": "none",
+      "reference": "방패는 미라 뒤에 있는 기사 말고 미라에게 줘.",
+      "review_note": "Accept alternate natural wording that preserves all actions, participants, polarity, conditions and quantities."
+    },
+    {
+      "id": "fresh-en-target-05-related",
+      "pair": "fresh-en-target-05",
+      "partition": "calibration",
+      "category": "target",
+      "language": "en",
+      "source": "Give the shield to Mira, not to the knight behind her.",
+      "context": [
+        "Mira and a knight need equipment."
+      ],
+      "context_condition": "related",
+      "reference": "방패는 미라 뒤에 있는 기사 말고 미라에게 줘.",
+      "review_note": "Accept alternate natural wording that preserves all actions, participants, polarity, conditions and quantities."
+    },
+    {
+      "id": "fresh-en-target-06-none",
+      "pair": "fresh-en-target-06",
+      "partition": "calibration",
+      "category": "target",
+      "language": "en",
+      "source": "Have the ranger protect the merchant while you unlock the chest.",
+      "context": [],
+      "context_condition": "none",
+      "reference": "네가 상자를 여는 동안 궁수가 상인을 보호하게 해.",
+      "review_note": "Accept alternate natural wording that preserves all actions, participants, polarity, conditions and quantities."
+    },
+    {
+      "id": "fresh-en-target-06-related",
+      "pair": "fresh-en-target-06",
+      "partition": "calibration",
+      "category": "target",
+      "language": "en",
+      "source": "Have the ranger protect the merchant while you unlock the chest.",
+      "context": [
+        "The merchant cannot defend himself."
+      ],
+      "context_condition": "related",
+      "reference": "네가 상자를 여는 동안 궁수가 상인을 보호하게 해.",
+      "review_note": "Accept alternate natural wording that preserves all actions, participants, polarity, conditions and quantities."
+    },
+    {
+      "id": "fresh-en-numbers-07-none",
+      "pair": "fresh-en-numbers-07",
+      "partition": "calibration",
+      "category": "numbers",
+      "language": "en",
+      "source": "Spend no more than four coins on repairs.",
+      "context": [],
+      "context_condition": "none",
+      "reference": "수리에는 동전을 네 개까지만 써.",
+      "review_note": "Accept alternate natural wording that preserves all actions, participants, polarity, conditions and quantities."
+    },
+    {
+      "id": "fresh-en-numbers-07-related",
+      "pair": "fresh-en-numbers-07",
+      "partition": "calibration",
+      "category": "numbers",
+      "language": "en",
+      "source": "Spend no more than four coins on repairs.",
+      "context": [
+        "We need to save money for supplies."
+      ],
+      "context_condition": "related",
+      "reference": "수리에는 동전을 네 개까지만 써.",
+      "review_note": "Accept alternate natural wording that preserves all actions, participants, polarity, conditions and quantities."
+    },
+    {
+      "id": "fresh-en-numbers-08-none",
+      "pair": "fresh-en-numbers-08",
+      "partition": "calibration",
+      "category": "numbers",
+      "language": "en",
+      "source": "Keep at least seven arrows for the last room.",
+      "context": [],
+      "context_condition": "none",
+      "reference": "마지막 방을 위해 화살을 적어도 일곱 개 남겨 둬.",
+      "review_note": "Accept alternate natural wording that preserves all actions, participants, polarity, conditions and quantities."
+    },
+    {
+      "id": "fresh-en-numbers-08-related",
+      "pair": "fresh-en-numbers-08",
+      "partition": "calibration",
+      "category": "numbers",
+      "language": "en",
+      "source": "Keep at least seven arrows for the last room.",
+      "context": [
+        "Another fight awaits in the last room."
+      ],
+      "context_condition": "related",
+      "reference": "마지막 방을 위해 화살을 적어도 일곱 개 남겨 둬.",
+      "review_note": "Accept alternate natural wording that preserves all actions, participants, polarity, conditions and quantities."
+    },
+    {
+      "id": "fresh-en-correction-09-none",
+      "pair": "fresh-en-correction-09",
+      "partition": "calibration",
+      "category": "correction",
+      "language": "en",
+      "source": "The exit is east of the tower, not west.",
+      "context": [],
+      "context_condition": "none",
+      "reference": "출구는 탑의 서쪽이 아니라 동쪽에 있어.",
+      "review_note": "Accept alternate natural wording that preserves all actions, participants, polarity, conditions and quantities."
+    },
+    {
+      "id": "fresh-en-correction-09-related",
+      "pair": "fresh-en-correction-09",
+      "partition": "calibration",
+      "category": "correction",
+      "language": "en",
+      "source": "The exit is east of the tower, not west.",
+      "context": [
+        "We are standing at the tower."
+      ],
+      "context_condition": "related",
+      "reference": "출구는 탑의 서쪽이 아니라 동쪽에 있어.",
+      "review_note": "Accept alternate natural wording that preserves all actions, participants, polarity, conditions and quantities."
+    },
+    {
+      "id": "fresh-en-correction-10-none",
+      "pair": "fresh-en-correction-10",
+      "partition": "calibration",
+      "category": "correction",
+      "language": "en",
+      "source": "Use the blue rune. Sorry, I meant the green rune.",
+      "context": [],
+      "context_condition": "none",
+      "reference": "파란 룬을 써. 미안, 초록 룬을 말하려던 거야.",
+      "review_note": "Accept alternate natural wording that preserves all actions, participants, polarity, conditions and quantities."
+    },
+    {
+      "id": "fresh-en-correction-10-related",
+      "pair": "fresh-en-correction-10",
+      "partition": "calibration",
+      "category": "correction",
+      "language": "en",
+      "source": "Use the blue rune. Sorry, I meant the green rune.",
+      "context": [
+        "Several colored runes lie on the table."
+      ],
+      "context_condition": "related",
+      "reference": "파란 룬을 써. 미안, 초록 룬을 말하려던 거야.",
+      "review_note": "Accept alternate natural wording that preserves all actions, participants, polarity, conditions and quantities."
+    },
+    {
+      "id": "fresh-en-context-11-none",
+      "pair": "fresh-en-context-11",
+      "partition": "calibration",
+      "category": "context",
+      "language": "en",
+      "source": "Leave it beside the locked chest.",
+      "context": [],
+      "context_condition": "none",
+      "reference": "그것을 잠긴 상자 옆에 두어.",
+      "review_note": "Reference is illustrative, not an exact-match target. Accept faithful pronoun retention; related context may resolve the referent. No extra facts or actions."
+    },
+    {
+      "id": "fresh-en-context-11-related",
+      "pair": "fresh-en-context-11",
+      "partition": "calibration",
+      "category": "context",
+      "language": "en",
+      "source": "Leave it beside the locked chest.",
+      "context": [
+        "You are holding the silver key."
+      ],
+      "context_condition": "related",
+      "reference": "그것을 잠긴 상자 옆에 두어.",
+      "review_note": "Reference is illustrative, not an exact-match target. Accept faithful pronoun retention; related context may resolve the referent. No extra facts or actions."
+    },
+    {
+      "id": "fresh-en-context-12-none",
+      "pair": "fresh-en-context-12",
+      "partition": "calibration",
+      "category": "context",
+      "language": "en",
+      "source": "Pull it after the light turns green.",
+      "context": [],
+      "context_condition": "none",
+      "reference": "불빛이 초록색으로 바뀌면 그것을 당겨.",
+      "review_note": "Reference is illustrative, not an exact-match target. Accept faithful pronoun retention; related context may resolve the referent. No extra facts or actions."
+    },
+    {
+      "id": "fresh-en-context-12-related",
+      "pair": "fresh-en-context-12",
+      "partition": "calibration",
+      "category": "context",
+      "language": "en",
+      "source": "Pull it after the light turns green.",
+      "context": [
+        "The lever controls the bridge."
+      ],
+      "context_condition": "related",
+      "reference": "불빛이 초록색으로 바뀌면 그것을 당겨.",
+      "review_note": "Reference is illustrative, not an exact-match target. Accept faithful pronoun retention; related context may resolve the referent. No extra facts or actions."
+    },
+    {
+      "id": "fresh-ja-negation-13-none",
+      "pair": "fresh-ja-negation-13",
+      "partition": "calibration",
+      "category": "negation",
+      "language": "ja",
+      "source": "鐘が鳴るまで橋を渡らないで。",
+      "context": [],
+      "context_condition": "none",
+      "reference": "종이 울릴 때까지 다리를 건너지 마.",
+      "review_note": "Accept alternate natural wording that preserves all actions, participants, polarity, conditions and quantities."
+    },
+    {
+      "id": "fresh-ja-negation-13-related",
+      "pair": "fresh-ja-negation-13",
+      "partition": "calibration",
+      "category": "negation",
+      "language": "ja",
+      "source": "鐘が鳴るまで橋を渡らないで。",
+      "context": [
+        "橋を渡る合図は鐘の音です。"
+      ],
+      "context_condition": "related",
+      "reference": "종이 울릴 때까지 다리를 건너지 마.",
+      "review_note": "Accept alternate natural wording that preserves all actions, participants, polarity, conditions and quantities."
+    },
+    {
+      "id": "fresh-ja-negation-14-none",
+      "pair": "fresh-ja-negation-14",
+      "partition": "calibration",
+      "category": "negation",
+      "language": "ja",
+      "source": "扉が開いていても、地下室には入らないで。",
+      "context": [],
+      "context_condition": "none",
+      "reference": "문이 열려 있어도 지하실에는 들어가지 마.",
+      "review_note": "Accept alternate natural wording that preserves all actions, participants, polarity, conditions and quantities."
+    },
+    {
+      "id": "fresh-ja-negation-14-related",
+      "pair": "fresh-ja-negation-14",
+      "partition": "calibration",
+      "category": "negation",
+      "language": "ja",
+      "source": "扉が開いていても、地下室には入らないで。",
+      "context": [
+        "地下室の入口が見えます。"
+      ],
+      "context_condition": "related",
+      "reference": "문이 열려 있어도 지하실에는 들어가지 마.",
+      "review_note": "Accept alternate natural wording that preserves all actions, participants, polarity, conditions and quantities."
+    },
+    {
+      "id": "fresh-ja-condition-15-none",
+      "pair": "fresh-ja-condition-15",
+      "partition": "calibration",
+      "category": "condition",
+      "language": "ja",
+      "source": "鍵を二本とも見つけた場合にだけ、箱を開けて。",
+      "context": [],
+      "context_condition": "none",
+      "reference": "열쇠 두 개를 모두 찾은 경우에만 상자를 열어.",
+      "review_note": "Accept alternate natural wording that preserves all actions, participants, polarity, conditions and quantities."
+    },
+    {
+      "id": "fresh-ja-condition-15-related",
+      "pair": "fresh-ja-condition-15",
+      "partition": "calibration",
+      "category": "condition",
+      "language": "ja",
+      "source": "鍵を二本とも見つけた場合にだけ、箱を開けて。",
+      "context": [
+        "この箱には二つの錠があります。"
+      ],
+      "context_condition": "related",
+      "reference": "열쇠 두 개를 모두 찾은 경우에만 상자를 열어.",
+      "review_note": "Accept alternate natural wording that preserves all actions, participants, polarity, conditions and quantities."
+    },
+    {
+      "id": "fresh-ja-condition-16-none",
+      "pair": "fresh-ja-condition-16",
+      "partition": "calibration",
+      "category": "condition",
+      "language": "ja",
+      "source": "敵が眠っているなら、音を立てずに通り抜けて。",
+      "context": [],
+      "context_condition": "none",
+      "reference": "적이 잠들어 있다면 소리를 내지 말고 지나가.",
+      "review_note": "Accept alternate natural wording that preserves all actions, participants, polarity, conditions and quantities."
+    },
+    {
+      "id": "fresh-ja-condition-16-related",
+      "pair": "fresh-ja-condition-16",
+      "partition": "calibration",
+      "category": "condition",
+      "language": "ja",
+      "source": "敵が眠っているなら、音を立てずに通り抜けて。",
+      "context": [
+        "見張りが廊下にいます。"
+      ],
+      "context_condition": "related",
+      "reference": "적이 잠들어 있다면 소리를 내지 말고 지나가.",
+      "review_note": "Accept alternate natural wording that preserves all actions, participants, polarity, conditions and quantities."
+    },
+    {
+      "id": "fresh-ja-target-17-none",
+      "pair": "fresh-ja-target-17",
+      "partition": "calibration",
+      "category": "target",
+      "language": "ja",
+      "source": "薬は隊長ではなく、隣の弓使いに渡して。",
+      "context": [],
+      "context_condition": "none",
+      "reference": "약은 대장 말고 옆에 있는 궁수에게 줘.",
+      "review_note": "Accept alternate natural wording that preserves all actions, participants, polarity, conditions and quantities."
+    },
+    {
+      "id": "fresh-ja-target-17-related",
+      "pair": "fresh-ja-target-17",
+      "partition": "calibration",
+      "category": "target",
+      "language": "ja",
+      "source": "薬は隊長ではなく、隣の弓使いに渡して。",
+      "context": [
+        "隊長と弓使いが並んでいます。"
+      ],
+      "context_condition": "related",
+      "reference": "약은 대장 말고 옆에 있는 궁수에게 줘.",
+      "review_note": "Accept alternate natural wording that preserves all actions, participants, polarity, conditions and quantities."
+    },
+    {
+      "id": "fresh-ja-target-18-none",
+      "pair": "fresh-ja-target-18",
+      "partition": "calibration",
+      "category": "target",
+      "language": "ja",
+      "source": "君が橋を直す間、騎士に子供を守らせて。",
+      "context": [],
+      "context_condition": "none",
+      "reference": "네가 다리를 고치는 동안 기사가 아이를 보호하게 해.",
+      "review_note": "Accept alternate natural wording that preserves all actions, participants, polarity, conditions and quantities."
+    },
+    {
+      "id": "fresh-ja-target-18-related",
+      "pair": "fresh-ja-target-18",
+      "partition": "calibration",
+      "category": "target",
+      "language": "ja",
+      "source": "君が橋を直す間、騎士に子供を守らせて。",
+      "context": [
+        "子供は橋のそばで待っています。"
+      ],
+      "context_condition": "related",
+      "reference": "네가 다리를 고치는 동안 기사가 아이를 보호하게 해.",
+      "review_note": "Accept alternate natural wording that preserves all actions, participants, polarity, conditions and quantities."
+    },
+    {
+      "id": "fresh-ja-numbers-19-none",
+      "pair": "fresh-ja-numbers-19",
+      "partition": "calibration",
+      "category": "numbers",
+      "language": "ja",
+      "source": "修理には金貨を三枚まで使っていい。",
+      "context": [],
+      "context_condition": "none",
+      "reference": "수리에는 금화를 세 개까지 써도 돼.",
+      "review_note": "Accept alternate natural wording that preserves all actions, participants, polarity, conditions and quantities."
+    },
+    {
+      "id": "fresh-ja-numbers-19-related",
+      "pair": "fresh-ja-numbers-19",
+      "partition": "calibration",
+      "category": "numbers",
+      "language": "ja",
+      "source": "修理には金貨を三枚まで使っていい。",
+      "context": [
+        "残りの金貨は買い物に必要です。"
+      ],
+      "context_condition": "related",
+      "reference": "수리에는 금화를 세 개까지 써도 돼.",
+      "review_note": "Accept alternate natural wording that preserves all actions, participants, polarity, conditions and quantities."
+    },
+    {
+      "id": "fresh-ja-numbers-20-none",
+      "pair": "fresh-ja-numbers-20",
+      "partition": "calibration",
+      "category": "numbers",
+      "language": "ja",
+      "source": "次の戦いのために、矢を少なくとも五本残して。",
+      "context": [],
+      "context_condition": "none",
+      "reference": "다음 전투를 위해 화살을 적어도 다섯 개 남겨 둬.",
+      "review_note": "Accept alternate natural wording that preserves all actions, participants, polarity, conditions and quantities."
+    },
+    {
+      "id": "fresh-ja-numbers-20-related",
+      "pair": "fresh-ja-numbers-20",
+      "partition": "calibration",
+      "category": "numbers",
+      "language": "ja",
+      "source": "次の戦いのために、矢を少なくとも五本残して。",
+      "context": [
+        "次の部屋にも敵がいます。"
+      ],
+      "context_condition": "related",
+      "reference": "다음 전투를 위해 화살을 적어도 다섯 개 남겨 둬.",
+      "review_note": "Accept alternate natural wording that preserves all actions, participants, polarity, conditions and quantities."
+    },
+    {
+      "id": "fresh-ja-correction-21-none",
+      "pair": "fresh-ja-correction-21",
+      "partition": "calibration",
+      "category": "correction",
+      "language": "ja",
+      "source": "北の道ではなく、南の道を選んで。",
+      "context": [],
+      "context_condition": "none",
+      "reference": "북쪽 길이 아니라 남쪽 길을 골라.",
+      "review_note": "Accept alternate natural wording that preserves all actions, participants, polarity, conditions and quantities."
+    },
+    {
+      "id": "fresh-ja-correction-21-related",
+      "pair": "fresh-ja-correction-21",
+      "partition": "calibration",
+      "category": "correction",
+      "language": "ja",
+      "source": "北の道ではなく、南の道を選んで。",
+      "context": [
+        "分かれ道に着きました。"
+      ],
+      "context_condition": "related",
+      "reference": "북쪽 길이 아니라 남쪽 길을 골라.",
+      "review_note": "Accept alternate natural wording that preserves all actions, participants, polarity, conditions and quantities."
+    },
+    {
+      "id": "fresh-ja-correction-22-none",
+      "pair": "fresh-ja-correction-22",
+      "partition": "calibration",
+      "category": "correction",
+      "language": "ja",
+      "source": "赤い石を使って。いや、青い石だった。",
+      "context": [],
+      "context_condition": "none",
+      "reference": "빨간 돌을 써. 아니, 파란 돌이었어.",
+      "review_note": "Accept alternate natural wording that preserves all actions, participants, polarity, conditions and quantities."
+    },
+    {
+      "id": "fresh-ja-correction-22-related",
+      "pair": "fresh-ja-correction-22",
+      "partition": "calibration",
+      "category": "correction",
+      "language": "ja",
+      "source": "赤い石を使って。いや、青い石だった。",
+      "context": [
+        "色の違う石が置いてあります。"
+      ],
+      "context_condition": "related",
+      "reference": "빨간 돌을 써. 아니, 파란 돌이었어.",
+      "review_note": "Accept alternate natural wording that preserves all actions, participants, polarity, conditions and quantities."
+    },
+    {
+      "id": "fresh-ja-context-23-none",
+      "pair": "fresh-ja-context-23",
+      "partition": "calibration",
+      "category": "context",
+      "language": "ja",
+      "source": "それを閉じる前に、中を確かめて。",
+      "context": [],
+      "context_condition": "none",
+      "reference": "그것을 닫기 전에 안을 확인해.",
+      "review_note": "Reference is illustrative, not an exact-match target. Accept faithful pronoun retention; related context may resolve the referent. No extra facts or actions."
+    },
+    {
+      "id": "fresh-ja-context-23-related",
+      "pair": "fresh-ja-context-23",
+      "partition": "calibration",
+      "category": "context",
+      "language": "ja",
+      "source": "それを閉じる前に、中を確かめて。",
+      "context": [
+        "目の前に大きな木箱があります。"
+      ],
+      "context_condition": "related",
+      "reference": "그것을 닫기 전에 안을 확인해.",
+      "review_note": "Reference is illustrative, not an exact-match target. Accept faithful pronoun retention; related context may resolve the referent. No extra facts or actions."
+    },
+    {
+      "id": "fresh-ja-context-24-none",
+      "pair": "fresh-ja-context-24",
+      "partition": "calibration",
+      "category": "context",
+      "language": "ja",
+      "source": "彼女が戻るまで、ここで待って。",
+      "context": [],
+      "context_condition": "none",
+      "reference": "그녀가 돌아올 때까지 여기서 기다려.",
+      "review_note": "Reference is illustrative, not an exact-match target. Accept faithful pronoun retention; related context may resolve the referent. No extra facts or actions."
+    },
+    {
+      "id": "fresh-ja-context-24-related",
+      "pair": "fresh-ja-context-24",
+      "partition": "calibration",
+      "category": "context",
+      "language": "ja",
+      "source": "彼女が戻るまで、ここで待って。",
+      "context": [
+        "ミラは鍵を探しに行きました。"
+      ],
+      "context_condition": "related",
+      "reference": "그녀가 돌아올 때까지 여기서 기다려.",
+      "review_note": "Reference is illustrative, not an exact-match target. Accept faithful pronoun retention; related context may resolve the referent. No extra facts or actions."
+    },
+    {
+      "id": "exaone-holdout-en-01-none",
+      "language": "en",
+      "category": "negation",
+      "partition": "heldout",
+      "context_condition": "none",
+      "source": "Do not restart the generator, even when the lights go dark.",
+      "context": [],
+      "reference": "불이 꺼져도 발전기를 다시 켜지 마.",
+      "review_note": "negation must apply to restarting"
+    },
+    {
+      "id": "exaone-holdout-en-01-related",
+      "language": "en",
+      "category": "negation",
+      "partition": "heldout",
+      "context_condition": "related",
+      "source": "Do not restart the generator, even when the lights go dark.",
+      "context": [
+        "The generator is overheating."
+      ],
+      "reference": "불이 꺼져도 발전기를 다시 켜지 마.",
+      "review_note": "negation must apply to restarting"
+    },
+    {
+      "id": "exaone-holdout-en-02-none",
+      "language": "en",
+      "category": "condition",
+      "partition": "heldout",
+      "context_condition": "none",
+      "source": "Unlock the vault only after the scanner switches off.",
+      "context": [],
+      "reference": "스캐너가 꺼진 뒤에만 금고를 열어.",
+      "review_note": "after and only must remain"
+    },
+    {
+      "id": "exaone-holdout-en-02-related",
+      "language": "en",
+      "category": "condition",
+      "partition": "heldout",
+      "context_condition": "related",
+      "source": "Unlock the vault only after the scanner switches off.",
+      "context": [
+        "The scanner detects movement."
+      ],
+      "reference": "스캐너가 꺼진 뒤에만 금고를 열어.",
+      "review_note": "after and only must remain"
+    },
+    {
+      "id": "exaone-holdout-en-03-none",
+      "language": "en",
+      "category": "target",
+      "partition": "heldout",
+      "context_condition": "none",
+      "source": "Ask the healer to follow the scout while the guard stays here.",
+      "context": [],
+      "reference": "경비병은 여기 남아 있는 동안 치유사에게 정찰병을 따라가라고 해.",
+      "review_note": "preserve three distinct roles"
+    },
+    {
+      "id": "exaone-holdout-en-03-related",
+      "language": "en",
+      "category": "target",
+      "partition": "heldout",
+      "context_condition": "related",
+      "source": "Ask the healer to follow the scout while the guard stays here.",
+      "context": [
+        "The healer, scout and guard are waiting."
+      ],
+      "reference": "경비병은 여기 남아 있는 동안 치유사에게 정찰병을 따라가라고 해.",
+      "review_note": "preserve three distinct roles"
+    },
+    {
+      "id": "exaone-holdout-en-04-none",
+      "language": "en",
+      "category": "numbers",
+      "partition": "heldout",
+      "context_condition": "none",
+      "source": "Use fewer than six charges and leave at least two in reserve.",
+      "context": [],
+      "reference": "충전을 여섯 회 미만으로 사용하고 최소 두 회분을 남겨 둬.",
+      "review_note": "strict less-than and at-least"
+    },
+    {
+      "id": "exaone-holdout-en-04-related",
+      "language": "en",
+      "category": "numbers",
+      "partition": "heldout",
+      "context_condition": "related",
+      "source": "Use fewer than six charges and leave at least two in reserve.",
+      "context": [
+        "The device has eight charges."
+      ],
+      "reference": "충전을 여섯 회 미만으로 사용하고 최소 두 회분을 남겨 둬.",
+      "review_note": "strict less-than and at-least"
+    },
+    {
+      "id": "exaone-holdout-en-05-none",
+      "language": "en",
+      "category": "correction",
+      "partition": "heldout",
+      "context_condition": "none",
+      "source": "Take the brass cog. No, take the copper one instead.",
+      "context": [],
+      "reference": "황동 톱니를 가져가. 아니, 대신 구리 톱니를 가져가.",
+      "review_note": "corrected material and action"
+    },
+    {
+      "id": "exaone-holdout-en-05-related",
+      "language": "en",
+      "category": "correction",
+      "partition": "heldout",
+      "context_condition": "related",
+      "source": "Take the brass cog. No, take the copper one instead.",
+      "context": [
+        "Two cogs are on the workbench."
+      ],
+      "reference": "황동 톱니를 가져가. 아니, 대신 구리 톱니를 가져가.",
+      "review_note": "corrected material and action"
+    },
+    {
+      "id": "exaone-holdout-en-06-none",
+      "language": "en",
+      "category": "context",
+      "partition": "heldout",
+      "context_condition": "none",
+      "source": "Keep it dry until we reach the shelter.",
+      "context": [],
+      "reference": "대피소에 도착할 때까지 그것을 젖지 않게 해.",
+      "review_note": "it may remain implicit or resolve to map; avoid translating background"
+    },
+    {
+      "id": "exaone-holdout-en-06-related",
+      "language": "en",
+      "category": "context",
+      "partition": "heldout",
+      "context_condition": "related",
+      "source": "Keep it dry until we reach the shelter.",
+      "context": [
+        "You are carrying a folded map."
+      ],
+      "reference": "대피소에 도착할 때까지 그것을 젖지 않게 해.",
+      "review_note": "it may remain implicit or resolve to map; avoid translating background"
+    },
+    {
+      "id": "exaone-holdout-ja-07-none",
+      "language": "ja",
+      "category": "negation",
+      "partition": "heldout",
+      "context_condition": "none",
+      "source": "雨が止んでも、炉には火を入れないで。",
+      "context": [],
+      "reference": "비가 그쳐도 용광로에 불을 붙이지 마.",
+      "review_note": "even-if negation"
+    },
+    {
+      "id": "exaone-holdout-ja-07-related",
+      "language": "ja",
+      "category": "negation",
+      "partition": "heldout",
+      "context_condition": "related",
+      "source": "雨が止んでも、炉には火を入れないで。",
+      "context": [
+        "炉の部品が壊れています。"
+      ],
+      "reference": "비가 그쳐도 용광로에 불을 붙이지 마.",
+      "review_note": "even-if negation"
+    },
+    {
+      "id": "exaone-holdout-ja-08-none",
+      "language": "ja",
+      "category": "condition",
+      "partition": "heldout",
+      "context_condition": "none",
+      "source": "ランプが二つとも消えてからだけ、レバーを引いて。",
+      "context": [],
+      "reference": "램프가 두 개 모두 꺼진 뒤에만 레버를 당겨.",
+      "review_note": "both, after and only"
+    },
+    {
+      "id": "exaone-holdout-ja-08-related",
+      "language": "ja",
+      "category": "condition",
+      "partition": "heldout",
+      "context_condition": "related",
+      "source": "ランプが二つとも消えてからだけ、レバーを引いて。",
+      "context": [
+        "レバーの横にランプが二つあります。"
+      ],
+      "reference": "램프가 두 개 모두 꺼진 뒤에만 레버를 당겨.",
+      "review_note": "both, after and only"
+    },
+    {
+      "id": "exaone-holdout-ja-09-none",
+      "language": "ja",
+      "category": "target",
+      "partition": "heldout",
+      "context_condition": "none",
+      "source": "修理屋に荷車を直させて、君は馬を見ていて。",
+      "context": [],
+      "reference": "수리공에게 수레를 고치게 하고 너는 말을 지켜봐.",
+      "review_note": "distinct agent and patient roles"
+    },
+    {
+      "id": "exaone-holdout-ja-09-related",
+      "language": "ja",
+      "category": "target",
+      "partition": "heldout",
+      "context_condition": "related",
+      "source": "修理屋に荷車を直させて、君は馬を見ていて。",
+      "context": [
+        "修理屋と馬が門のそばにいます。"
+      ],
+      "reference": "수리공에게 수레를 고치게 하고 너는 말을 지켜봐.",
+      "review_note": "distinct agent and patient roles"
+    },
+    {
+      "id": "exaone-holdout-ja-10-none",
+      "language": "ja",
+      "category": "numbers",
+      "partition": "heldout",
+      "context_condition": "none",
+      "source": "薬草は四束未満使い、包帯は少なくとも三枚残して。",
+      "context": [],
+      "reference": "약초는 네 묶음 미만으로 쓰고 붕대는 최소 세 장 남겨.",
+      "review_note": "strict less-than and at-least"
+    },
+    {
+      "id": "exaone-holdout-ja-10-related",
+      "language": "ja",
+      "category": "numbers",
+      "partition": "heldout",
+      "context_condition": "related",
+      "source": "薬草は四束未満使い、包帯は少なくとも三枚残して。",
+      "context": [
+        "薬草と包帯は袋の中です。"
+      ],
+      "reference": "약초는 네 묶음 미만으로 쓰고 붕대는 최소 세 장 남겨.",
+      "review_note": "strict less-than and at-least"
+    },
+    {
+      "id": "exaone-holdout-ja-11-none",
+      "language": "ja",
+      "category": "correction",
+      "partition": "heldout",
+      "context_condition": "none",
+      "source": "銀の針を取って。違った、鉄の針だった。",
+      "context": [],
+      "reference": "은 바늘을 집어. 잘못 말했어, 철 바늘이었어.",
+      "review_note": "preserve self-correction"
+    },
+    {
+      "id": "exaone-holdout-ja-11-related",
+      "language": "ja",
+      "category": "correction",
+      "partition": "heldout",
+      "context_condition": "related",
+      "source": "銀の針を取って。違った、鉄の針だった。",
+      "context": [
+        "机に針が二本あります。"
+      ],
+      "reference": "은 바늘을 집어. 잘못 말했어, 철 바늘이었어.",
+      "review_note": "preserve self-correction"
+    },
+    {
+      "id": "exaone-holdout-ja-12-none",
+      "language": "ja",
+      "category": "context",
+      "partition": "heldout",
+      "context_condition": "none",
+      "source": "それを置く前に、底が濡れていないか見て。",
+      "context": [],
+      "reference": "그것을 놓기 전에 바닥이 젖지 않았는지 봐.",
+      "review_note": "pronoun may resolve to bucket; preserve before relation"
+    },
+    {
+      "id": "exaone-holdout-ja-12-related",
+      "language": "ja",
+      "category": "context",
+      "partition": "heldout",
+      "context_condition": "related",
+      "source": "それを置く前に、底が濡れていないか見て。",
+      "context": [
+        "君は木の桶を持っています。"
+      ],
+      "reference": "그것을 놓기 전에 바닥이 젖지 않았는지 봐.",
+      "review_note": "pronoun may resolve to bucket; preserve before relation"
+    }
+  ]
+}

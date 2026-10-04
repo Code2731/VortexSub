@@ -51,6 +51,13 @@ fn native_paced_translation_probe() {
     let supported_compare = std::env::var("ECHOSUB_SUPPORTED_COMPARE").as_deref() == Ok("1");
     let isolated_context =
         std::env::var("ECHOSUB_ISOLATED_TRANSLATION_CONTEXT").as_deref() == Ok("1");
+    let profile =
+        std::env::var("ECHOSUB_PACED_TRANSLATION_PROFILE").unwrap_or_else(|_| "standard".into());
+    assert!(matches!(
+        profile.as_str(),
+        "standard" | "qwen-greedy" | "hymt2-greedy"
+    ));
+    assert!(!isolated_context || profile == "standard");
     assert!(!(supported_compare && (padding_compare || window_compare || adaptive_compare)));
     assert!(!(padding_compare && (window_compare || adaptive_compare)));
     let mut reports = Vec::new();
@@ -101,7 +108,8 @@ fn native_paced_translation_probe() {
             }
             r.translation_command(
                 "configure_translation",
-                &json!({"endpoint":endpoint,"model_id":translation_model}),
+                &json!({"endpoint":endpoint,"model_id":translation_model,
+                    "input_profile":profile,"isolated_context":isolated_context}),
                 &q,
             )
             .unwrap();

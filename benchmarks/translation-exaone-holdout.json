@@ -1,0 +1,295 @@
+{
+  "schema_version": 1,
+  "quality_gate_passed": false,
+  "source": "Authored 12 fresh sources (6 en, 6 ja), none/related pairs. EXAONE input variants frozen before outputs observed on 2026-10-02. References are review examples, never model input. No natural audio/partial traces.",
+  "cases": [
+    {
+      "id": "exaone-holdout-en-01-none",
+      "language": "en",
+      "category": "negation",
+      "partition": "heldout",
+      "context_condition": "none",
+      "source": "Do not restart the generator, even when the lights go dark.",
+      "context": [],
+      "reference": "불이 꺼져도 발전기를 다시 켜지 마.",
+      "review_note": "negation must apply to restarting"
+    },
+    {
+      "id": "exaone-holdout-en-01-related",
+      "language": "en",
+      "category": "negation",
+      "partition": "heldout",
+      "context_condition": "related",
+      "source": "Do not restart the generator, even when the lights go dark.",
+      "context": [
+        "The generator is overheating."
+      ],
+      "reference": "불이 꺼져도 발전기를 다시 켜지 마.",
+      "review_note": "negation must apply to restarting"
+    },
+    {
+      "id": "exaone-holdout-en-02-none",
+      "language": "en",
+      "category": "condition",
+      "partition": "heldout",
+      "context_condition": "none",
+      "source": "Unlock the vault only after the scanner switches off.",
+      "context": [],
+      "reference": "스캐너가 꺼진 뒤에만 금고를 열어.",
+      "review_note": "after and only must remain"
+    },
+    {
+      "id": "exaone-holdout-en-02-related",
+      "language": "en",
+      "category": "condition",
+      "partition": "heldout",
+      "context_condition": "related",
+      "source": "Unlock the vault only after the scanner switches off.",
+      "context": [
+        "The scanner detects movement."
+      ],
+      "reference": "스캐너가 꺼진 뒤에만 금고를 열어.",
+      "review_note": "after and only must remain"
+    },
+    {
+      "id": "exaone-holdout-en-03-none",
+      "language": "en",
+      "category": "target",
+      "partition": "heldout",
+      "context_condition": "none",
+      "source": "Ask the healer to follow the scout while the guard stays here.",
+      "context": [],
+      "reference": "경비병은 여기 남아 있는 동안 치유사에게 정찰병을 따라가라고 해.",
+      "review_note": "preserve three distinct roles"
+    },
+    {
+      "id": "exaone-holdout-en-03-related",
+      "language": "en",
+      "category": "target",
+      "partition": "heldout",
+      "context_condition": "related",
+      "source": "Ask the healer to follow the scout while the guard stays here.",
+      "context": [
+        "The healer, scout and guard are waiting."
+      ],
+      "reference": "경비병은 여기 남아 있는 동안 치유사에게 정찰병을 따라가라고 해.",
+      "review_note": "preserve three distinct roles"
+    },
+    {
+      "id": "exaone-holdout-en-04-none",
+      "language": "en",
+      "category": "numbers",
+      "partition": "heldout",
+      "context_condition": "none",
+      "source": "Use fewer than six charges and leave at least two in reserve.",
+      "context": [],
+      "reference": "충전을 여섯 회 미만으로 사용하고 최소 두 회분을 남겨 둬.",
+      "review_note": "strict less-than and at-least"
+    },
+    {
+      "id": "exaone-holdout-en-04-related",
+      "language": "en",
+      "category": "numbers",
+      "partition": "heldout",
+      "context_condition": "related",
+      "source": "Use fewer than six charges and leave at least two in reserve.",
+      "context": [
+        "The device has eight charges."
+      ],
+      "reference": "충전을 여섯 회 미만으로 사용하고 최소 두 회분을 남겨 둬.",
+      "review_note": "strict less-than and at-least"
+    },
+    {
+      "id": "exaone-holdout-en-05-none",
+      "language": "en",
+      "category": "correction",
+      "partition": "heldout",
+      "context_condition": "none",
+      "source": "Take the brass cog. No, take the copper one instead.",
+      "context": [],
+      "reference": "황동 톱니를 가져가. 아니, 대신 구리 톱니를 가져가.",
+      "review_note": "corrected material and action"
+    },
+    {
+      "id": "exaone-holdout-en-05-related",
+      "language": "en",
+      "category": "correction",
+      "partition": "heldout",
+      "context_condition": "related",
+      "source": "Take the brass cog. No, take the copper one instead.",
+      "context": [
+        "Two cogs are on the workbench."
+      ],
+      "reference": "황동 톱니를 가져가. 아니, 대신 구리 톱니를 가져가.",
+      "review_note": "corrected material and action"
+    },
+    {
+      "id": "exaone-holdout-en-06-none",
+      "language": "en",
+      "category": "context",
+      "partition": "heldout",
+      "context_condition": "none",
+      "source": "Keep it dry until we reach the shelter.",
+      "context": [],
+      "reference": "대피소에 도착할 때까지 그것을 젖지 않게 해.",
+      "review_note": "it may remain implicit or resolve to map; avoid translating background"
+    },
+    {
+      "id": "exaone-holdout-en-06-related",
+      "language": "en",
+      "category": "context",
+      "partition": "heldout",
+      "context_condition": "related",
+      "source": "Keep it dry until we reach the shelter.",
+      "context": [
+        "You are carrying a folded map."
+      ],
+      "reference": "대피소에 도착할 때까지 그것을 젖지 않게 해.",
+      "review_note": "it may remain implicit or resolve to map; avoid translating background"
+    },
+    {
+      "id": "exaone-holdout-ja-07-none",
+      "language": "ja",
+      "category": "negation",
+      "partition": "heldout",
+      "context_condition": "none",
+      "source": "雨が止んでも、炉には火を入れないで。",
+      "context": [],
+      "reference": "비가 그쳐도 용광로에 불을 붙이지 마.",
+      "review_note": "even-if negation"
+    },
+    {
+      "id": "exaone-holdout-ja-07-related",
+      "language": "ja",
+      "category": "negation",
+      "partition": "heldout",
+      "context_condition": "related",
+      "source": "雨が止んでも、炉には火を入れないで。",
+      "context": [
+        "炉の部品が壊れています。"
+      ],
+      "reference": "비가 그쳐도 용광로에 불을 붙이지 마.",
+      "review_note": "even-if negation"
+    },
+    {
+      "id": "exaone-holdout-ja-08-none",
+      "language": "ja",
+      "category": "condition",
+      "partition": "heldout",
+      "context_condition": "none",
+      "source": "ランプが二つとも消えてからだけ、レバーを引いて。",
+      "context": [],
+      "reference": "램프가 두 개 모두 꺼진 뒤에만 레버를 당겨.",
+      "review_note": "both, after and only"
+    },
+    {
+      "id": "exaone-holdout-ja-08-related",
+      "language": "ja",
+      "category": "condition",
+      "partition": "heldout",
+      "context_condition": "related",
+      "source": "ランプが二つとも消えてからだけ、レバーを引いて。",
+      "context": [
+        "レバーの横にランプが二つあります。"
+      ],
+      "reference": "램프가 두 개 모두 꺼진 뒤에만 레버를 당겨.",
+      "review_note": "both, after and only"
+    },
+    {
+      "id": "exaone-holdout-ja-09-none",
+      "language": "ja",
+      "category": "target",
+      "partition": "heldout",
+      "context_condition": "none",
+      "source": "修理屋に荷車を直させて、君は馬を見ていて。",
+      "context": [],
+      "reference": "수리공에게 수레를 고치게 하고 너는 말을 지켜봐.",
+      "review_note": "distinct agent and patient roles"
+    },
+    {
+      "id": "exaone-holdout-ja-09-related",
+      "language": "ja",
+      "category": "target",
+      "partition": "heldout",
+      "context_condition": "related",
+      "source": "修理屋に荷車を直させて、君は馬を見ていて。",
+      "context": [
+        "修理屋と馬が門のそばにいます。"
+      ],
+      "reference": "수리공에게 수레를 고치게 하고 너는 말을 지켜봐.",
+      "review_note": "distinct agent and patient roles"
+    },
+    {
+      "id": "exaone-holdout-ja-10-none",
+      "language": "ja",
+      "category": "numbers",
+      "partition": "heldout",
+      "context_condition": "none",
+      "source": "薬草は四束未満使い、包帯は少なくとも三枚残して。",
+      "context": [],
+      "reference": "약초는 네 묶음 미만으로 쓰고 붕대는 최소 세 장 남겨.",
+      "review_note": "strict less-than and at-least"
+    },
+    {
+      "id": "exaone-holdout-ja-10-related",
+      "language": "ja",
+      "category": "numbers",
+      "partition": "heldout",
+      "context_condition": "related",
+      "source": "薬草は四束未満使い、包帯は少なくとも三枚残して。",
+      "context": [
+        "薬草と包帯は袋の中です。"
+      ],
+      "reference": "약초는 네 묶음 미만으로 쓰고 붕대는 최소 세 장 남겨.",
+      "review_note": "strict less-than and at-least"
+    },
+    {
+      "id": "exaone-holdout-ja-11-none",
+      "language": "ja",
+      "category": "correction",
+      "partition": "heldout",
+      "context_condition": "none",
+      "source": "銀の針を取って。違った、鉄の針だった。",
+      "context": [],
+      "reference": "은 바늘을 집어. 잘못 말했어, 철 바늘이었어.",
+      "review_note": "preserve self-correction"
+    },
+    {
+      "id": "exaone-holdout-ja-11-related",
+      "language": "ja",
+      "category": "correction",
+      "partition": "heldout",
+      "context_condition": "related",
+      "source": "銀の針を取って。違った、鉄の針だった。",
+      "context": [
+        "机に針が二本あります。"
+      ],
+      "reference": "은 바늘을 집어. 잘못 말했어, 철 바늘이었어.",
+      "review_note": "preserve self-correction"
+    },
+    {
+      "id": "exaone-holdout-ja-12-none",
+      "language": "ja",
+      "category": "context",
+      "partition": "heldout",
+      "context_condition": "none",
+      "source": "それを置く前に、底が濡れていないか見て。",
+      "context": [],
+      "reference": "그것을 놓기 전에 바닥이 젖지 않았는지 봐.",
+      "review_note": "pronoun may resolve to bucket; preserve before relation"
+    },
+    {
+      "id": "exaone-holdout-ja-12-related",
+      "language": "ja",
+      "category": "context",
+      "partition": "heldout",
+      "context_condition": "related",
+      "source": "それを置く前に、底が濡れていないか見て。",
+      "context": [
+        "君は木の桶を持っています。"
+      ],
+      "reference": "그것을 놓기 전에 바닥이 젖지 않았는지 봐.",
+      "review_note": "pronoun may resolve to bucket; preserve before relation"
+    }
+  ]
+}

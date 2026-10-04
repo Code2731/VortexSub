@@ -1,13 +1,18 @@
 param(
     [ValidateRange(1, 10)] [int] $Rounds = 3,
-    [ValidateSet('baseline', 'strict', 'isolated', 'readable', 'examples', 'korean', 'production', 'plain', 'gemma')]
+    [ValidateSet('baseline', 'strict', 'isolated', 'readable', 'examples', 'korean', 'production', 'plain', 'gemma', 'exaone', 'hymt2')]
     [string[]] $Profiles = @('baseline', 'production'),
     [switch] $NoBuild,
     [string] $Fixtures,
     [string] $Catalog,
     [string] $ModelId,
     [string[]] $ContextConditions,
-    [switch] $OwnerCheck
+    [switch] $OwnerCheck,
+    [switch] $PrepareOnly,
+    [ValidateSet('existing', 'greedy', 'hymt2-recommended')] [string] $Sampling = 'existing',
+    [switch] $CompareSampling,
+    [switch] $VerifyInputContract,
+    [ValidateSet('existing', 'separated', 'source-only')] [string] $ExaoneInput = 'existing'
 )
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
@@ -28,6 +33,11 @@ try {
     if ($ModelId) { $probeArgs += @('--model-id', $ModelId) }
     if ($ContextConditions) { $probeArgs += @('--context-conditions') + $ContextConditions }
     if ($OwnerCheck) { $probeArgs += '--owner-check' }
+    if ($PrepareOnly) { $probeArgs += '--prepare-only' }
+    $probeArgs += @('--sampling', $Sampling)
+    if ($CompareSampling) { $probeArgs += '--compare-sampling' }
+    $probeArgs += @('--exaone-input', $ExaoneInput)
+    if ($VerifyInputContract) { $probeArgs += '--verify-input-contract' }
     & $python -X utf8 "$PSScriptRoot/probe-translation-context.py" @probeArgs
     if ($LASTEXITCODE -ne 0) { throw 'Prompt/context comparison failed; inspect retained results' }
 }

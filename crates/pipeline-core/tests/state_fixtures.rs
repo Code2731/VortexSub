@@ -228,6 +228,210 @@ fn preview_hold_reasons_release_when_number_and_condition_fragments_complete() {
     );
     assert!(f.core.next_translation(500_000_000).unwrap().is_none());
 }
+#[test]
+fn observed_only_qualifier_defers_unqualified_preview_in_both_modes() {
+    for supported in [false, true] {
+        for suffix in ["only.", "ONLY!", "only if."] {
+            let mut f = Fixture::new(1000, "ko");
+            f.core.set_partial_translation_enabled(true);
+            f.core.set_supported_preview_enabled(supported);
+            partial(&mut f, 512, "Attack the enemy", 0);
+            partial(
+                &mut f,
+                1024,
+                &format!("Attack the enemy {suffix}"),
+                500_000_000,
+            );
+            assert_eq!(
+                f.records()[0].preview_hold_reason,
+                Some("ConditionContinuation")
+            );
+            assert!(f.core.next_translation(500_000_000).unwrap().is_none());
+            let complete = "Attack the enemy only if the shield is down.";
+            partial(&mut f, 1536, complete, 1_000_000_000);
+            partial(&mut f, 2048, complete, 1_500_000_000);
+            let job = f.core.next_translation(1_500_000_000).unwrap().unwrap();
+            assert_eq!(job.source, complete);
+        }
+    }
+}
+#[test]
+fn only_qualifier_veto_does_not_block_final_or_complete_object() {
+    let mut f = Fixture::new(1000, "ko");
+    f.core.set_partial_translation_enabled(true);
+    partial(&mut f, 512, "Attack the enemy only.", 0);
+    partial(&mut f, 1024, "Attack the enemy only.", 500_000_000);
+    assert_eq!(
+        f.records()[0].preview_hold_reason,
+        Some("IncompleteCondition")
+    );
+    assert!(f.core.next_translation(500_000_000).unwrap().is_none());
+    f.submit(1, AsrKind::Final, 1536, 1_000_000_000);
+    let job = f.core.next_asr().unwrap();
+    f.core
+        .complete_asr(
+            job.key(),
+            Outcome::Text("Attack the enemy only.".into()),
+            1_000_000_000,
+        )
+        .unwrap();
+    assert_eq!(
+        f.core
+            .next_translation(1_000_000_000)
+            .unwrap()
+            .unwrap()
+            .source,
+        "Attack the enemy only."
+    );
+    let mut f = Fixture::new(1000, "ko");
+    f.core.set_partial_translation_enabled(true);
+    partial(&mut f, 512, "Take only the blue key.", 0);
+    partial(&mut f, 1024, "Take only the blue key.", 500_000_000);
+    assert_eq!(
+        f.core
+            .next_translation(500_000_000)
+            .unwrap()
+            .unwrap()
+            .source,
+        "Take only the blue key."
+    );
+}
+#[test]
+fn repair_marker_waits_for_stable_following_clause_in_both_modes() {
+    for supported in [false, true] {
+        let mut f = Fixture::new(1000, "ko");
+        f.core.set_partial_translation_enabled(true);
+        f.core.set_supported_preview_enabled(supported);
+        partial(&mut f, 512, "Take the left path.", 0);
+        partial(&mut f, 1024, "Take the left path.", 500_000_000);
+        let first = f.core.next_translation(500_000_000).unwrap().unwrap();
+        f.core
+            .complete_translation(
+                first.key,
+                Outcome::Text("왼쪽 길로 가세요.".into()),
+                600_000_000,
+            )
+            .unwrap();
+        partial(&mut f, 1536, "Take the left path. No.", 1_100_000_000);
+        partial(
+            &mut f,
+            2048,
+            "Take the left path. No. Take the right path.",
+            1_600_000_000,
+        );
+        assert_eq!(f.records()[0].preview_hold_reason, Some("IncompleteRepair"));
+        assert!(f.core.next_translation(1_600_000_000).unwrap().is_none());
+        partial(
+            &mut f,
+            2560,
+            "Take the left path. No. Take the right path.",
+            2_100_000_000,
+        );
+        let repaired = f.core.next_translation(2_100_000_000).unwrap().unwrap();
+        assert_eq!(
+            repaired.source,
+            "Take the left path. No. Take the right path."
+        );
+        assert!(repaired.source.len() <= MAX_UNIT_BYTES);
+        assert!(repaired.context.is_empty());
+    }
+}
+
+#[test]
+fn repair_over_byte_cap_holds_preview_but_final_translation_survives() {
+    for supported in [false, true] {
+        let mut f = Fixture::new(1000, "ko");
+        f.core.set_partial_translation_enabled(true);
+        f.core.set_supported_preview_enabled(supported);
+        let first = "Take the left path.";
+        partial(&mut f, 512, first, 0);
+        partial(&mut f, 1024, first, 500_000_000);
+        let translated = f.core.next_translation(500_000_000).unwrap().unwrap();
+        f.core
+            .complete_translation(
+                translated.key,
+                Outcome::Text("왼쪽 길로 가세요.".into()),
+                600_000_000,
+            )
+            .unwrap();
+        let head = format!("{first} No. Take the right path past ");
+        let text = format!(
+            "{head}{}bridge.",
+            "a".repeat(MAX_UNIT_BYTES + 1 - head.len() - "bridge.".len())
+        );
+        partial(&mut f, 1536, &text, 1_100_000_000);
+        partial(&mut f, 2048, &text, 1_600_000_000);
+        assert_eq!(f.records()[0].preview_hold_reason, Some("RepairTooLong"));
+        assert!(f.core.next_translation(1_600_000_000).unwrap().is_none());
+        f.submit(1, AsrKind::Final, 2560, 2_100_000_000);
+        let final_asr = f.core.next_asr().unwrap();
+        f.core
+            .complete_asr(final_asr.key(), Outcome::Text(text.clone()), 2_100_000_000)
+            .unwrap();
+        let final_translation = f.core.next_translation(2_100_000_000).unwrap().unwrap();
+        assert_eq!(final_translation.source, text);
+        f.core
+            .complete_translation(
+                final_translation.key,
+                Outcome::Text("아니요, 다리를 지나 오른쪽 길로 가세요.".into()),
+                2_200_000_000,
+            )
+            .unwrap();
+        assert_eq!(
+            f.records()[0].translation,
+            "아니요, 다리를 지나 오른쪽 길로 가세요."
+        );
+        assert!(!f.records()[0].translation_is_preview);
+    }
+}
+
+#[test]
+fn repair_comma_waits_but_standalone_no_and_final_are_preserved() {
+    for supported in [false, true] {
+        let mut f = Fixture::new(1000, "ko");
+        f.core.set_partial_translation_enabled(true);
+        f.core.set_supported_preview_enabled(supported);
+        let incomplete = "Take the left path, no";
+        partial(&mut f, 512, incomplete, 0);
+        partial(&mut f, 1024, incomplete, 500_000_000);
+        assert_eq!(f.records()[0].preview_hold_reason, Some("IncompleteRepair"));
+        assert!(f.core.next_translation(500_000_000).unwrap().is_none());
+        let complete = "Take the left path, no, take the right path.";
+        partial(&mut f, 1536, complete, 1_000_000_000);
+        partial(&mut f, 2048, complete, 1_500_000_000);
+        assert_eq!(
+            f.core
+                .next_translation(1_500_000_000)
+                .unwrap()
+                .unwrap()
+                .source,
+            complete
+        );
+        let mut f = Fixture::new(1000, "ko");
+        f.core.set_partial_translation_enabled(true);
+        partial(&mut f, 512, "The answer is no.", 0);
+        partial(&mut f, 1024, "The answer is no.", 500_000_000);
+        assert_eq!(
+            f.core
+                .next_translation(500_000_000)
+                .unwrap()
+                .unwrap()
+                .source,
+            "The answer is no."
+        );
+        let mut f = Fixture::new(1000, "ko");
+        f.finish(1, "No.", 0);
+        assert_eq!(f.core.next_translation(0).unwrap().unwrap().source, "No.");
+        let mut f = Fixture::new(1000, "ko");
+        f.core.set_partial_translation_enabled(true);
+        f.finish(1, incomplete, 0);
+        assert_eq!(
+            f.core.next_translation(0).unwrap().unwrap().source,
+            incomplete
+        );
+    }
+}
+
 fn partial(f: &mut Fixture, end: u64, text: &str, now: u64) {
     f.submit(1, AsrKind::Partial, end, now);
     let job = f.core.next_asr().unwrap();

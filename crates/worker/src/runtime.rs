@@ -150,6 +150,9 @@ impl Runtime {
         }
         match method {
             "transcribe_fixture" => {
+                if self.translator.configuring() {
+                    return Err(("INVALID_STATE", "Translation configuration is pending"));
+                }
                 if self.model_state != "Ready" {
                     return Err(("INVALID_STATE", "Model is not ready"));
                 }
@@ -421,7 +424,22 @@ impl Runtime {
                 if batch.identity != self.epoch {
                     continue;
                 }
+                let observed_ns = batch
+                    .observed_at
+                    .checked_duration_since(self.origin)
+                    .map(|d| d.as_nanos().min(u64::MAX as u128) as u64);
+                let processing_started_ns = batch
+                    .processing_started_at
+                    .checked_duration_since(self.origin)
+                    .map(|d| d.as_nanos().min(u64::MAX as u128) as u64);
                 for event in batch.events {
+                    self.observe_live_timing(
+                        event,
+                        observed_ns,
+                        processing_started_ns,
+                        batch.frame_start_sample,
+                        q,
+                    )?;
                     self.live_event(event, q)?;
                 }
             }
@@ -706,6 +724,7 @@ impl Runtime {
         self.capture.finish();
         self.live_owner.take();
         self.translator.owner.take();
+        self.translator.close_pending();
         if let Some(native) = self.native.take() {
             native.finish();
         }
@@ -774,6 +793,9 @@ impl Runtime {
         )
     }
     pub fn mock(&mut self, method: &str, p: &Value, q: &Outbox) -> Reply {
+        if self.translator.configuring() {
+            return Err(("INVALID_STATE", "Translation configuration is pending"));
+        }
         if !self.enabled {
             return Err((
                 "UNSUPPORTED_CAPABILITY",

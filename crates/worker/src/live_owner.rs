@@ -18,6 +18,7 @@ struct Stream<B: Backend> {
     detector: Detector<B>,
     segmenter: VadSegmenter,
     partial_enabled: bool,
+    observe_start: bool,
 }
 impl<B: Backend> Stream<B> {
     fn new(backend: B, identity: AudioIdentity, start: u64, interval_s: f64) -> Self {
@@ -34,6 +35,7 @@ impl<B: Backend> Stream<B> {
             )
             .unwrap(),
             partial_enabled: false,
+            observe_start: false,
         }
     }
     fn collect(&mut self, events: Vec<SpeechEvent>) -> Vec<SpeechEvent> {
@@ -44,6 +46,7 @@ impl<B: Backend> Stream<B> {
                     self.detector.reset_recurrent();
                 }
                 matches!(e, SpeechEvent::Final { .. } | SpeechEvent::Discarded { .. })
+                    || (self.observe_start && matches!(e, SpeechEvent::Started(_)))
                     || (self.partial_enabled && matches!(e, SpeechEvent::Partial(_)))
             })
             .collect()
@@ -71,6 +74,10 @@ impl<B: Backend> Stream<B> {
 pub struct ResultBatch {
     pub identity: AudioIdentity,
     pub events: Vec<SpeechEvent>,
+    pub observed_at: Instant,
+    /// Dequeue/poll processing start, not the capture callback or voice onset.
+    pub processing_started_at: Instant,
+    pub frame_start_sample: Option<u64>,
 }
 #[derive(Default)]
 struct Shared {
@@ -123,6 +130,7 @@ impl LiveOwner {
                     }
                     let now = clock.elapsed().as_nanos().min(u64::MAX as u128) as u64;
                     let started = Instant::now();
+                    let frame_start_sample = frame.as_ref().map(|f| f.range.start);
                     let events = if let Some(frame) = frame {
                         if frame.identity != identity {
                             return Err("LIVE_VAD_STALE_INPUT");
@@ -135,6 +143,7 @@ impl LiveOwner {
                                 interval_s,
                             );
                             stream.partial_enabled = partial_enabled;
+                            stream.observe_start = true;
                             stream
                         });
                         let events = stream.push(&frame, now)?;
@@ -154,8 +163,14 @@ impl LiveOwner {
                         break;
                     }
                     if !events.is_empty() {
-                        tx.try_send(ResultBatch { identity, events })
-                            .map_err(|_| "LIVE_VAD_OUTPUT_OVERFLOW")?;
+                        tx.try_send(ResultBatch {
+                            identity,
+                            events,
+                            observed_at: Instant::now(),
+                            processing_started_at: started,
+                            frame_start_sample,
+                        })
+                        .map_err(|_| "LIVE_VAD_OUTPUT_OVERFLOW")?;
                     }
                 }
                 // No close/flush: Stop, fault and EOF discard the active segment.

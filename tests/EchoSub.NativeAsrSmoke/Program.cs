@@ -2,7 +2,8 @@ using System.Diagnostics;
 using System.Text.Json;
 using EchoSub.Desktop;
 
-if (args.Length == 6 && args[0] is "--streaming-source" or "--streaming-translation")
+if ((args.Length == 6 && args[0] == "--streaming-source")
+    || (args.Length is 6 or 7 && args[0] == "--streaming-translation"))
 {
     if (args[0] == "--streaming-source") await StreamingTranslationProbe.Sources(args);
     else await StreamingTranslationProbe.Replay(args);

@@ -45,6 +45,30 @@ fn serve() -> io::Result<()> {
     });
     let mut writer = transport::ResponseWriter::new(&outbox);
     let args = std::env::args().collect::<Vec<_>>();
+    let comparison_policy = match args
+        .iter()
+        .position(|a| a == "--diagnostic-translation-profile")
+    {
+        None => None,
+        Some(index) => {
+            if !args.iter().any(|a| a == "--diagnostic-translation")
+                || args
+                    .iter()
+                    .any(|a| a == "--experimental-isolated-translation-context")
+            {
+                return Err(io::Error::other("Comparison profile requires diagnostic translation and no isolated-context flag"));
+            }
+            Some(match args.get(index + 1).map(String::as_str) {
+                Some("qwen-greedy") => echosub_translation::PromptPolicy::QwenGreedy,
+                Some("hymt2-greedy") => echosub_translation::PromptPolicy::HyMt2Greedy,
+                _ => {
+                    return Err(io::Error::other(
+                        "Expected qwen-greedy or hymt2-greedy comparison profile",
+                    ))
+                }
+            })
+        }
+    };
     let isolated_context = args
         .iter()
         .any(|a| a == "--experimental-isolated-translation-context");
@@ -117,6 +141,9 @@ fn serve() -> io::Result<()> {
     runtime.session.mock = mock_sessions;
     if isolated_context {
         runtime.translator.prompt_policy = echosub_translation::PromptPolicy::IsolatedContext;
+    }
+    if let Some(policy) = comparison_policy {
+        runtime.translator.prompt_policy = policy;
     }
     if args.iter().any(|a| a == "--diagnostic-translation") {
         runtime.enable_http_translation();
@@ -251,6 +278,7 @@ fn serve() -> io::Result<()> {
                             "vad": runtime.has_vad(),
                             "translation": runtime.translator.enabled,
                             "isolated_translation_context": runtime.translator.enabled,
+                            "translation_input_profiles": runtime.translator.enabled,
                             "events": true,
                             "history_snapshot": true,
                             "mock_pipeline": runtime.enabled

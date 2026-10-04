@@ -59,6 +59,7 @@ impl Units {
             .take_while(|(i, c)| i + c.len_utf8() <= MAX_UNIT_BYTES)
             .last()
             .map_or(0, |(i, c)| i + c.len_utf8());
+        let mut repair_head = false;
         let boundary = tail[..limit].char_indices().find_map(|(i, c)| {
             let end = i + c.len_utf8();
             let before = &tail[..i];
@@ -80,12 +81,27 @@ impl Units {
                 && !decimal
                 && !abbreviation
                 && (language != "en" || after.is_none_or(|x| x.is_whitespace()));
+            // After a delivered clause, a bare "No." is a possible repair marker.
+            // Join only the selected (stable) following sentence, never observed text.
+            if sentence
+                && language == "en"
+                && !self.delivered.is_empty()
+                && before.trim().eq_ignore_ascii_case("no")
+                && c != '?'
+            {
+                repair_head = true;
+                return None;
+            }
             // Commas alone are too ambiguous (conditions, lists, Japanese inflection).
             let clause = ";；".contains(c)
                 && before.chars().count() >= 12
                 && (language != "en" || before.split_whitespace().count() >= 4);
             (sentence || clause).then_some(end)
         });
+        if repair_head && boundary.is_none() {
+            self.hold_reason = Some("IncompleteRepair");
+            return None;
+        }
         let (end, closed) = boundary.map_or_else(
             || {
                 let end = if limit < tail.len() && language == "en" {
@@ -101,7 +117,40 @@ impl Units {
             },
             |end| (end, true),
         );
-        let source = tail[..end].trim_end();
+        let mut source = tail[..end].trim_end();
+        if repair_head {
+            // "No. Take ..." can still be read as an abbreviation for "number".
+            // Replay the preceding delivered unit as part of the actual source,
+            // rather than relying on a model's optional context interpretation.
+            let Some(previous) = self.last.as_ref().filter(|unit| unit.closed) else {
+                self.hold_reason = Some("IncompleteRepair");
+                return None;
+            };
+            // Unit is internal state, not an imported history record. Still
+            // validate offsets before subtraction and UTF-8 slicing.
+            let Some(previous_start) = previous.prefix.len().checked_sub(previous.source.len())
+            else {
+                self.hold_reason = Some("InvalidRepair");
+                return None;
+            };
+            let Some(repair_end) = start.checked_add(source.len()) else {
+                self.hold_reason = Some("InvalidRepair");
+                return None;
+            };
+            let Some(repair_len) = repair_end.checked_sub(previous_start) else {
+                self.hold_reason = Some("InvalidRepair");
+                return None;
+            };
+            let Some(repaired) = selected.get(previous_start..repair_end) else {
+                self.hold_reason = Some("InvalidRepair");
+                return None;
+            };
+            if repair_len > MAX_UNIT_BYTES {
+                self.hold_reason = Some("RepairTooLong");
+                return None;
+            }
+            source = repaired;
+        }
         if source.chars().count() < if closed { 2 } else { 6 }
             || !closed && language == "en" && source.split_whitespace().count() < 3
         {
@@ -109,7 +158,7 @@ impl Units {
             return None;
         }
         let unit = Unit {
-            prefix: selected[..start + source.len()].into(),
+            prefix: selected[..start + tail[..end].trim_end().len()].into(),
             source: source.into(),
             closed: closed && !promoted,
             promoted,
@@ -166,9 +215,24 @@ fn english_fragment(
     let Some(&last) = words.last() else {
         return None;
     };
+    // A trailing comma-delimited "no" signals a correction whose action is absent.
+    // Preserve standalone answers such as "No." and "The answer is no.".
+    let comma_repair = lower.split(',').skip(1).any(|part| {
+        part.trim()
+            .trim_matches(|c: char| c.is_ascii_punctuation())
+            .eq("no")
+    });
+    if comma_repair && (last == "no" || !closed) {
+        return Some("IncompleteRepair");
+    }
     // A punctuation mark cannot supply a missing action or condition predicate.
     if words.len() >= 3 && matches!(last, "not" | "never") {
         return Some("DanglingWord");
+    }
+    // "only." may be a premature Whisper boundary before "only if ...".
+    // An observed qualifier can veto a preview, but never supplies translated text.
+    if last == "only" {
+        return Some("IncompleteCondition");
     }
     if words.iter().any(|w| condition_word(w))
         && matches!(
@@ -268,8 +332,12 @@ fn english_fragment(
         .trim_start_matches(|c: char| c.is_whitespace() || c.is_ascii_punctuation())
         .split_whitespace()
         .next()
-        .unwrap_or("");
-    if condition_word(&following.to_ascii_lowercase()) {
+        .unwrap_or("")
+        .trim_matches(|c: char| c.is_ascii_punctuation());
+    if source.trim_end().ends_with(',') && following.eq_ignore_ascii_case("no") {
+        return Some("IncompleteRepair");
+    }
+    if condition_word(&following.to_ascii_lowercase()) || following.eq_ignore_ascii_case("only") {
         return Some("ConditionContinuation");
     }
     if numeric {
@@ -364,4 +432,124 @@ fn supported_tail(stable: &str, observed: &str) -> Option<String> {
         return None;
     }
     Some(result.to_owned())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use echosub_audio_core::AudioIdentity;
+
+    fn id(epoch: u64) -> SegmentIdentity {
+        SegmentIdentity {
+            audio: AudioIdentity {
+                session_id: 1,
+                epoch,
+            },
+            segment_id: 1,
+        }
+    }
+
+    #[test]
+    fn complete_repairs_enforce_combined_byte_cap_at_utf8_boundary() {
+        for multibyte in [false, true] {
+            for bytes in [MAX_UNIT_BYTES - 1, MAX_UNIT_BYTES, MAX_UNIT_BYTES + 1] {
+                let mut units = Units::default();
+                let first = "Take the left path.";
+                let unit = units.select(id(1), first, first, "en", false).unwrap();
+                units.applied(unit);
+                let head = format!("{first} No. Take the right path past ");
+                let marker = if multibyte { "다리" } else { "bridge" };
+                let padding = bytes - head.len() - marker.len() - 1;
+                let complete = format!("{head}{}{marker}.", "a".repeat(padding));
+                assert_eq!(complete.len(), bytes);
+                let selected = units.select(id(1), &complete, &complete, "en", false);
+                if bytes > MAX_UNIT_BYTES {
+                    assert!(selected.is_none());
+                    assert_eq!(units.hold_reason, Some("RepairTooLong"));
+                } else {
+                    assert_eq!(selected.unwrap().source, complete);
+                    assert_eq!(units.hold_reason, None);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn repair_units_preserve_boundaries_cap_and_identity_reset() {
+        let mut units = Units::default();
+        let first = "Take the left path.";
+        let unit = units.select(id(1), first, first, "en", false).unwrap();
+        units.applied(unit);
+        let stable = format!("{first} No.");
+        let observed = format!("{stable} Take the right path.");
+        assert!(units
+            .select(id(1), &stable, &observed, "en", false)
+            .is_none());
+        assert_eq!(units.hold_reason, Some("IncompleteRepair"));
+        let long = format!("{stable} {}", "keep moving toward the bridge ".repeat(30));
+        assert!(units.select(id(1), &long, &long, "en", false).is_none());
+        assert_eq!(units.hold_reason, Some("IncompleteRepair"));
+        let complete = format!("{stable} Take the right path. Keep going.");
+        let unit = units
+            .select(id(1), &complete, &complete, "en", false)
+            .unwrap();
+        assert_eq!(unit.source, "Take the left path. No. Take the right path.");
+        assert!(unit.source.len() <= MAX_UNIT_BYTES);
+        units.applied(unit);
+        assert_eq!(
+            units
+                .select(id(1), &complete, &complete, "en", false)
+                .unwrap()
+                .source,
+            "Keep going."
+        );
+        // A new epoch cannot inherit the prior delivered sentence or repair state.
+        assert_eq!(
+            units
+                .select(id(2), "No.", "No.", "en", false)
+                .unwrap()
+                .source,
+            "No."
+        );
+    }
+
+    #[test]
+    fn repair_units_do_not_change_other_languages_or_normal_answers() {
+        let mut units = Units::default();
+        for answer in ["No.", "No!", "No?", "No, thank you.", "The answer is no."] {
+            units.reset();
+            assert_eq!(
+                units
+                    .select(id(1), answer, answer, "en", false)
+                    .unwrap()
+                    .source,
+                answer
+            );
+        }
+        assert_eq!(
+            english_fragment("Take the left path, no.", true, "", false),
+            Some("IncompleteRepair")
+        );
+        assert_eq!(
+            english_fragment("Take the left path, no, take the", false, "", false),
+            Some("IncompleteRepair")
+        );
+        let first = units
+            .select(id(2), "進んで。", "進んで。", "ja", false)
+            .unwrap();
+        units.applied(first);
+        assert_eq!(
+            units
+                .select(
+                    id(2),
+                    "進んで。No. 次へ。",
+                    "進んで。No. 次へ。",
+                    "ja",
+                    false
+                )
+                .unwrap()
+                .source,
+            "No."
+        );
+    }
 }

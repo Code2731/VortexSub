@@ -484,7 +484,7 @@ fn queue_pressure_and_shutdown_do_not_leave_pending_translations() {
     shutdown(w);
 }
 #[test]
-fn missing_catalog_model_fails_jobs_without_stalling_worker() {
+fn missing_catalog_model_preserves_source_only_session_and_allows_recovery() {
     let s = Server::new();
     let mut w = start();
     w.send(command(
@@ -493,10 +493,23 @@ fn missing_catalog_model_fails_jobs_without_stalling_worker() {
         json!({"endpoint":s.endpoint,"model_id":"missing"}),
     ));
     until(&mut w, |v| v["translator"]["state"] == "Failed");
-    session(&mut w, "en");
+    let id = session(&mut w, "en");
     source(&mut w, "still transcribed", "final");
-    until(&mut w, |v| v["translator"]["completed_jobs"] == 1);
-    assert_eq!(history(&mut w)[0]["translation_state"], "Failed");
+    let rows = history(&mut w);
+    assert_eq!(rows[0]["source_state"], "Final");
+    assert_eq!(rows[0]["source"], "still transcribed");
+    assert_eq!(rows[0]["translation_state"], "None");
+    let snapshot = state(&mut w);
+    assert_eq!(snapshot["translator"]["state"], "Failed");
+    assert_eq!(snapshot["translator"]["completed_jobs"], 0);
+    assert_eq!(snapshot["translator"]["in_flight"], false);
     assert!(s.bodies.lock().unwrap().is_empty());
+    w.send(command("stop", "stop_session", json!({"session_id":id})));
+    until(&mut w, |v| v["session"]["state"] == "Idle");
+    configure(&mut w, &s);
+    session(&mut w, "en");
+    source(&mut w, "recovered translation", "final");
+    until(&mut w, |v| v["translator"]["completed_jobs"] == 1);
+    assert_eq!(history(&mut w)[1]["translation_state"], "Done");
     shutdown(w);
 }

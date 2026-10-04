@@ -36,15 +36,21 @@ fn poll(owner: &mut Owner) -> Result<echosub_translation::owner::Completion, Str
 }
 fn run() -> Result<(), String> {
     let mut args: Vec<_> = std::env::args().collect();
-    let policy = if args.last().is_some_and(|arg| arg == "--isolated-context") {
+    let policy = match args.last().map(String::as_str) {
+        Some("--isolated-context") => Some(echosub_translation::PromptPolicy::IsolatedContext),
+        Some("--qwen-greedy") => Some(echosub_translation::PromptPolicy::QwenGreedy),
+        Some("--hymt2-greedy") => Some(echosub_translation::PromptPolicy::HyMt2Greedy),
+        _ => None,
+    };
+    let policy = if let Some(policy) = policy {
         args.pop();
-        echosub_translation::PromptPolicy::IsolatedContext
+        policy
     } else {
         echosub_translation::PromptPolicy::Original
     };
     if !matches!(args.len(), 5 | 7) {
         return Err(
-            "Usage: <http://127.0.0.1:PORT/v1/> <model-id or -> <fixtures.json> <report.json> [warmup-rounds measured-rounds]; or --prepare <model-id> <fixtures.json> <requests.json>"
+            "Usage: <http://127.0.0.1:PORT/v1/> <model-id or -> <fixtures.json> <report.json> [warmup-rounds measured-rounds]; or --prepare <model-id> <fixtures.json> <requests.json>; optional final flag: --isolated-context|--qwen-greedy|--hymt2-greedy"
                 .into(),
         );
     }

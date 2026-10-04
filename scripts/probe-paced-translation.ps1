@@ -6,7 +6,12 @@ param(
     [switch] $DecodeWindow,
     [switch] $PadShortPartials,
     [switch] $SupportedPreview,
-    [string] $PythonPath
+    [string] $PythonPath,
+    [ValidateSet('qwen', 'hymt2')] [string] $TranslationModel = 'qwen',
+    [string] $FixtureManifest,
+    [string] $FixtureId,
+    [string] $OutputDir,
+    [ValidateSet('base', 'small')] [string] $AsrModel = 'base'
 )
 $ErrorActionPreference = 'Stop'
 if ($PadShortPartials -and ($Adaptive -or $DecodeWindow)) { throw 'Padding comparison cannot combine with -Adaptive or -DecodeWindow' }
@@ -21,11 +26,16 @@ try {
     & cargo build -p echosub-translation --locked --offline
     if ($LASTEXITCODE -ne 0) { throw 'HTTP warmup probe build failed' }
     $arguments = @((Join-Path $repo 'scripts/probe-paced-translation.py'), '--backend', $Backend, '--rounds', "$Rounds")
+    $arguments += @('--translation-model', $TranslationModel)
+    $arguments += @('--asr-model', $AsrModel)
+    if ($FixtureManifest) { $arguments += @('--fixture-manifest', $FixtureManifest) }
+    if ($FixtureId) { $arguments += @('--fixture-id', $FixtureId) }
+    if ($OutputDir) { $arguments += @('--output-dir', $OutputDir) }
     if ($Adaptive) { $arguments += '--adaptive' }
     if ($DecodeWindow) { $arguments += '--decode-window' }
     if ($PadShortPartials) { $arguments += '--pad-short-partials' }
     if ($SupportedPreview) { $arguments += '--supported-preview' }
     if ($ServerPath) { $arguments += @('--server', $ServerPath) }
-    & $PythonPath @arguments
+    & $PythonPath -X utf8 @arguments
     if ($LASTEXITCODE -ne 0) { throw 'Paced translation measurement failed; completed reports/logs retained.' }
 } finally { Pop-Location }

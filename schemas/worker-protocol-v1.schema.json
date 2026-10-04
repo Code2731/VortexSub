@@ -19,7 +19,8 @@
       "properties": {
         "endpoint": {"type": "string", "minLength": 1, "maxLength": 256, "description": "Numeric loopback HTTP with explicit port; runtime validates address and path."},
         "model_id": {"type": ["string", "null"], "minLength": 1, "maxLength": 256},
-        "isolated_context": {"type": "boolean", "description": "Opt-in prompt/context separation. Omission preserves the current policy; default is false."}
+        "isolated_context": {"type": "boolean", "description": "Opt-in prompt/context separation for standard input only; cannot combine with a greedy candidate profile."},
+        "input_profile": {"enum": ["standard", "qwen-greedy", "hymt2-greedy"], "description": "Explicit model input and sampling profile; omission preserves current policy. Candidate profiles require their exact manifest model ID. Catalog/profile failure preserves the previous ready connection."}
       }, "additionalProperties": false
     },
     "exportParams": {
