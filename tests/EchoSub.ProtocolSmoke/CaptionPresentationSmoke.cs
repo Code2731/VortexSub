@@ -48,9 +48,11 @@ internal static class CaptionPresentationSmoke
         var nextUnit = unit with { TranslationSource = "Do not open the door.", TranslationPrefix = unit.Source,
             TranslationRequestId = 8, Translation = "문을 열지 마라." };
         cards = deck.Update([nextUnit], "uuid", 1, 2, true, 0.2);
-        Check(cards.Previous?.Translation == "[임시 번역] 왼쪽으로 가자." && cards.Current?.Translation == "[임시 번역] 문을 열지 마라.", "next unit moves old unit to reading card");
+        Check(cards.Previous is null && cards.Current?.Translation == "[임시 번역] 왼쪽으로 가자.", "unit transition holds current input before reading deadline");
         cards = deck.Update([nextUnit], "uuid", 1, 2, true, 0.3);
-        Check(cards.Previous?.Translation == "[임시 번역] 왼쪽으로 가자.", "new unit history cannot overwrite reading unit");
+        Check(cards.Previous is null && cards.Current?.Translation == "[임시 번역] 왼쪽으로 가자.", "no second input card or premature replacement");
+        cards = deck.Update([nextUnit], "uuid", 1, 2, true, 1.3);
+        Check(cards.Previous is null && cards.Current?.Translation == "[임시 번역] 문을 열지 마라.", "latest unit enters same input position after deadline");
         var corrected = unit with { Source = "Go right now. Do not open the door.", StableSource = "Go right now. Do not open the door.",
             TranslationSource = "Go right now.", TranslationPrefix = "Go right now.", TranslationRequestId = 9, Translation = "오른쪽으로 가자." };
         cards = deck.Update([corrected], "uuid", 1, 2, true, 0.4);
@@ -68,17 +70,18 @@ internal static class CaptionPresentationSmoke
         Check(responsive.Update([draftRevision], "uuid", 1, 2, true, 0.1).Current?.Translation == "[임시 번역] 왼쪽으로 가자.", "draft has a bounded short replacement delay");
         responsive.Update([draftRevision], "uuid", 1, 2, true, 0.15);
         Check(responsive.Tick(0.2).Current?.Translation == "[임시 번역] 왼쪽으로 가자.", "draft not replaced before short deadline");
-        Check(responsive.Tick(0.3).Current?.Translation == "[임시 번역] 왼쪽 길로 가자.", "draft updated on 0.1 second display tick");
-        Check(Math.Abs(timings[^1].DeferredSeconds - 0.2) < 0.000001 && timings[^1].TranslationRecord?.TranslationRequestId == 10,
+        Check(responsive.Tick(0.3).Current?.Translation == "[임시 번역] 왼쪽으로 가자.", "draft retained through old short deadline");
+        Check(responsive.Tick(1.3).Current?.Translation == "[임시 번역] 왼쪽 길로 가자.", "draft updated after current 1.25 second deadline");
+        Check(Math.Abs(timings[^1].DeferredSeconds - 1.2) < 0.000001 && timings[^1].TranslationRecord?.TranslationRequestId == 10,
             "repeated snapshot preserves candidate receipt time and request identity");
         var otherSegment = unit with { SegmentId = 4, TranslationRequestId = 11, Translation = "다음 자막" };
-        responsive.Update([draftRevision, otherSegment], "uuid", 1, 2, true, 0.4);
+        responsive.Update([draftRevision, otherSegment], "uuid", 1, 2, true, 1.4);
         var readingRevision = draftRevision with { TranslationRequestId = 12, Translation = "읽는 중인 이전 자막 수정" };
-        responsive.Update([readingRevision, otherSegment], "uuid", 1, 2, true, 0.5);
-        Check(responsive.Tick(0.8).Previous?.Translation == "[임시 번역] 왼쪽 길로 가자.", "previous reading slot retains 1.25 second replacement protection");
-        Check(responsive.Tick(1.6).Previous?.Translation == "[임시 번역] 읽는 중인 이전 자막 수정", "previous pending update eventually applies");
+        responsive.Update([readingRevision, otherSegment], "uuid", 1, 2, true, 1.5);
+        Check(responsive.Tick(1.6).Previous is null && responsive.Tick(1.6).Current?.Translation == "[임시 번역] 왼쪽 길로 가자.", "old history cannot repaint latest input");
+        Check(responsive.Update([readingRevision, otherSegment], "uuid", 1, 2, true, 2.6).Previous is null, "new segment never creates an older reading card");
         Check(responsive.Tick(4).Current?.Translation == "[임시 번역] 다음 자막", "newest card retains minimum reading duration");
-        Check(responsive.Tick(4.5).Current is null, "display ticks do not renew expiry");
+        Check(responsive.Tick(6.7).Current is null, "display ticks do not renew expiry");
         var immediate = new CaptionDeck();
         immediate.Update([unit], "uuid", 1, 2, true, 0);
         var authoritative = unit with { SourceState = "Final", TranslationIsPreview = false,

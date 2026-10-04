@@ -52,6 +52,13 @@ public sealed class WorkerEventBuffer
     private ulong lastSequence;
     private ulong problemSequence;
     private bool needsSnapshot;
+    public const int MaximumCaptionEvents = 128;
+    // Snapshot acceptance may drain the general channel. Keep record events until
+    // the UI has consumed them, so multiple preview units cannot vanish in a refresh.
+    private readonly Queue<WorkerEvent> captionEvents = new();
+    private ulong droppedCaptionEvents;
+    private ulong lastCaptionSequence;
+    public ulong DroppedCaptionEvents { get { lock (gate) return droppedCaptionEvents; } }
     public bool SnapshotRequired { get { lock (gate) return needsSnapshot; } }
     public ulong LastSequence { get { lock (gate) return lastSequence; } }
     public ValueTask<byte> WaitForChangeAsync(CancellationToken cancellationToken) => changes.Reader.ReadAsync(cancellationToken);
@@ -60,7 +67,20 @@ public sealed class WorkerEventBuffer
         lock (gate)
         {
             if (message.Sequence == 0) throw new IOException("Invalid worker event sequence");
-            if (message.Sequence <= lastSequence) return; // snapshot covers delayed events
+            // A snapshot covers final history state, not every intermediate text unit.
+            // Journal delayed record events independently of general sequence recovery.
+            if (message.Sequence > lastCaptionSequence && message.Payload.ValueKind == JsonValueKind.Object &&
+                message.Payload.TryGetProperty("record", out var record) && record.ValueKind == JsonValueKind.Object)
+            {
+                lastCaptionSequence = message.Sequence;
+                if (captionEvents.Count == MaximumCaptionEvents)
+                {
+                    captionEvents.Dequeue(); droppedCaptionEvents++;
+                }
+                captionEvents.Enqueue(message);
+                changes.Writer.TryWrite(0);
+            }
+            if (message.Sequence <= lastSequence) return;
             if (message.Sequence != lastSequence + 1 || message.Name is "snapshot.required" or "history.changed")
             {
                 needsSnapshot = true;
@@ -79,6 +99,15 @@ public sealed class WorkerEventBuffer
     public bool TryRead(out WorkerEvent? message)
     {
         lock (gate) return channel.Reader.TryRead(out message);
+    }
+    public bool TryReadCaptionRecord(out HistoryRecord? record)
+    {
+        lock (gate)
+        {
+            if (!captionEvents.TryDequeue(out var message)) { record = null; return false; }
+            record = message.Payload.GetProperty("record").Deserialize<HistoryRecord>();
+            return record is not null;
+        }
     }
     public void AcceptSnapshot(ulong sequence)
     {

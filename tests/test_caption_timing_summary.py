@@ -25,6 +25,43 @@ def summarize(rows):
 
 
 class TimingSummary(unittest.TestCase):
+    def test_reading_wait_drop_and_buffer_overflow_are_reported_without_text(self):
+        result = summarize([dict(phase='caption_reading', kind='FirstLine', reading_wait_s=2.5, overlay_visible=True),
+                            dict(phase='caption_reading', kind='FirstLine', reading_wait_s=9, overlay_visible=False),
+                            dict(phase='caption_reading', kind='Dropped', reason='QueueCapacity'),
+                            dict(phase='caption_reading', kind='Dropped', reason='private text'),
+                            dict(phase='caption_event_buffer', worker_pid=1, dropped_events=2),
+                            dict(phase='caption_event_buffer', worker_pid=1, dropped_events=5)])['reading']
+        self.assertEqual(result['first_line_wait_s']['median'], 2.5)
+        self.assertEqual(result['drop_reasons'], {'QueueCapacity': 1})
+        self.assertEqual(result['caption_event_buffer_drops_by_worker'], {'1': 5})
+        self.assertNotIn('private text', str(result))
+
+    def test_vad_process_start_completion_and_receipt_are_separate(self):
+        def vad(event, received, completed, started, kind):
+            return dict(phase='pre_asr_event_received', event_name=event, worker_pid=1,
+                        session_id=1, epoch=1, vad_segment_id=1, worker_at_s=received,
+                        observed_worker_s=completed, processing_started_worker_s=started,
+                        processing_kind=kind, at_s=5000)
+        result = summarize([vad('capture.voice_observed', 1.2, 1.1, 1, 'push'),
+                            vad('capture.asr_eligible', 2.2, 2.1, 2.05, 'poll'),
+                            row('capture.partial_requested', 2.3, vad_segment_id=1, queued=True,
+                                voice_observed_worker_s=1.1, voice_vad_started_worker_s=1,
+                                first_eligible_worker_s=2.1, first_admitted_worker_s=2.3)])
+        durations = result['pipeline']['durations_s']
+        self.assertAlmostEqual(durations['vad_push_processing_s']['median'], .1)
+        self.assertAlmostEqual(durations['vad_poll_processing_s']['median'], .05)
+        self.assertAlmostEqual(durations['vad_observation_to_worker_receipt_s']['median'], .1)
+        self.assertAlmostEqual(durations['voice_observation_to_first_admission_s']['median'], 1.2)
+        self.assertAlmostEqual(durations['voice_vad_start_to_first_admission_s']['median'], 1.3)
+
+    def test_legacy_vad_log_does_not_invent_process_duration(self):
+        result = summarize([dict(phase='pre_asr_event_received', event_name='capture.voice_observed',
+                                 worker_pid=1, session_id=1, epoch=1, vad_segment_id=1,
+                                 worker_at_s=1.2, observed_worker_s=1.1)])
+        self.assertNotIn('vad_push_processing_s', result['pipeline']['durations_s'])
+        self.assertNotIn('vad_poll_processing_s', result['pipeline']['durations_s'])
+
     def test_worker_stages_do_not_mix_desktop_clock(self):
         rows = [row('capture.partial_requested', 10, queued=True, audio_end_s=2,
                     voice_start_s=0, partial_deferred_wait_s=0.2),

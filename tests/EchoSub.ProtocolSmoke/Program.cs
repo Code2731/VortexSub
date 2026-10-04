@@ -1,6 +1,14 @@
 using System.Diagnostics;
 using EchoSub.Desktop;
 
+if (args is ["--lines-only"])
+{
+    CaptionLinesSmoke.Run();
+    CaptionPipelineSmoke.Run();
+    CaptionDeliverySmoke.Run();
+    return 0;
+}
+
 if (args.Length != 1 || !File.Exists(args[0]))
 {
     Console.Error.WriteLine("Usage: EchoSub.ProtocolSmoke <absolute-worker-path>");
@@ -9,6 +17,9 @@ if (args.Length != 1 || !File.Exists(args[0]))
 
 var workerPath = Path.GetFullPath(args[0]);
 CaptionPresentationSmoke.Run();
+CaptionLinesSmoke.Run();
+CaptionPipelineSmoke.Run();
+CaptionDeliverySmoke.Run();
 await HttpTranslationSmoke.Run(workerPath);
 
 await using (var client = WorkerClient.Start(workerPath, arguments: new[] { "--mock-pipeline" }))
