@@ -68,7 +68,7 @@ public sealed partial class MainWindow
         var main = Stack(
             Card("실시간 자막", preparationStatus,
                 input, Actions(startCaptureButton, pauseButton, resumeButton, stopCaptureButton, openTranslationSettings),
-                Note("장치와 언어를 변경하려면 자막을 중지하세요.")),
+                captureActionHint),
             Card("화면에 자막 표시", Actions(overlayButton, resetOverlay), overlaySourceEnabled,
                 Note("자막 창의 폭과 배경은 설정 탭에서 조절할 수 있습니다.")));
         main.Children[0].IsVisible = live;
@@ -88,12 +88,13 @@ public sealed partial class MainWindow
         var appearance = Card("자막 창 모양", Note("폭"), SliderRow(overlayWidth, widthValue),
             Note("배경 불투명도"), SliderRow(cardOpacity, opacityValue));
         translationEndpoint.HorizontalAlignment = translationModel.HorizontalAlignment = HorizontalAlignment.Left;
-        var translation = Card("번역 연결", Note("로컬 번역 서버를 실행한 뒤 연결하세요. 변경은 자막을 중지한 후 적용합니다."),
+        var errorDetails = new Expander { Header = "오류 상세", Content = translationErrorDetails };
+        var advancedSettings = new Expander { Header = "고급 번역 설정", Content = Stack(translationProfile,
+            translationProfileStatus, isolatedTranslationContext, isolatedContextStatus) };
+        var translation = Card("번역 연결", Note("로컬 번역 서버를 실행한 뒤 연결하세요. 변경은 자막을 중지한 후 적용합니다."), translationActionHint,
             Note("서버 주소"), translationEndpoint, Actions(catalogButton, disableTranslationButton),
             Note("모델"), translationModel, translationStatus,
-            new Expander { Header = "오류 상세", Content = translationErrorDetails },
-            new Expander { Header = "고급 번역 설정", Content = Stack(translationProfile,
-                translationProfileStatus, isolatedTranslationContext, isolatedContextStatus) }, applyTranslationButton);
+            errorDetails, advancedSettings, applyTranslationButton);
         var experiments = Card("실험 기능", Note("부분 결과는 최종 결과와 다를 수 있습니다."),
             partialEnabled, partialTranslationEnabled, cosmeticRevisions);
         translation.IsVisible = experiments.IsVisible = live;
@@ -101,9 +102,9 @@ public sealed partial class MainWindow
         var settings = Stack(appearance, translation, experiments,
             Card("설정 보관", Note("음성 언어, 출력 장치, 자막 창 모양, 원문 표시와 부분 자막 옵션을 저장합니다. 번역 모델은 런처 설정을 사용합니다. 지연 로그 기록은 자동으로 켜지지 않습니다."),
                 savePreferencesButton, preferencesStatus));
-        var records = Stack(Card("최근 자막", Note("최근 100개 구간입니다. 자막 내용은 자동으로 파일에 저장하지 않습니다."), history),
+        var records = Stack(Card("최근 자막", Note("최근 100개 구간입니다. 자막 내용은 자동으로 파일에 저장하지 않습니다."), historyEmpty, history),
             Card("기록 저장", Note("일시정지 또는 중지 후 저장할 수 있습니다. 최대 1,000개 구간을 내보냅니다."),
-                exportSession, Actions(exportTxtButton, exportSrtButton, clearHistoryButton), exportResult));
+                exportSession, Actions(exportTxtButton, exportSrtButton, clearHistoryButton), historyActionHint, exportResult));
         var diagnostics = Stack(Card("연결과 상세 상태", status,
             Actions(connectButton, pingButton, stateButton, stopButton),
             new ScrollViewer { Height = 180, Content = details }),
@@ -117,6 +118,16 @@ public sealed partial class MainWindow
             "2. 출력 장치와 음성 언어를 선택하세요. 번역 연결은 설정 탭에서 확인하세요.\n" +
             "3. 자막 시작을 누른 뒤 음성을 재생하세요. 자막 오버레이 표시로 자막 창을 여세요.") };
         heading.Children.Add(FirstUseGuide);
+        FirstUseGuide.TabIndex = 0;
+        CaptureTabs.TabIndex = 1;
+        SetControlOrder(endpoint, language, startCaptureButton, pauseButton, resumeButton, stopCaptureButton,
+            openTranslationSettings, overlayButton, resetOverlay, overlaySourceEnabled);
+        SetControlOrder(overlayWidth, cardOpacity, translationEndpoint, catalogButton, disableTranslationButton,
+            translationModel, errorDetails, advancedSettings, translationProfile, isolatedTranslationContext, applyTranslationButton,
+            partialEnabled, partialTranslationEnabled, cosmeticRevisions, savePreferencesButton);
+        SetControlOrder(history, exportSession, exportTxtButton, exportSrtButton, clearHistoryButton);
+        SetControlOrder(connectButton, pingButton, stateButton, stopButton, captionTimingEnabled);
+        SetControlNames(overlayWidth, cardOpacity);
         heading.Margin = new Thickness(0, 0, 0, 16);
         DockPanel.SetDock(heading, Dock.Top);
         var root = new DockPanel { Margin = new Thickness(20) };

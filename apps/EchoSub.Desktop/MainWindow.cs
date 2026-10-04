@@ -809,6 +809,7 @@ public sealed partial class MainWindow : Window
         partialEnabled.IsEnabled = available && captureStartable && partialSupported;
         partialTranslationEnabled.IsEnabled = available && captureStartable && partialTranslationSupported;
         cosmeticRevisions.IsEnabled = available && (sessionState is null or "Idle");
+        UpdateUsabilityHints(available, connected);
     }
 
     public sealed record EndpointChoice(string? Id, string Name)
