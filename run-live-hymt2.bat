@@ -1,5 +1,5 @@
 @echo off
-"%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\run-live.ps1" -TranslationModel hymt2 -AsrBackend cuda -FastPartials %*
+"%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\run-live.ps1" -TranslationModel hymt2 -AsrBackend cuda -FastPartials -CaptionTiming %*
 set "runExit=%errorlevel%"
 if not "%runExit%"=="0" pause
 exit /b %runExit%

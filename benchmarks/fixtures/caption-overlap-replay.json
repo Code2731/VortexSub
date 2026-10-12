@@ -1,0 +1,1145 @@
+{
+  "scope": "Synthetic history fixtures. No recorded natural speech or engine quality claim.",
+  "runs": [
+    {
+      "name": "three-short-utterances",
+      "events": [
+        {
+          "at_s": 0,
+          "message": {
+            "payload": {
+              "record": {
+                "session_id": 1,
+                "epoch": 1,
+                "segment_id": 1,
+                "source_revision": 1,
+                "applied_source_revision": 1,
+                "audio_start_sample": 0,
+                "audio_end_sample": 16000,
+                "audio_start_s": 0,
+                "audio_end_s": 1,
+                "source_state": "Final",
+                "source": "Synthetic source 1.",
+                "source_reason": null,
+                "translation_state": "Done",
+                "translation": "첫 발화.",
+                "translation_reason": null,
+                "translation_request_id": 1,
+                "stable_source": "",
+                "translation_is_preview": false,
+                "translation_source": "",
+                "translation_prefix": ""
+              }
+            }
+          }
+        },
+        {
+          "at_s": 0.4,
+          "message": {
+            "payload": {
+              "record": {
+                "session_id": 1,
+                "epoch": 1,
+                "segment_id": 2,
+                "source_revision": 1,
+                "applied_source_revision": 1,
+                "audio_start_sample": 0,
+                "audio_end_sample": 16000,
+                "audio_start_s": 0,
+                "audio_end_s": 1,
+                "source_state": "Final",
+                "source": "Synthetic source 2.",
+                "source_reason": null,
+                "translation_state": "Done",
+                "translation": "둘째 발화.",
+                "translation_reason": null,
+                "translation_request_id": 1,
+                "stable_source": "",
+                "translation_is_preview": false,
+                "translation_source": "",
+                "translation_prefix": ""
+              }
+            }
+          }
+        },
+        {
+          "at_s": 0.8,
+          "message": {
+            "payload": {
+              "record": {
+                "session_id": 1,
+                "epoch": 1,
+                "segment_id": 3,
+                "source_revision": 1,
+                "applied_source_revision": 1,
+                "audio_start_sample": 0,
+                "audio_end_sample": 16000,
+                "audio_start_s": 0,
+                "audio_end_s": 1,
+                "source_state": "Final",
+                "source": "Synthetic source 3.",
+                "source_reason": null,
+                "translation_state": "Done",
+                "translation": "셋째 발화.",
+                "translation_reason": null,
+                "translation_request_id": 1,
+                "stable_source": "",
+                "translation_is_preview": false,
+                "translation_source": "",
+                "translation_prefix": ""
+              }
+            }
+          }
+        }
+      ],
+      "final_record": {
+        "session_id": 1,
+        "epoch": 1,
+        "segment_id": 3,
+        "source_revision": 1,
+        "applied_source_revision": 1,
+        "audio_start_sample": 0,
+        "audio_end_sample": 16000,
+        "audio_start_s": 0,
+        "audio_end_s": 1,
+        "source_state": "Final",
+        "source": "Synthetic source 3.",
+        "source_reason": null,
+        "translation_state": "Done",
+        "translation": "셋째 발화.",
+        "translation_reason": null,
+        "translation_request_id": 1,
+        "stable_source": "",
+        "translation_is_preview": false,
+        "translation_source": "",
+        "translation_prefix": ""
+      },
+      "required_fragments": [
+        {
+          "text": "첫 발화.",
+          "minimum": 1,
+          "maximum": 1
+        },
+        {
+          "text": "둘째 발화.",
+          "minimum": 1,
+          "maximum": 1
+        },
+        {
+          "text": "셋째 발화.",
+          "minimum": 1,
+          "maximum": 1
+        }
+      ],
+      "expected_drops": 0,
+      "timing_targets": [
+        {
+          "session_id": 1,
+          "epoch": 1,
+          "segment_id": 1,
+          "source_revision": 1,
+          "translation_request_id": 1,
+          "text": "첫 발화."
+        },
+        {
+          "session_id": 1,
+          "epoch": 1,
+          "segment_id": 2,
+          "source_revision": 1,
+          "translation_request_id": 1,
+          "text": "둘째 발화."
+        },
+        {
+          "session_id": 1,
+          "epoch": 1,
+          "segment_id": 3,
+          "source_revision": 1,
+          "translation_request_id": 1,
+          "text": "셋째 발화."
+        }
+      ]
+    },
+    {
+      "name": "six-lines-and-following",
+      "events": [
+        {
+          "at_s": 0,
+          "message": {
+            "payload": {
+              "record": {
+                "session_id": 1,
+                "epoch": 1,
+                "segment_id": 1,
+                "source_revision": 1,
+                "applied_source_revision": 1,
+                "audio_start_sample": 0,
+                "audio_end_sample": 16000,
+                "audio_start_s": 0,
+                "audio_end_s": 1,
+                "source_state": "Final",
+                "source": "Synthetic source 1.",
+                "source_reason": null,
+                "translation_state": "Done",
+                "translation": "장문 조각 1.\n장문 조각 2.\n장문 조각 3.\n장문 조각 4.\n장문 조각 5.\n장문 조각 6.",
+                "translation_reason": null,
+                "translation_request_id": 1,
+                "stable_source": "",
+                "translation_is_preview": false,
+                "translation_source": "",
+                "translation_prefix": ""
+              }
+            }
+          }
+        },
+        {
+          "at_s": 0.4,
+          "message": {
+            "payload": {
+              "record": {
+                "session_id": 1,
+                "epoch": 1,
+                "segment_id": 2,
+                "source_revision": 1,
+                "applied_source_revision": 1,
+                "audio_start_sample": 0,
+                "audio_end_sample": 16000,
+                "audio_start_s": 0,
+                "audio_end_s": 1,
+                "source_state": "Final",
+                "source": "Synthetic source 2.",
+                "source_reason": null,
+                "translation_state": "Done",
+                "translation": "긴 문장 뒤 발화.",
+                "translation_reason": null,
+                "translation_request_id": 1,
+                "stable_source": "",
+                "translation_is_preview": false,
+                "translation_source": "",
+                "translation_prefix": ""
+              }
+            }
+          }
+        }
+      ],
+      "final_record": {
+        "session_id": 1,
+        "epoch": 1,
+        "segment_id": 2,
+        "source_revision": 1,
+        "applied_source_revision": 1,
+        "audio_start_sample": 0,
+        "audio_end_sample": 16000,
+        "audio_start_s": 0,
+        "audio_end_s": 1,
+        "source_state": "Final",
+        "source": "Synthetic source 2.",
+        "source_reason": null,
+        "translation_state": "Done",
+        "translation": "긴 문장 뒤 발화.",
+        "translation_reason": null,
+        "translation_request_id": 1,
+        "stable_source": "",
+        "translation_is_preview": false,
+        "translation_source": "",
+        "translation_prefix": ""
+      },
+      "required_fragments": [
+        {
+          "text": "장문 조각 1.",
+          "minimum": 1,
+          "maximum": 1
+        },
+        {
+          "text": "장문 조각 2.",
+          "minimum": 1,
+          "maximum": 1
+        },
+        {
+          "text": "장문 조각 3.",
+          "minimum": 1,
+          "maximum": 1
+        },
+        {
+          "text": "장문 조각 4.",
+          "minimum": 1,
+          "maximum": 1
+        },
+        {
+          "text": "장문 조각 5.",
+          "minimum": 1,
+          "maximum": 1
+        },
+        {
+          "text": "장문 조각 6.",
+          "minimum": 1,
+          "maximum": 1
+        },
+        {
+          "text": "긴 문장 뒤 발화.",
+          "minimum": 1,
+          "maximum": 1
+        }
+      ],
+      "expected_drops": 0,
+      "timing_targets": [
+        {
+          "session_id": 1,
+          "epoch": 1,
+          "segment_id": 1,
+          "source_revision": 1,
+          "translation_request_id": 1,
+          "text": "장문 조각 1."
+        },
+        {
+          "session_id": 1,
+          "epoch": 1,
+          "segment_id": 1,
+          "source_revision": 1,
+          "translation_request_id": 1,
+          "text": "장문 조각 2."
+        },
+        {
+          "session_id": 1,
+          "epoch": 1,
+          "segment_id": 1,
+          "source_revision": 1,
+          "translation_request_id": 1,
+          "text": "장문 조각 3."
+        },
+        {
+          "session_id": 1,
+          "epoch": 1,
+          "segment_id": 1,
+          "source_revision": 1,
+          "translation_request_id": 1,
+          "text": "장문 조각 4."
+        },
+        {
+          "session_id": 1,
+          "epoch": 1,
+          "segment_id": 1,
+          "source_revision": 1,
+          "translation_request_id": 1,
+          "text": "장문 조각 5."
+        },
+        {
+          "session_id": 1,
+          "epoch": 1,
+          "segment_id": 1,
+          "source_revision": 1,
+          "translation_request_id": 1,
+          "text": "장문 조각 6."
+        },
+        {
+          "session_id": 1,
+          "epoch": 1,
+          "segment_id": 2,
+          "source_revision": 1,
+          "translation_request_id": 1,
+          "text": "긴 문장 뒤 발화."
+        }
+      ]
+    },
+    {
+      "name": "revised-leading-prefix",
+      "events": [
+        {
+          "at_s": 0,
+          "message": {
+            "payload": {
+              "record": {
+                "session_id": 1,
+                "epoch": 1,
+                "segment_id": 1,
+                "source_revision": 1,
+                "applied_source_revision": 1,
+                "audio_start_sample": 0,
+                "audio_end_sample": 16000,
+                "audio_start_s": 0,
+                "audio_end_s": 1,
+                "source_state": "Partial",
+                "source": "Synthetic source 1.",
+                "source_reason": null,
+                "translation_state": "Done",
+                "translation": "같은 앞문장.\n왼쪽 방향.",
+                "translation_reason": null,
+                "translation_request_id": 1,
+                "stable_source": "Synthetic source 1.",
+                "translation_is_preview": true,
+                "translation_source": "Synthetic source 1.",
+                "translation_prefix": "Synthetic source 1."
+              }
+            }
+          }
+        },
+        {
+          "at_s": 0.2,
+          "message": {
+            "payload": {
+              "record": {
+                "session_id": 1,
+                "epoch": 1,
+                "segment_id": 1,
+                "source_revision": 2,
+                "applied_source_revision": 2,
+                "audio_start_sample": 0,
+                "audio_end_sample": 16000,
+                "audio_start_s": 0,
+                "audio_end_s": 1,
+                "source_state": "Final",
+                "source": "Synthetic source 1.",
+                "source_reason": null,
+                "translation_state": "Done",
+                "translation": "같은 앞문장.\n오른쪽 방향.",
+                "translation_reason": null,
+                "translation_request_id": 2,
+                "stable_source": "",
+                "translation_is_preview": false,
+                "translation_source": "",
+                "translation_prefix": ""
+              }
+            }
+          }
+        }
+      ],
+      "final_record": {
+        "session_id": 1,
+        "epoch": 1,
+        "segment_id": 1,
+        "source_revision": 2,
+        "applied_source_revision": 2,
+        "audio_start_sample": 0,
+        "audio_end_sample": 16000,
+        "audio_start_s": 0,
+        "audio_end_s": 1,
+        "source_state": "Final",
+        "source": "Synthetic source 1.",
+        "source_reason": null,
+        "translation_state": "Done",
+        "translation": "같은 앞문장.\n오른쪽 방향.",
+        "translation_reason": null,
+        "translation_request_id": 2,
+        "stable_source": "",
+        "translation_is_preview": false,
+        "translation_source": "",
+        "translation_prefix": ""
+      },
+      "required_fragments": [
+        {
+          "text": "같은 앞문장.",
+          "minimum": 1,
+          "maximum": 1
+        },
+        {
+          "text": "오른쪽 방향.",
+          "minimum": 1,
+          "maximum": 1
+        }
+      ],
+      "expected_drops": 0,
+      "timing_targets": [
+        {
+          "session_id": 1,
+          "epoch": 1,
+          "segment_id": 1,
+          "source_revision": 1,
+          "translation_request_id": 1,
+          "text": "같은 앞문장."
+        },
+        {
+          "session_id": 1,
+          "epoch": 1,
+          "segment_id": 1,
+          "source_revision": 1,
+          "translation_request_id": 1,
+          "text": "왼쪽 방향."
+        },
+        {
+          "session_id": 1,
+          "epoch": 1,
+          "segment_id": 1,
+          "source_revision": 2,
+          "translation_request_id": 2,
+          "text": "같은 앞문장."
+        },
+        {
+          "session_id": 1,
+          "epoch": 1,
+          "segment_id": 1,
+          "source_revision": 2,
+          "translation_request_id": 2,
+          "text": "오른쪽 방향."
+        }
+      ]
+    },
+    {
+      "name": "changed-head-stable-tail-and-following",
+      "events": [
+        {
+          "at_s": 0,
+          "message": {
+            "payload": {
+              "record": {
+                "session_id": 1,
+                "epoch": 1,
+                "segment_id": 1,
+                "source_revision": 1,
+                "applied_source_revision": 1,
+                "audio_start_sample": 0,
+                "audio_end_sample": 16000,
+                "audio_start_s": 0,
+                "audio_end_s": 1,
+                "source_state": "Partial",
+                "source": "Synthetic source 1.",
+                "source_reason": null,
+                "translation_state": "Done",
+                "translation": "기존 앞문장.\n같은 뒷문장.",
+                "translation_reason": null,
+                "translation_request_id": 1,
+                "stable_source": "Synthetic source 1.",
+                "translation_is_preview": true,
+                "translation_source": "Synthetic source 1.",
+                "translation_prefix": "Synthetic source 1."
+              }
+            }
+          }
+        },
+        {
+          "at_s": 0.1,
+          "message": {
+            "payload": {
+              "record": {
+                "session_id": 1,
+                "epoch": 1,
+                "segment_id": 1,
+                "source_revision": 1,
+                "applied_source_revision": 1,
+                "audio_start_sample": 0,
+                "audio_end_sample": 16000,
+                "audio_start_s": 0,
+                "audio_end_s": 1,
+                "source_state": "Final",
+                "source": "Synthetic source 1.",
+                "source_reason": null,
+                "translation_state": "Done",
+                "translation": "교정 앞문장.\n같은 뒷문장.",
+                "translation_reason": null,
+                "translation_request_id": 2,
+                "stable_source": "",
+                "translation_is_preview": false,
+                "translation_source": "",
+                "translation_prefix": ""
+              }
+            }
+          }
+        },
+        {
+          "at_s": 0.2,
+          "message": {
+            "payload": {
+              "record": {
+                "session_id": 1,
+                "epoch": 1,
+                "segment_id": 2,
+                "source_revision": 1,
+                "applied_source_revision": 1,
+                "audio_start_sample": 0,
+                "audio_end_sample": 16000,
+                "audio_start_s": 0,
+                "audio_end_s": 1,
+                "source_state": "Final",
+                "source": "Synthetic source 2.",
+                "source_reason": null,
+                "translation_state": "Done",
+                "translation": "교정 뒤 새 발화.",
+                "translation_reason": null,
+                "translation_request_id": 1,
+                "stable_source": "",
+                "translation_is_preview": false,
+                "translation_source": "",
+                "translation_prefix": ""
+              }
+            }
+          }
+        }
+      ],
+      "final_record": {
+        "session_id": 1,
+        "epoch": 1,
+        "segment_id": 2,
+        "source_revision": 1,
+        "applied_source_revision": 1,
+        "audio_start_sample": 0,
+        "audio_end_sample": 16000,
+        "audio_start_s": 0,
+        "audio_end_s": 1,
+        "source_state": "Final",
+        "source": "Synthetic source 2.",
+        "source_reason": null,
+        "translation_state": "Done",
+        "translation": "교정 뒤 새 발화.",
+        "translation_reason": null,
+        "translation_request_id": 1,
+        "stable_source": "",
+        "translation_is_preview": false,
+        "translation_source": "",
+        "translation_prefix": ""
+      },
+      "required_fragments": [
+        {
+          "text": "기존 앞문장.",
+          "minimum": 1,
+          "maximum": 1
+        },
+        {
+          "text": "교정 앞문장.",
+          "minimum": 1,
+          "maximum": 1
+        },
+        {
+          "text": "같은 뒷문장.",
+          "minimum": 1,
+          "maximum": 1
+        },
+        {
+          "text": "교정 뒤 새 발화.",
+          "minimum": 1,
+          "maximum": 1
+        }
+      ],
+      "expected_drops": 0,
+      "timing_targets": [
+        {
+          "session_id": 1,
+          "epoch": 1,
+          "segment_id": 1,
+          "source_revision": 1,
+          "translation_request_id": 1,
+          "text": "기존 앞문장."
+        },
+        {
+          "session_id": 1,
+          "epoch": 1,
+          "segment_id": 1,
+          "source_revision": 1,
+          "translation_request_id": 1,
+          "text": "같은 뒷문장."
+        },
+        {
+          "session_id": 1,
+          "epoch": 1,
+          "segment_id": 1,
+          "source_revision": 1,
+          "translation_request_id": 2,
+          "text": "교정 앞문장."
+        },
+        {
+          "session_id": 1,
+          "epoch": 1,
+          "segment_id": 1,
+          "source_revision": 1,
+          "translation_request_id": 2,
+          "text": "같은 뒷문장."
+        },
+        {
+          "session_id": 1,
+          "epoch": 1,
+          "segment_id": 2,
+          "source_revision": 1,
+          "translation_request_id": 1,
+          "text": "교정 뒤 새 발화."
+        }
+      ]
+    },
+    {
+      "name": "bounded-overload",
+      "events": [
+        {
+          "at_s": 0.0,
+          "message": {
+            "payload": {
+              "record": {
+                "session_id": 1,
+                "epoch": 1,
+                "segment_id": 1,
+                "source_revision": 1,
+                "applied_source_revision": 1,
+                "audio_start_sample": 0,
+                "audio_end_sample": 16000,
+                "audio_start_s": 0,
+                "audio_end_s": 1,
+                "source_state": "Final",
+                "source": "Synthetic source 1.",
+                "source_reason": null,
+                "translation_state": "Done",
+                "translation": "과부하 발화 1.",
+                "translation_reason": null,
+                "translation_request_id": 1,
+                "stable_source": "",
+                "translation_is_preview": false,
+                "translation_source": "",
+                "translation_prefix": ""
+              }
+            }
+          }
+        },
+        {
+          "at_s": 0.1,
+          "message": {
+            "payload": {
+              "record": {
+                "session_id": 1,
+                "epoch": 1,
+                "segment_id": 2,
+                "source_revision": 1,
+                "applied_source_revision": 1,
+                "audio_start_sample": 0,
+                "audio_end_sample": 16000,
+                "audio_start_s": 0,
+                "audio_end_s": 1,
+                "source_state": "Final",
+                "source": "Synthetic source 2.",
+                "source_reason": null,
+                "translation_state": "Done",
+                "translation": "과부하 발화 2.",
+                "translation_reason": null,
+                "translation_request_id": 1,
+                "stable_source": "",
+                "translation_is_preview": false,
+                "translation_source": "",
+                "translation_prefix": ""
+              }
+            }
+          }
+        },
+        {
+          "at_s": 0.2,
+          "message": {
+            "payload": {
+              "record": {
+                "session_id": 1,
+                "epoch": 1,
+                "segment_id": 3,
+                "source_revision": 1,
+                "applied_source_revision": 1,
+                "audio_start_sample": 0,
+                "audio_end_sample": 16000,
+                "audio_start_s": 0,
+                "audio_end_s": 1,
+                "source_state": "Final",
+                "source": "Synthetic source 3.",
+                "source_reason": null,
+                "translation_state": "Done",
+                "translation": "과부하 발화 3.",
+                "translation_reason": null,
+                "translation_request_id": 1,
+                "stable_source": "",
+                "translation_is_preview": false,
+                "translation_source": "",
+                "translation_prefix": ""
+              }
+            }
+          }
+        },
+        {
+          "at_s": 0.3,
+          "message": {
+            "payload": {
+              "record": {
+                "session_id": 1,
+                "epoch": 1,
+                "segment_id": 4,
+                "source_revision": 1,
+                "applied_source_revision": 1,
+                "audio_start_sample": 0,
+                "audio_end_sample": 16000,
+                "audio_start_s": 0,
+                "audio_end_s": 1,
+                "source_state": "Final",
+                "source": "Synthetic source 4.",
+                "source_reason": null,
+                "translation_state": "Done",
+                "translation": "과부하 발화 4.",
+                "translation_reason": null,
+                "translation_request_id": 1,
+                "stable_source": "",
+                "translation_is_preview": false,
+                "translation_source": "",
+                "translation_prefix": ""
+              }
+            }
+          }
+        },
+        {
+          "at_s": 0.4,
+          "message": {
+            "payload": {
+              "record": {
+                "session_id": 1,
+                "epoch": 1,
+                "segment_id": 5,
+                "source_revision": 1,
+                "applied_source_revision": 1,
+                "audio_start_sample": 0,
+                "audio_end_sample": 16000,
+                "audio_start_s": 0,
+                "audio_end_s": 1,
+                "source_state": "Final",
+                "source": "Synthetic source 5.",
+                "source_reason": null,
+                "translation_state": "Done",
+                "translation": "과부하 발화 5.",
+                "translation_reason": null,
+                "translation_request_id": 1,
+                "stable_source": "",
+                "translation_is_preview": false,
+                "translation_source": "",
+                "translation_prefix": ""
+              }
+            }
+          }
+        },
+        {
+          "at_s": 0.5,
+          "message": {
+            "payload": {
+              "record": {
+                "session_id": 1,
+                "epoch": 1,
+                "segment_id": 6,
+                "source_revision": 1,
+                "applied_source_revision": 1,
+                "audio_start_sample": 0,
+                "audio_end_sample": 16000,
+                "audio_start_s": 0,
+                "audio_end_s": 1,
+                "source_state": "Final",
+                "source": "Synthetic source 6.",
+                "source_reason": null,
+                "translation_state": "Done",
+                "translation": "과부하 발화 6.",
+                "translation_reason": null,
+                "translation_request_id": 1,
+                "stable_source": "",
+                "translation_is_preview": false,
+                "translation_source": "",
+                "translation_prefix": ""
+              }
+            }
+          }
+        },
+        {
+          "at_s": 0.6,
+          "message": {
+            "payload": {
+              "record": {
+                "session_id": 1,
+                "epoch": 1,
+                "segment_id": 7,
+                "source_revision": 1,
+                "applied_source_revision": 1,
+                "audio_start_sample": 0,
+                "audio_end_sample": 16000,
+                "audio_start_s": 0,
+                "audio_end_s": 1,
+                "source_state": "Final",
+                "source": "Synthetic source 7.",
+                "source_reason": null,
+                "translation_state": "Done",
+                "translation": "과부하 발화 7.",
+                "translation_reason": null,
+                "translation_request_id": 1,
+                "stable_source": "",
+                "translation_is_preview": false,
+                "translation_source": "",
+                "translation_prefix": ""
+              }
+            }
+          }
+        },
+        {
+          "at_s": 0.7,
+          "message": {
+            "payload": {
+              "record": {
+                "session_id": 1,
+                "epoch": 1,
+                "segment_id": 8,
+                "source_revision": 1,
+                "applied_source_revision": 1,
+                "audio_start_sample": 0,
+                "audio_end_sample": 16000,
+                "audio_start_s": 0,
+                "audio_end_s": 1,
+                "source_state": "Final",
+                "source": "Synthetic source 8.",
+                "source_reason": null,
+                "translation_state": "Done",
+                "translation": "과부하 발화 8.",
+                "translation_reason": null,
+                "translation_request_id": 1,
+                "stable_source": "",
+                "translation_is_preview": false,
+                "translation_source": "",
+                "translation_prefix": ""
+              }
+            }
+          }
+        }
+      ],
+      "final_record": {
+        "session_id": 1,
+        "epoch": 1,
+        "segment_id": 8,
+        "source_revision": 1,
+        "applied_source_revision": 1,
+        "audio_start_sample": 0,
+        "audio_end_sample": 16000,
+        "audio_start_s": 0,
+        "audio_end_s": 1,
+        "source_state": "Final",
+        "source": "Synthetic source 8.",
+        "source_reason": null,
+        "translation_state": "Done",
+        "translation": "과부하 발화 8.",
+        "translation_reason": null,
+        "translation_request_id": 1,
+        "stable_source": "",
+        "translation_is_preview": false,
+        "translation_source": "",
+        "translation_prefix": ""
+      },
+      "required_fragments": [
+        {
+          "text": "과부하 발화 1.",
+          "minimum": 1,
+          "maximum": 1
+        },
+        {
+          "text": "과부하 발화 2.",
+          "minimum": 1,
+          "maximum": 1
+        },
+        {
+          "text": "과부하 발화 5.",
+          "minimum": 1,
+          "maximum": 1
+        },
+        {
+          "text": "과부하 발화 6.",
+          "minimum": 1,
+          "maximum": 1
+        },
+        {
+          "text": "과부하 발화 7.",
+          "minimum": 1,
+          "maximum": 1
+        },
+        {
+          "text": "과부하 발화 8.",
+          "minimum": 1,
+          "maximum": 1
+        }
+      ],
+      "expected_drops": 2,
+      "timing_targets": [
+        {
+          "session_id": 1,
+          "epoch": 1,
+          "segment_id": 1,
+          "source_revision": 1,
+          "translation_request_id": 1,
+          "text": "과부하 발화 1."
+        },
+        {
+          "session_id": 1,
+          "epoch": 1,
+          "segment_id": 2,
+          "source_revision": 1,
+          "translation_request_id": 1,
+          "text": "과부하 발화 2."
+        },
+        {
+          "session_id": 1,
+          "epoch": 1,
+          "segment_id": 3,
+          "source_revision": 1,
+          "translation_request_id": 1,
+          "text": "과부하 발화 3."
+        },
+        {
+          "session_id": 1,
+          "epoch": 1,
+          "segment_id": 4,
+          "source_revision": 1,
+          "translation_request_id": 1,
+          "text": "과부하 발화 4."
+        },
+        {
+          "session_id": 1,
+          "epoch": 1,
+          "segment_id": 5,
+          "source_revision": 1,
+          "translation_request_id": 1,
+          "text": "과부하 발화 5."
+        },
+        {
+          "session_id": 1,
+          "epoch": 1,
+          "segment_id": 6,
+          "source_revision": 1,
+          "translation_request_id": 1,
+          "text": "과부하 발화 6."
+        },
+        {
+          "session_id": 1,
+          "epoch": 1,
+          "segment_id": 7,
+          "source_revision": 1,
+          "translation_request_id": 1,
+          "text": "과부하 발화 7."
+        },
+        {
+          "session_id": 1,
+          "epoch": 1,
+          "segment_id": 8,
+          "source_revision": 1,
+          "translation_request_id": 1,
+          "text": "과부하 발화 8."
+        }
+      ]
+    },
+    {
+      "name": "unknown-source-range-full-correction",
+      "events": [
+        {
+          "at_s": 0,
+          "message": {
+            "payload": {
+              "record": {
+                "session_id": 1,
+                "epoch": 1,
+                "segment_id": 1,
+                "source_revision": 1,
+                "applied_source_revision": 1,
+                "audio_start_sample": 0,
+                "audio_end_sample": 16000,
+                "audio_start_s": 0,
+                "audio_end_s": 1,
+                "source_state": "Partial",
+                "source": "Synthetic source 1.",
+                "source_reason": null,
+                "translation_state": "Done",
+                "translation": "미상 앞문장.\n이전 꼬리.",
+                "translation_reason": null,
+                "translation_request_id": 1,
+                "stable_source": "Synthetic source 1.",
+                "translation_is_preview": true,
+                "translation_source": "",
+                "translation_prefix": "Synthetic source 1."
+              }
+            }
+          }
+        },
+        {
+          "at_s": 0.2,
+          "message": {
+            "payload": {
+              "record": {
+                "session_id": 1,
+                "epoch": 1,
+                "segment_id": 1,
+                "source_revision": 2,
+                "applied_source_revision": 2,
+                "audio_start_sample": 0,
+                "audio_end_sample": 16000,
+                "audio_start_s": 0,
+                "audio_end_s": 1,
+                "source_state": "Final",
+                "source": "Synthetic source 1.",
+                "source_reason": null,
+                "translation_state": "Done",
+                "translation": "미상 앞문장.\n교정 꼬리.",
+                "translation_reason": null,
+                "translation_request_id": 2,
+                "stable_source": "",
+                "translation_is_preview": false,
+                "translation_source": "",
+                "translation_prefix": ""
+              }
+            }
+          }
+        }
+      ],
+      "final_record": {
+        "session_id": 1,
+        "epoch": 1,
+        "segment_id": 1,
+        "source_revision": 2,
+        "applied_source_revision": 2,
+        "audio_start_sample": 0,
+        "audio_end_sample": 16000,
+        "audio_start_s": 0,
+        "audio_end_s": 1,
+        "source_state": "Final",
+        "source": "Synthetic source 1.",
+        "source_reason": null,
+        "translation_state": "Done",
+        "translation": "미상 앞문장.\n교정 꼬리.",
+        "translation_reason": null,
+        "translation_request_id": 2,
+        "stable_source": "",
+        "translation_is_preview": false,
+        "translation_source": "",
+        "translation_prefix": ""
+      },
+      "required_fragments": [
+        {
+          "text": "미상 앞문장.",
+          "minimum": 1,
+          "maximum": 2
+        },
+        {
+          "text": "교정 꼬리.",
+          "minimum": 1,
+          "maximum": 1
+        }
+      ],
+      "expected_drops": 0,
+      "timing_targets": [
+        {
+          "session_id": 1,
+          "epoch": 1,
+          "segment_id": 1,
+          "source_revision": 1,
+          "translation_request_id": 1,
+          "text": "미상 앞문장."
+        },
+        {
+          "session_id": 1,
+          "epoch": 1,
+          "segment_id": 1,
+          "source_revision": 1,
+          "translation_request_id": 1,
+          "text": "이전 꼬리."
+        },
+        {
+          "session_id": 1,
+          "epoch": 1,
+          "segment_id": 1,
+          "source_revision": 2,
+          "translation_request_id": 2,
+          "text": "미상 앞문장."
+        },
+        {
+          "session_id": 1,
+          "epoch": 1,
+          "segment_id": 1,
+          "source_revision": 2,
+          "translation_request_id": 2,
+          "text": "교정 꼬리."
+        }
+      ]
+    }
+  ]
+}

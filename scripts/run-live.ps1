@@ -1,7 +1,8 @@
 param([string] $ServerPath, [switch] $NoBuild,
     [ValidateSet('cpu', 'cuda')] [string] $AsrBackend = 'cpu', [switch] $FastPartials, [switch] $CaptionTiming, [switch] $DecodeWindow, [switch] $PadShortPartials, [switch] $SupportedPreview, [switch] $IsolatedTranslationContext,
     [ValidateSet('qwen', 'hymt2')] [string] $TranslationModel = 'qwen',
-    [ValidateRange(10, 300)] [int] $RuntimeVersionTimeoutSeconds = 60)
+    [ValidateRange(10, 300)] [int] $RuntimeVersionTimeoutSeconds = 60,
+    [string] $NaturalSessionReport, [ValidateRange(30, 7200)] [int] $NaturalSessionSeconds = 1800)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
 $server = $null
@@ -158,6 +159,7 @@ try {
     if ($SupportedPreview) { $launcherArgs += '-SupportedPreview' }
     if ($IsolatedTranslationContext) { $launcherArgs += '-IsolatedTranslationContext' }
     if ($CaptionTiming) { $launcherArgs += '-CaptionTiming' }
+    if ($NaturalSessionReport) { $launcherArgs += @('-NaturalSessionReport', $NaturalSessionReport, '-NaturalSessionSeconds', "$NaturalSessionSeconds") }
     & (Join-Path $env:SystemRoot 'System32/WindowsPowerShell/v1.0/powershell.exe') @launcherArgs
     $exitCode = $LASTEXITCODE
 } catch {

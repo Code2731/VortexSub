@@ -64,7 +64,8 @@ def reading(row):
     global reading_wait_evictions, reading_block_evictions
     kind = row.get('kind')
     if kind not in ('Queued', 'Coalesced', 'FirstLine', 'Dropped', 'Invalidated', 'TailRetained',
-                    'Blocked', 'BlockEnded', 'CorrectionApplied', 'CosmeticRetained'):
+                    'Blocked', 'BlockEnded', 'CorrectionApplied', 'CosmeticRetained',
+                    'InvalidatedVisible', 'SeparatorConsumed', 'ReadingRetained', 'Reused', 'InputRejected'):
         return
     reading_counts[kind] = reading_counts.get(kind, 0) + 1
     reason = row.get('reason')

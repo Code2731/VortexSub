@@ -1,5 +1,6 @@
 param([switch] $NoBuild, [switch] $Offline, [switch] $NoPause, [switch] $Live,
-    [ValidateSet('cpu', 'cuda')] [string] $AsrBackend = 'cpu', [switch] $FastPartials, [switch] $CaptionTiming, [switch] $DecodeWindow, [switch] $PadShortPartials, [switch] $SupportedPreview, [switch] $IsolatedTranslationContext)
+    [ValidateSet('cpu', 'cuda')] [string] $AsrBackend = 'cpu', [switch] $FastPartials, [switch] $CaptionTiming, [switch] $DecodeWindow, [switch] $PadShortPartials, [switch] $SupportedPreview, [switch] $IsolatedTranslationContext,
+    [string] $NaturalSessionReport, [ValidateRange(30, 7200)] [int] $NaturalSessionSeconds = 1800)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
 $env:AVALONIA_TELEMETRY_OPTOUT = '1'
@@ -133,7 +134,13 @@ try {
     }
     Write-Host '[3/3] Opening EchoSub...'
     Write-Host "Desktop log: $env:ECHOSUB_STARTUP_LOG"
-    $appProcess = Start-Process -FilePath $desktopExe -WorkingDirectory $repo -WindowStyle Normal -PassThru
+    if ($NaturalSessionReport) {
+        if (-not $Live -or -not $FastPartials -or -not $CaptionTiming) { throw 'Natural observation requires Live, FastPartials and CaptionTiming.' }
+        $appArguments = @('--natural-session-report', ('"' + [IO.Path]::GetFullPath($NaturalSessionReport) + '"'), "$NaturalSessionSeconds")
+        $appProcess = Start-Process -FilePath $desktopExe -ArgumentList $appArguments -WorkingDirectory $repo -WindowStyle Hidden -PassThru
+    } else {
+        $appProcess = Start-Process -FilePath $desktopExe -WorkingDirectory $repo -WindowStyle Normal -PassThru
+    }
     Write-Host "Desktop PID: $($appProcess.Id). This console stays open until the app closes."
     $appProcess.WaitForExit()
     $appProcess.Refresh()

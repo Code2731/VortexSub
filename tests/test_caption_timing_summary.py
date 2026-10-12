@@ -25,6 +25,18 @@ def summarize(rows):
 
 
 class TimingSummary(unittest.TestCase):
+    def test_scheduled_reuse_and_rejection_observations(self):
+        result = summarize([dict(phase='caption_reading', kind=kind, reason='private text')
+                            for kind in ('Reused', 'InputRejected')])['reading']
+        self.assertEqual(result['observations'], {'Reused': 1, 'InputRejected': 1})
+        self.assertNotIn('private text', str(result))
+
+    def test_visible_invalidation_and_reading_protection_are_not_omitted(self):
+        result = summarize([dict(phase='caption_reading', kind=kind, reason='SourceRevised')
+                            for kind in ('InvalidatedVisible', 'ReadingRetained', 'SeparatorConsumed', 'private text')])['reading']
+        self.assertEqual(result['observations'], {'InvalidatedVisible': 1, 'ReadingRetained': 1, 'SeparatorConsumed': 1})
+        self.assertNotIn('private text', str(result))
+
     def test_reading_wait_drop_and_buffer_overflow_are_reported_without_text(self):
         result = summarize([dict(phase='caption_reading', kind='FirstLine', reading_wait_s=2.5, overlay_visible=True),
                             dict(phase='caption_reading', kind='FirstLine', reading_wait_s=9, overlay_visible=False),
