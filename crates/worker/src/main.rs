@@ -272,6 +272,7 @@ fn serve() -> io::Result<()> {
                             "session_control": runtime.session.enabled,
                             "session_history_uuid": runtime.session.enabled,
                             "history_export": runtime.session.enabled,
+                            "history_export_bilingual": runtime.session.enabled,
                             "history_clear": runtime.session.enabled,
                             "asr": runtime.has_native(),
                             "fixture_asr": runtime.has_native() && !runtime.is_live(),

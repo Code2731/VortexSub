@@ -27,7 +27,7 @@
       "type": "object", "required": ["session_id", "format", "path", "overwrite"],
       "properties": {
         "session_id": {"type": "string", "format": "uuid"},
-        "format": {"enum": ["txt", "srt"]},
+        "format": {"enum": ["txt", "srt", "srt_bilingual"]},
         "path": {"type": "string", "minLength": 1, "maxLength": 4096},
         "overwrite": {"type": "boolean"}
       }, "additionalProperties": false

@@ -301,6 +301,72 @@ fn history_capability_is_empty_by_default_and_mock_requires_opt_in() {
 }
 
 #[test]
+fn bilingual_export_preserves_source_and_rejects_existing_file() {
+    let mut w = Worker::start_args(vec!["--mock-pipeline", "--mock-session-control"]);
+    let handshake = w.send(command(
+        "hello",
+        "hello",
+        json!({"client":"export","protocol_major":1}),
+    ));
+    assert_eq!(
+        handshake["result"]["capabilities"]["history_export_bilingual"],
+        true
+    );
+    let start = w.send(command(
+        "start",
+        "start_session",
+        json!({"config":{"source_language":"en"},"history_policy":"retain"}),
+    ));
+    let id = start["result"]["session_id"].clone();
+    assert_eq!(
+        w.send(command(
+            "source",
+            "mock_segment",
+            json!({"source":"Unicode 한국어 😊"})
+        ))["ok"],
+        true
+    );
+    let record =
+        w.send(command("history", "get_history", json!({})))["result"]["records"][0].clone();
+    assert_eq!(w.send(command("translate", "mock_translate", json!({
+        "session_id":record["session_id"],"epoch":record["epoch"],"segment_id":record["segment_id"],
+        "source_revision":record["source_revision"],"translation_request_id":record["translation_request_id"],
+        "text":"번역 결과 😊"
+    })))["ok"], true);
+    assert_eq!(
+        w.send(command("pause", "pause_session", json!({"session_id":id})))["ok"],
+        true
+    );
+    let path = std::env::temp_dir().join(format!(
+        "echosub-bilingual-{}-{}.srt",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let params = json!({"session_id":id,"format":"srt_bilingual","path":path,"overwrite":false});
+    let result = w.send(command("export", "export_history", params.clone()));
+    assert_eq!(result["ok"], true);
+    assert_eq!(result["result"]["source_only"], false);
+    let bytes = std::fs::read(&path).unwrap();
+    assert!(std::str::from_utf8(&bytes)
+        .unwrap()
+        .contains("Unicode 한국어 😊"));
+    assert!(std::str::from_utf8(&bytes)
+        .unwrap()
+        .contains("Unicode 한국어 😊\n번역 결과 😊\n\n"));
+    assert_eq!(
+        w.send(command("again", "export_history", params))["error"]["code"],
+        "EXPORT_EXISTS"
+    );
+    assert_eq!(std::fs::read(&path).unwrap(), bytes);
+    w.send(command("shutdown", "shutdown", json!({})));
+    w.finish();
+    std::fs::remove_file(path).unwrap();
+}
+
+#[test]
 fn uuid_session_controls_preserve_history_and_reject_stale_identity() {
     let mut w = Worker::start_args(vec!["--mock-pipeline", "--mock-session-control"]);
     hello(&mut w);

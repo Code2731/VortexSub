@@ -1,5 +1,5 @@
 use super::{Reply, Runtime};
-use echosub_pipeline_core::{Record, SourceState};
+use echosub_pipeline_core::{Record, SourceState, TranslationState};
 use serde_json::{json, Value};
 use std::{
     fmt::Write as _,
@@ -88,10 +88,21 @@ fn render(
     if format == "txt" {
         writeln!(text,"Session: {uuid}\nStarted UTC: {utc}\nHistory version: {version}\nRetained records: {} (maximum 1000; earlier records may have been evicted)\n",records.len()).unwrap();
     }
-    for r in records {
+    let mut ordered: Vec<_> = records.iter().collect();
+    if format != "txt" {
+        ordered.sort_by_key(|r| {
+            (
+                r.range.start,
+                r.range.end,
+                r.key.audio.epoch,
+                r.key.segment_id,
+            )
+        });
+    }
+    for r in ordered {
         let start = r.range.start.saturating_sub(origin);
         let end = r.range.end.saturating_sub(origin);
-        if format == "srt" {
+        if format == "srt" || format == "srt_bilingual" {
             if r.source_state != SourceState::Final
                 || r.applied_source_revision != Some(r.key.source_revision)
                 || r.source.trim().is_empty()
@@ -102,12 +113,22 @@ fn render(
             cues += 1;
             writeln!(
                 text,
-                "{cues}\n{} --> {}\n{}\n",
+                "{cues}\n{} --> {}\n{}",
                 stamp(start / 16),
                 stamp(end.div_ceil(16)),
                 source_lines(&r.source)
             )
             .unwrap();
+            if format == "srt_bilingual"
+                && r.translation_state == TranslationState::Done
+                && !r.translation_is_preview
+                && r.translation_request_id.is_some_and(|id| id > 0)
+                && !r.translation.trim().is_empty()
+            {
+                // Missing/failed translations preserve the source without invented text.
+                writeln!(text, "{}", source_lines(&r.translation)).unwrap();
+            }
+            text.push('\n');
         } else {
             writeln!(
                 text,
@@ -256,8 +277,11 @@ impl Runtime {
         let format = p
             .get("format")
             .and_then(Value::as_str)
-            .filter(|s| matches!(*s, "txt" | "srt"))
-            .ok_or(("INVALID_REQUEST", "Export format must be txt or srt"))?;
+            .filter(|s| matches!(*s, "txt" | "srt" | "srt_bilingual"))
+            .ok_or((
+                "INVALID_REQUEST",
+                "Export format must be txt, srt or srt_bilingual",
+            ))?;
         let path = p
             .get("path")
             .and_then(Value::as_str)
@@ -289,12 +313,12 @@ impl Runtime {
             return Err(("EMPTY_HISTORY", "No retained records for this session"));
         }
         let (text, cues) = render(uuid, utc, self.core.version(), origin, &records, format);
-        if format == "srt" && cues == 0 {
+        if format != "txt" && cues == 0 {
             return Err(("EMPTY_HISTORY", "No final source cues"));
         }
         publish_file(Path::new(path), &text, overwrite)?;
         Ok(
-            json!({"path":path,"cue_count":cues,"record_count":records.len(),"history_version":self.core.version(),"session_id":uuid,"format":format,"time_basis":"session_audio","source_only":true}),
+            json!({"path":path,"cue_count":cues,"record_count":records.len(),"history_version":self.core.version(),"session_id":uuid,"format":format,"time_basis":"session_audio","source_only":format != "srt_bilingual"}),
         )
     }
 }
@@ -335,9 +359,103 @@ mod tests {
         };
         let mut ignored = final_record.clone();
         ignored.source_state = SourceState::FinalPending;
-        let (text, cues) = render("uuid", "UTC", 0, 1000, &[ignored, final_record], "srt");
+        let (text, cues) = render(
+            "uuid",
+            "UTC",
+            0,
+            1000,
+            &[ignored, final_record.clone()],
+            "srt",
+        );
         assert_eq!(cues, 1);
         assert_eq!(text, "1\n00:00:00,000 --> 00:00:00,001\n한국어\n日本語\n\n");
+        let mut translated = final_record;
+        translated.translation_state = TranslationState::Done;
+        translated.translation_request_id = Some(1);
+        translated.translation = "번역 😊\r\n\r\n둘째 줄".into();
+        let (body, count) = render(
+            "uuid",
+            "UTC",
+            0,
+            1000,
+            &[translated.clone()],
+            "srt_bilingual",
+        );
+        assert_eq!(count, 1);
+        assert!(body.ends_with("한국어\n日本語\n번역 😊\n둘째 줄\n\n"));
+        for state in [
+            TranslationState::None,
+            TranslationState::Pending,
+            TranslationState::Failed,
+            TranslationState::Skipped,
+            TranslationState::Bypassed,
+        ] {
+            translated.translation_state = state;
+            let (body, _) = render(
+                "uuid",
+                "UTC",
+                0,
+                1000,
+                &[translated.clone()],
+                "srt_bilingual",
+            );
+            assert!(!body.contains("번역 😊"));
+            assert!(body.contains("한국어\n日本語"));
+        }
+        translated.translation_state = TranslationState::Done;
+        translated.translation_is_preview = true;
+        assert!(!render(
+            "uuid",
+            "UTC",
+            0,
+            1000,
+            &[translated.clone()],
+            "srt_bilingual"
+        )
+        .0
+        .contains("번역 😊"));
+        translated.translation_is_preview = false;
+        translated.translation_request_id = Some(0);
+        assert!(!render(
+            "uuid",
+            "UTC",
+            0,
+            1000,
+            &[translated.clone()],
+            "srt_bilingual"
+        )
+        .0
+        .contains("번역 😊"));
+        translated.translation_request_id = Some(1);
+        translated.applied_source_revision = Some(2);
+        assert_eq!(
+            render(
+                "uuid",
+                "UTC",
+                0,
+                1000,
+                &[translated.clone()],
+                "srt_bilingual"
+            )
+            .1,
+            0
+        );
+        translated.applied_source_revision = Some(1);
+        let mut later = translated.clone();
+        later.range.start = 17000;
+        later.range.end = 33000;
+        later.source = "later".into();
+        let (body, count) = render(
+            "uuid",
+            "UTC",
+            0,
+            1000,
+            &[later, translated],
+            "srt_bilingual",
+        );
+        assert_eq!(count, 2);
+        assert!(body.starts_with("1\n00:00:00,000"));
+        assert!(body.contains("2\n00:00:01,000 --> 00:00:02,000\nlater"));
     }
     #[test]
     fn utc_calendar_handles_leap_years_and_bounds() {
