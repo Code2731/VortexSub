@@ -1,4 +1,24 @@
-# 세션 시작 UTC·원문 TXT/SRT 저장 — T02-03c
+# 세션 기록 TXT/SRT 저장 — HIS-002
+
+## 원문+번역 SRT (2026-10-12)
+
+기록 탭의 **원문+번역 SRT 저장**을 사용한다. 파일 확장자는 `.srt`다.
+`hello.capabilities.history_export_bilingual=true`인 worker에서만 버튼을 활성화한다.
+IPC 형식은 `srt_bilingual`이다. 기존 `txt`와 원문 `srt`의 의미는 유지한다.
+
+확정 원문 cue 아래에 완료 번역을 붙인다. 적용 revision이 현재 원문 revision과 같아야 한다.
+부분 번역·미완료·실패·누락된 번역은 붙이지 않는다. 원문 cue는 그대로 보존한다.
+유효한 번역 request ID가 없는 번역도 붙이지 않는다. 상태 설명이나 가짜 번역은 넣지 않는다.
+SRT는 시작 sample·끝 sample·epoch·segment 순으로 정렬하고 순번을 다시 매긴다.
+시간은 기존 session audio 기준이다. 빈 줄 정리와 UTF-8·원자적 게시·충돌 보호도 유지한다.
+응답 `source_only=false`는 선택한 형식을 뜻한다. 모든 cue에 번역이 있다는 뜻은 아니다.
+
+```json
+{"session_id":"세션 UUID","format":"srt_bilingual","path":"J:\\Exports\\bilingual.srt","overwrite":false}
+```
+
+[Windows 구현·검증·미검증 범위](evidence/bilingual-srt-windows-20261012.md)를 읽는다.
+아래 원문 저장 설명은 기존 `txt`/`srt`에 적용한다.
 
 ## 사용
 
