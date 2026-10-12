@@ -8,16 +8,20 @@ public sealed record CaptionCard(string Source, string? Translation, bool IsDraf
     public CaptionIdentity? Identity { get; init; }
     public ulong SourceRevision { get; init; }
     public ulong? TranslationRequestId { get; init; }
+    public CaptionScheduleInput? ScheduleInput { get; init; }
 }
 // Previous is retained for old diagnostic consumers. Production always supplies null.
-// Reading slots and queued units are owned by CaptionLines, never by this field.
+// Reading slots and queued units are owned by the line reader, never by this field.
 public sealed record CaptionCards(CaptionCard? Previous, CaptionCard? Current)
 {
     public bool InputExpired { get; init; }
     public bool OrderedDelivery { get; init; }
     public bool ResetReading { get; init; }
+    public CaptionScheduleContext? ScheduleContext { get; init; }
     public IReadOnlyList<CaptionCard> Delivered { get; init; } = [];
     public IReadOnlyList<ulong> InvalidatedSegments { get; init; } = [];
+    // Source revisions cancel unread input without withdrawing protected lines.
+    public IReadOnlyList<ulong> RevisedSegments { get; init; } = [];
 }
 public sealed record CaptionUpdateTiming(HistoryRecord? TranslationRecord, string Slot, double ObservedAtSeconds,
     double AppliedAtSeconds, double DeferredSeconds);
@@ -42,6 +46,7 @@ public sealed class CaptionDeck
     private readonly Dictionary<ulong, Entry> entries = new();
     private readonly List<CaptionCard> delivered = [];
     private readonly HashSet<ulong> invalidated = [];
+    private readonly HashSet<ulong> revised = [];
     private ulong retiredThrough;
     private bool resetReading;
 
@@ -65,7 +70,7 @@ public sealed class CaptionDeck
     public void Clear()
     {
         context = null; current = null; candidates.Clear(); entries.Clear();
-        delivered.Clear(); invalidated.Clear(); retiredThrough = 0; resetReading = true;
+        delivered.Clear(); invalidated.Clear(); revised.Clear(); retiredThrough = 0; resetReading = true;
     }
 
     public static double ReadingSeconds(string text) =>
@@ -128,10 +133,12 @@ public sealed class CaptionDeck
             InputExpired = current?.Card is not null && nowSeconds >= current.ExpiresAt,
             OrderedDelivery = LineReadingManaged,
             ResetReading = LineReadingManaged && resetReading,
+            ScheduleContext = context is { } owner ? new(owner.Product, owner.Session, owner.Epoch) : null,
             Delivered = delivered.Count == 0 ? Array.Empty<CaptionCard>() : delivered.ToArray(),
-            InvalidatedSegments = invalidated.Count == 0 ? Array.Empty<ulong>() : invalidated.ToArray()
+            InvalidatedSegments = invalidated.Count == 0 ? Array.Empty<ulong>() : invalidated.ToArray(),
+            RevisedSegments = revised.Count == 0 ? Array.Empty<ulong>() : revised.ToArray()
         };
-        delivered.Clear(); invalidated.Clear(); resetReading = false;
+        delivered.Clear(); invalidated.Clear(); revised.Clear(); resetReading = false;
         return result;
     }
 
@@ -160,10 +167,15 @@ public sealed class CaptionDeck
         if (entry?.Card?.StableSource is { Length: > 0 } guard &&
             !record.Source.StartsWith(guard, StringComparison.Ordinal))
         {
-            invalidated.Add(record.SegmentId);
+            revised.Add(record.SegmentId);
             delivered.RemoveAll(card => card.Identity?.Segment == record.SegmentId);
         }
-        if (record.SourceState is "Failed" or "Discarded" or "Skipped") invalidated.Add(record.SegmentId);
+        if (record.SourceState is "Failed" or "Discarded" or "Skipped")
+        {
+            invalidated.Add(record.SegmentId);
+            revised.Remove(record.SegmentId);
+            delivered.RemoveAll(card => card.Identity?.Segment == record.SegmentId);
+        }
         if (entry is null || translated && unitStart != entry.UnitStart)
         {
             entry = new Entry(record.SegmentId, unitStart);
@@ -185,7 +197,12 @@ public sealed class CaptionDeck
             context.Value.Session, context.Value.Epoch, true, nowSeconds, expire: false);
         if (source is null)
         {
-            if (LineReadingManaged) invalidated.Add(record.SegmentId);
+            if (LineReadingManaged)
+            {
+                // An unavailable partial source is not a terminal failure.
+                if (!invalidated.Contains(record.SegmentId)) revised.Add(record.SegmentId);
+                delivered.RemoveAll(card => card.Identity?.Segment == record.SegmentId);
+            }
             entry.Card = entry.Pending = null; entry.PendingRecord = null; return;
         }
         var stable = translation?.StartsWith("[임시 번역] ", StringComparison.Ordinal) == true
@@ -194,10 +211,14 @@ public sealed class CaptionDeck
             record.SourceState != "Final" || record.TranslationIsPreview || stable.Length > 0, stable)
         {
             Identity = new(record.ProductSessionId, record.SessionId, record.Epoch, record.SegmentId, entry.UnitStart),
-            SourceRevision = record.SourceRevision, TranslationRequestId = record.TranslationRequestId
+            SourceRevision = record.SourceRevision, TranslationRequestId = record.TranslationRequestId,
+            // Use the selected translation record, including a retained valid preview, not the latest ASR row.
+            ScheduleInput = entry.Presenter.DisplayedTranslationRecord is { } selected
+                ? CaptionScheduleInputs.FromRecord(selected, 0) : null
         };
         if (next == entry.Card) { entry.Pending = null; entry.PendingRecord = null; return; }
-        // A contradicted prefix must disappear immediately, regardless of reading time.
+        // Withdraw obsolete input immediately. CaptionLines retains already
+        // visible text until its existing reading deadline on source revisions.
         var corrected = entry.Card?.StableSource.Length > 0 &&
             !record.Source.StartsWith(entry.Card.StableSource, StringComparison.Ordinal);
         var lostTranslation = entry.Card?.Translation is not null && translation is null;

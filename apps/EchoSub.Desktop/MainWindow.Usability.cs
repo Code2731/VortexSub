@@ -16,6 +16,25 @@ public sealed partial class MainWindow
             TextWrapping = TextWrapping.Wrap }
     };
 
+    private static string UserHistoryText(HistoryRecord record)
+    {
+        var start = record.SessionAudioStartSeconds ?? record.AudioStartSeconds;
+        var end = record.SessionAudioEndSeconds ?? record.AudioEndSeconds;
+        var sourceLabel = record.SourceState switch
+        {
+            "Partial" or "FinalPending" => "인식 중", "Failed" => "인식 실패",
+            "Skipped" => "건너뛴 구간", "Discarded" => "중단된 구간", _ => "원문"
+        };
+        var translation = record.TranslationState switch
+        {
+            "Done" when record.AppliedSourceRevision == record.SourceRevision =>
+                (record.TranslationIsPreview ? "임시 번역: " : "번역: ") + record.Translation,
+            "Pending" or "Done" => "번역 대기 중", "Failed" => "번역하지 못했습니다.",
+            "Skipped" => "번역을 건너뛰었습니다.", _ => "번역 없음"
+        };
+        return $"{start:F2}–{end:F2}초\n{sourceLabel}: {record.Source}\n{translation}";
+    }
+
     private static void SetControlOrder(params Control[] controls)
     {
         for (var index = 0; index < controls.Length; index++) controls[index].TabIndex = index + 10;
@@ -26,16 +45,19 @@ public sealed partial class MainWindow
         AutomationProperties.SetName(endpoint, "음성을 받을 출력 장치");
         AutomationProperties.SetName(language, "음성 언어");
         AutomationProperties.SetName(width, "자막 창 폭");
+        AutomationProperties.SetName(overlayFontSize, "자막 글꼴 크기");
         AutomationProperties.SetName(opacity, "자막 배경 불투명도");
         AutomationProperties.SetName(translationEndpoint, "번역 서버 주소");
         AutomationProperties.SetName(translationModel, "번역 모델");
         AutomationProperties.SetName(translationProfile, "번역 입력 방식");
         AutomationProperties.SetName(history, "최근 자막 기록");
         AutomationProperties.SetName(exportSession, "저장할 세션");
+        AutomationProperties.SetName(exportBilingualSrtButton, "원문+번역 SRT 저장");
     }
 
     private void UpdateUsabilityHints(bool available, bool connected)
     {
+        overlayFontSize.IsEnabled = available && sessionState is null or "Idle";
         captureActionHint.Text = !connected ? "연결 후 시작할 수 있습니다. 진단 탭에서 다시 연결하세요."
             : !available ? "작업이 끝날 때까지 기다리세요."
             : sessionState == "Running" ? "자막 생성 중입니다. 장치나 언어를 바꾸려면 자막을 중지하세요."
@@ -62,10 +84,12 @@ public sealed partial class MainWindow
             : !exportSupported ? "현재 연결은 기록 저장을 지원하지 않습니다."
             : exportSession.SelectedItem is not ExportChoice ? "저장할 세션 기록이 없습니다."
             : !historyReady ? "기록을 저장하려면 자막을 일시정지하거나 중지하고 처리 완료를 기다리세요."
+            : bilingualExportSupported ? "선택한 세션의 TXT, 원문 SRT 또는 원문+번역 SRT를 저장할 수 있습니다."
             : "선택한 세션의 TXT 또는 원문 SRT를 저장할 수 있습니다.";
         ToolTip.SetTip(startCaptureButton, captureActionHint.Text);
         ToolTip.SetTip(applyTranslationButton, translationActionHint.Text);
         ToolTip.SetTip(exportTxtButton, historyActionHint.Text);
         ToolTip.SetTip(exportSrtButton, historyActionHint.Text);
+        ToolTip.SetTip(exportBilingualSrtButton, bilingualExportSupported ? historyActionHint.Text : "현재 연결은 원문+번역 SRT 저장을 지원하지 않습니다.");
     }
 }

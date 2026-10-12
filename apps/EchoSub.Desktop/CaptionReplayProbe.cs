@@ -8,11 +8,17 @@ namespace EchoSub.Desktop;
 // Opt-in diagnostic: recorded native events, production deck/overlay, virtual clock.
 internal static class CaptionReplayProbe
 {
-    public static async Task RunAsync(IClassicDesktopStyleApplicationLifetime desktop, string inputPath, string reportPath)
+    public static async Task RunAsync(IClassicDesktopStyleApplicationLifetime desktop, string inputPath, string reportPath, bool legacy = false)
     {
+        reportPath = Path.GetFullPath(reportPath);
+        if (File.Exists(reportPath)) { desktop.Shutdown(2); return; }
         OverlayWindow? overlay = null;
         var checks = new List<object>();
         var frames = new List<object>();
+        var observations = new List<object>();
+        int runIndex = 0;
+        int runDrops = 0;
+        string? inputHash = null;
         double now = 0;
         var exit = 0;
         void Require(bool passed, string name, int run)
@@ -26,16 +32,24 @@ internal static class CaptionReplayProbe
             reportPath = Path.GetFullPath(reportPath);
             Directory.CreateDirectory(Path.GetDirectoryName(reportPath)!);
             if (new FileInfo(inputPath).Length > 32 * 1024 * 1024) throw new IOException("Replay input exceeds 32 MiB");
+            inputHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(await File.ReadAllBytesAsync(inputPath)));
             using var document = JsonDocument.Parse(await File.ReadAllTextAsync(inputPath));
             var runs = document.RootElement.GetProperty("runs");
             if (runs.GetArrayLength() is < 1 or > 24) throw new IOException("Replay requires 1..24 runs");
             overlay = new OverlayWindow(true, () => now);
             overlay.ResetPlacement(); overlay.Width = 420; overlay.Show();
             await Task.Delay(300);
-            int runIndex = 0;
+            if (!legacy) overlay.SetLiveCards(new(null, null));
+            overlay.ObserveReading(observation =>
+            {
+                observations.Add(new { run = runIndex, observation });
+                if (observation.Kind == "Dropped") runDrops++;
+            });
+            void Apply(CaptionCards cards) { if (legacy) overlay.SetCards(cards); else overlay.SetLiveCards(cards); }
             foreach (var run in runs.EnumerateArray())
             {
                 now = 0; overlay.ClearReadingLines();
+                runDrops = 0;
                 var product = "recorded-replay-" + runIndex;
                 var deck = new CaptionDeck { LineReadingManaged = true };
                 var events = new List<(double At, HistoryRecord Record)>();
@@ -70,10 +84,10 @@ internal static class CaptionReplayProbe
                     {
                         var record = events[eventIndex++].Record;
                         overlay.ValidateSession(product, record.SessionId, record.Epoch, true);
-                        overlay.SetCards(deck.Update([record], product, record.SessionId, record.Epoch, true, now));
+                        Apply(deck.Update([record], product, record.SessionId, record.Epoch, true, now));
                         hadEvent = true;
                     }
-                    overlay.SetCards(deck.Tick(now)); overlay.AdvanceReading();
+                    Apply(deck.Tick(now)); overlay.AdvanceReading();
                     await Task.Delay(1);
                     var state = overlay.ReadingState();
                     Require(state.UpperBounds == bounds.UpperBounds && state.LowerBounds == bounds.LowerBounds,
@@ -90,7 +104,7 @@ internal static class CaptionReplayProbe
                         if (newText[slot].Length > 0)
                         {
                             emitted.Append(append ? newText[slot][oldText[slot].Length..] : newText[slot]);
-                            changedAt[slot] = now;
+                            if (!append || !string.IsNullOrWhiteSpace(newText[slot][oldText[slot].Length..])) changedAt[slot] = now;
                         }
                     }
                     if (hadEvent || state.Upper != previous.Upper || state.Lower != previous.Lower)
@@ -103,27 +117,54 @@ internal static class CaptionReplayProbe
                         bitmap.Save(Path.Combine(Path.GetDirectoryName(reportPath)!, name + ".png"));
                         object Box(Rect r) => new { x = r.X * scale, y = r.Y * scale, width = r.Width * scale, height = r.Height * scale };
                         frames.Add(new { name, run = runIndex, virtual_s = now, upper = state.Upper, lower = state.Lower,
+                            upper_identity = overlay.ReadingIdentities().Upper, lower_identity = overlay.ReadingIdentities().Lower,
                             upper_box = Box(state.UpperBounds), lower_box = Box(state.LowerBounds) });
                     }
                     previous = state;
                 }
                 var text = emitted.ToString();
-                var checkedTarget = final.Translation;
-                var first = text.IndexOf(checkedTarget, StringComparison.Ordinal);
-                if (first < 0)
+                if (run.TryGetProperty("expected_drops", out var drops))
                 {
-                    // The display assembler may reuse an identical finished clause.
-                    // Verify that literal shown prefix plus the corrected remainder.
-                    var reused = CaptionAssembly.ReusablePrefix(text, final.Translation);
-                    if (reused > 0)
+                    int expected = drops.GetInt32();
+                    if (expected is < 0 or > 4096) throw new IOException("Invalid drop expectation");
+                    Require(runDrops == expected, "declared overload loss count", runIndex);
+                }
+                if (run.TryGetProperty("required_fragments", out var fragments))
+                {
+                    if (fragments.GetArrayLength() is < 1 or > 128) throw new IOException("Invalid fragment count");
+                    foreach (var fragment in fragments.EnumerateArray())
                     {
-                        checkedTarget = final.Translation[reused..];
-                        first = text.IndexOf(checkedTarget, reused, StringComparison.Ordinal);
+                        string expected = fragment.GetProperty("text").GetString() ?? "";
+                        int minimum = fragment.GetProperty("minimum").GetInt32(), maximum = fragment.GetProperty("maximum").GetInt32();
+                        if (expected.Length is 0 or > 16384 || minimum < 1 || maximum < minimum || maximum > 24)
+                            throw new IOException("Invalid fragment expectation");
+                        int count = 0, offset = 0;
+                        while ((offset = text.IndexOf(expected, offset, StringComparison.Ordinal)) >= 0)
+                        { count++; offset += expected.Length; }
+                        Require(count >= minimum && count <= maximum, "required fragment count " + count, runIndex);
                     }
                 }
-                Require(first >= 0, "final target covered by displayed prefix and corrected remainder", runIndex);
-                Require(first >= 0 && text.IndexOf(checkedTarget, first + checkedTarget.Length, StringComparison.Ordinal) < 0,
-                    "identical final remainder does not replay completed target", runIndex);
+                else
+                {
+                    var checkedTarget = final.Translation;
+                    var first = text.IndexOf(checkedTarget, StringComparison.Ordinal);
+                    if (first < 0)
+                    {
+                        // The display assembler may reuse an identical finished clause.
+                        // Verify that literal shown prefix plus the corrected remainder.
+                        var reused = CaptionAssembly.ReusablePrefix(text, final.Translation);
+                        if (reused > 0)
+                        {
+                            // A consumed separator between two closed reading lines has no visible glyph.
+                            // Remove only this boundary whitespace; keep the corrected sentence exact.
+                            checkedTarget = final.Translation[reused..].TrimStart();
+                            first = text.IndexOf(checkedTarget, reused, StringComparison.Ordinal);
+                        }
+                    }
+                    Require(first >= 0, "final target covered by displayed prefix and corrected remainder", runIndex);
+                    Require(first >= 0 && text.IndexOf(checkedTarget, first + checkedTarget.Length, StringComparison.Ordinal) < 0,
+                        "identical final remainder does not replay completed target", runIndex);
+                }
                 Require(previous.Upper.Length == 0 && previous.Lower.Length == 0, "reading eventually drains", runIndex);
                 overlay.ValidateSession(product, final.SessionId, final.Epoch, false);
                 runIndex++;
@@ -133,8 +174,9 @@ internal static class CaptionReplayProbe
         finally
         {
             await File.WriteAllTextAsync(reportPath, JsonSerializer.Serialize(new { passed = exit == 0,
-                scope = "Recorded native history through production deck and rendered overlay; virtual clock, no continuous desktop frames or live audio",
-                inputPath, checks, frames }, new JsonSerializerOptions { WriteIndented = true }));
+                scope = "History fixtures through production deck and rendered overlay; virtual clock, no continuous desktop frames or live audio",
+                reader = legacy ? "legacy" : "scheduled-live", runs = runIndex,
+                inputPath, input_sha256 = inputHash, checks, frames, observations }, new JsonSerializerOptions { WriteIndented = true }));
             overlay?.Close(); desktop.Shutdown(exit);
         }
     }

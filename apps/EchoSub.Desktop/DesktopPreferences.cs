@@ -9,6 +9,7 @@ internal sealed record DesktopPreferences
     public string? DeviceId { get; init; }
     public double OverlayWidth { get; init; } = 760;
     public double CardOpacity { get; init; } = 0.75;
+    public double OverlayFontSize { get; init; } = 26;
     public bool ShowSource { get; init; }
     public bool Partial { get; init; }
     public bool PartialTranslation { get; init; }
@@ -32,6 +33,7 @@ internal sealed record DesktopPreferences
             DeviceId = preferences.DeviceId is { Length: <= 2048 } ? preferences.DeviceId : null,
             OverlayWidth = double.IsFinite(preferences.OverlayWidth) ? Math.Clamp(preferences.OverlayWidth, 420, 1100) : 760,
             CardOpacity = double.IsFinite(preferences.CardOpacity) ? Math.Clamp(preferences.CardOpacity, 0.25, 1) : 0.75,
+            OverlayFontSize = double.IsFinite(preferences.OverlayFontSize) ? Math.Clamp(preferences.OverlayFontSize, 18, 48) : 26,
             Partial = preferences.Partial || preferences.PartialTranslation
         };
     }

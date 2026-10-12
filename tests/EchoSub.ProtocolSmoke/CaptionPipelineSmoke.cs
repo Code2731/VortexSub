@@ -152,8 +152,13 @@ internal static class CaptionPipelineSmoke
         var returnedCards = lineDeck.Update([returned], "fixture", 1, 1, true, .2);
         Check(returnedCards.Current?.Identity?.UnitStart == 0, "replayed full preview returns to original unit");
         lines.Apply(returnedCards, .2, FitSentence);
+        Check(returnedCards.RevisedSegments.Contains(whole.SegmentId) && returnedCards.InvalidatedSegments.Count == 0,
+            "source unit rollback cancels unread input without terminal invalidation");
+        Check(lines.Upper == "문 앞에서 기다려." && lines.Lower == " 왼쪽 길로 가세요.",
+            "source revision preserves visible lines at their existing reading deadlines");
         lines.Apply(lineDeck.Tick(3.4), 3.4, FitSentence);
-        Check(lines.Upper == "오른쪽 길로 가세요." && lines.Lower is null, "history unit recovery elides unchanged clause");
+        Check(lines.Upper == "오른쪽 길로 가세요." && lines.Lower is null,
+            "source revision applies corrected suffix after reading without replaying unchanged clause");
         foreach (var transition in new[] { (Product: "fixture", Session: 1UL, Epoch: 2UL),
             (Product: "fixture", Session: 2UL, Epoch: 1UL), (Product: "other", Session: 1UL, Epoch: 1UL) })
         {

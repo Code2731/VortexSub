@@ -17,6 +17,8 @@ public sealed partial class MainWindow : Window
     private readonly bool translationProbe;
     private readonly Slider overlayWidth = new() { Minimum = 420, Maximum = 1100, Value = 760, Width = 240 };
     private readonly Slider cardOpacity = new() { Minimum = 0.25, Maximum = 1, Value = 0.75, Width = 240 };
+    private readonly Slider overlayFontSize = new() { Minimum = 18, Maximum = 48, Value = 26, Width = 240,
+        TickFrequency = 1, IsSnapToTickEnabled = true };
     private readonly TextBlock status = new() { Text = "Worker 연결 준비 중" };
     private readonly TextBlock details = new() { TextWrapping = TextWrapping.Wrap };
     private readonly Button connectButton = new() { Content = "다시 연결" };
@@ -31,6 +33,8 @@ public sealed partial class MainWindow : Window
     private readonly CheckBox overlaySourceEnabled = new() { Content = "오버레이에 원문 표시", IsChecked = false };
     private readonly Button exportTxtButton = new() { Content = "TXT 저장" };
     private readonly Button exportSrtButton = new() { Content = "원문 SRT 저장" };
+    private readonly Button exportBilingualSrtButton = new() { Content = "원문+번역 SRT 저장" };
+    private bool bilingualExportSupported;
     private readonly Button clearHistoryButton = new() { Content = "선택 세션 기록 삭제" };
     private readonly ComboBox exportSession = new() { Width = 420 };
     private readonly TextBlock exportResult = new() { TextWrapping = TextWrapping.Wrap };
@@ -90,11 +94,12 @@ public sealed partial class MainWindow : Window
 
     public MainWindow() : this(null) { }
 
-    internal MainWindow(string? sessionProbeWorker, string? isolatedPreferencesPath = null, bool translationProbe = false)
+    internal MainWindow(string? sessionProbeWorker, string? isolatedPreferencesPath = null, bool translationProbe = false, bool naturalObservation = false)
     {
         this.sessionProbeWorker = sessionProbeWorker;
         this.isolatedPreferencesPath = isolatedPreferencesPath;
         this.translationProbe = translationProbe;
+        this.naturalObservation = naturalObservation;
         if ((isolatedPreferencesPath is not null || translationProbe) && sessionProbeWorker is null)
             throw new ArgumentException("Explicit mock worker required for isolated UI probe");
         if (sessionProbeWorker is not null) live = true;
@@ -108,6 +113,7 @@ public sealed partial class MainWindow : Window
         endpoint.ItemsSource = new[] { new EndpointChoice(null, "기본 출력 장치 · 시작 시 선택") };
         endpoint.SelectedIndex = 0;
         var resetOverlay = new Button { Content = "오버레이 위치 초기화" };
+        InitializeOverlayLock();
         RestorePreferences(overlayWidth, cardOpacity);
         Content = BuildMainLayout(resetOverlay, overlayWidth, cardOpacity);
         savePreferencesButton.Click += (_, _) => SavePreferences(overlayWidth, cardOpacity);
@@ -153,6 +159,7 @@ public sealed partial class MainWindow : Window
         };
         exportTxtButton.Click += async (_, _) => await ExportAsync("txt");
         exportSrtButton.Click += async (_, _) => await ExportAsync("srt");
+        exportBilingualSrtButton.Click += async (_, _) => await ExportAsync("srt_bilingual");
         clearHistoryButton.Click += async (_, _) => await ClearHistoryAsync();
         exportSession.SelectionChanged += (_, _) => UpdateButtons();
         connectButton.Click += async (_, _) => await ExecuteAsync(ConnectCoreAsync);
@@ -230,11 +237,13 @@ public sealed partial class MainWindow : Window
                 overlay.ResetPlacement(this);
             }
             overlay.SetSourceVisible(overlaySourceEnabled.IsChecked == true);
-            if (live) overlay.SetCards(created && latestCards.OrderedDelivery && latestCards.Current is { } caption
+            if (live) overlay.SetLiveCards(created && latestCards.OrderedDelivery && latestCards.Current is { } caption
                 ? latestCards with { Delivered = [caption], ResetReading = true } : latestCards);
             overlay.Width = overlayWidth.Value;
             overlay.SetCardOpacity(cardOpacity.Value);
+            overlay.SetCaptionFontSize(overlayFontSize.Value);
             overlay.Show();
+            ApplyOverlayLock();
             overlayButton.Content = OverlayLabel(true);
         };
         resetOverlay.Click += (_, _) => overlay?.ResetPlacement(this);
@@ -257,6 +266,7 @@ public sealed partial class MainWindow : Window
         };
         overlayWidth.ValueChanged += (_, _) => { if (overlay is not null) overlay.Width = overlayWidth.Value; };
         cardOpacity.ValueChanged += (_, _) => overlay?.SetCardOpacity(cardOpacity.Value);
+        overlayFontSize.ValueChanged += (_, _) => overlay?.SetCaptionFontSize(overlayFontSize.Value);
         captions.Applied += RecordCaptionApplied;
         cosmeticRevisions.IsCheckedChanged += (_, _) =>
         {
@@ -336,15 +346,16 @@ public sealed partial class MainWindow : Window
     private async Task ExportAsync(string format)
     {
         if (!exportReady || selectingExport || client is null || exportSession.SelectedItem is not ExportChoice choice) return;
+        if (format == "srt_bilingual" && !bilingualExportSupported) return;
         selectingExport = true;
         UpdateButtons();
         try
         {
             using var selected = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
             {
-                Title = "세션 기록 저장", SuggestedFileName = $"EchoSub-{choice.Id}.{format}",
-                DefaultExtension = format, ShowOverwritePrompt = true,
-                FileTypeChoices = new[] { new FilePickerFileType(format.ToUpperInvariant()) { Patterns = new[] { $"*.{format}" } } }
+                Title = "세션 기록 저장", SuggestedFileName = $"EchoSub-{choice.Id}{(format == "srt_bilingual" ? "-bilingual" : "")}.{(format == "txt" ? "txt" : "srt")}",
+                DefaultExtension = format == "txt" ? "txt" : "srt", ShowOverwritePrompt = true,
+                FileTypeChoices = new[] { new FilePickerFileType(format == "txt" ? "TXT" : "SRT") { Patterns = new[] { format == "txt" ? "*.txt" : "*.srt" } } }
             });
             if (selected is null) return;
             var path = selected.TryGetLocalPath() ?? throw new IOException("로컬 파일 경로를 선택하세요.");
@@ -354,7 +365,7 @@ public sealed partial class MainWindow : Window
                 try
                 {
                     var result = await client.SendAsync("export_history", new { session_id = choice.Id, format, path, overwrite = true });
-                    exportResult.Text = $"저장 완료 · {result.GetProperty("cue_count").GetInt32()}개 원문 · {path}";
+                    exportResult.Text = $"저장 완료 · {result.GetProperty("cue_count").GetInt32()}개 자막 · {path}";
                 }
                 catch (Exception error) { exportResult.Text = $"저장 실패: {error.Message}"; throw; }
             });
@@ -377,10 +388,11 @@ public sealed partial class MainWindow : Window
                 Title = "세션 기록 삭제", Width = 510, SizeToContent = SizeToContent.Height,
                 CanResize = false, WindowStartupLocation = WindowStartupLocation.CenterOwner
             };
-            var cancel = new Button { Content = "취소" };
+            var cancel = new Button { Content = "취소", IsCancel = true, IsDefault = true };
             var remove = new Button { Content = "기록 삭제" };
             cancel.Click += (_, _) => confirm.Close(false);
             remove.Click += (_, _) => confirm.Close(true);
+            confirm.Opened += (_, _) => cancel.Focus(Avalonia.Input.NavigationMethod.Tab);
             confirm.Content = new StackPanel { Margin = new Thickness(20), Spacing = 12, Children =
             {
                 new TextBlock { Text = $"선택 세션의 메모리 기록 {count}개를 삭제합니다.\n{choice}\n복구할 수 없습니다. 필요한 기록은 먼저 저장하세요.\n이미 저장한 TXT/SRT 파일은 유지됩니다.", TextWrapping = TextWrapping.Wrap },
@@ -394,7 +406,7 @@ public sealed partial class MainWindow : Window
                 {
                     var result = await selectedClient.SendAsync("clear_history", new { session_id = choice.Id });
                     ClearSource();
-                    exportResult.Text = $"기록 삭제 완료 · {result.GetProperty("removed_count").GetInt32()}개 · {choice.Id}";
+                    exportResult.Text = $"기록 삭제 완료 · {result.GetProperty("removed_count").GetInt32()}개 · {choice}";
                 }
                 catch (Exception error) { exportResult.Text = $"기록 삭제 실패: {error.Message}"; throw; }
                 await RefreshCoreAsync();
@@ -496,6 +508,7 @@ public sealed partial class MainWindow : Window
             if (live && (!hello.GetProperty("capabilities").TryGetProperty("session_history_uuid", out var historyCapability) || !historyCapability.GetBoolean()))
                 throw new IOException("UUID history worker를 다시 빌드하세요: scripts/run.ps1 -Live");
             exportSupported = hello.GetProperty("capabilities").TryGetProperty("history_export", out var exportCapability) && exportCapability.GetBoolean();
+            bilingualExportSupported = hello.GetProperty("capabilities").TryGetProperty("history_export_bilingual", out var bilingualCapability) && bilingualCapability.GetBoolean();
             clearSupported = hello.GetProperty("capabilities").TryGetProperty("history_clear", out var clearCapability) && clearCapability.GetBoolean();
             partialSupported = hello.GetProperty("capabilities").TryGetProperty("source_partial", out var partialCapability) && partialCapability.GetBoolean();
             partialTranslationSupported = hello.GetProperty("capabilities").TryGetProperty("partial_translation", out var previewCapability) && previewCapability.GetBoolean();
@@ -542,10 +555,10 @@ public sealed partial class MainWindow : Window
         if (historyChanged)
         {
             snapshot = refreshedSnapshot;
-            history.ItemsSource = snapshot?.Records.TakeLast(100).Reverse().Select(CaptionPresentation.HistoryText).ToArray();
+            history.ItemsSource = snapshot?.Records.TakeLast(100).Reverse().Select(UserHistoryText).ToArray();
             var selectedId = (exportSession.SelectedItem as ExportChoice)?.Id ?? sessionId;
             var choices = snapshot?.Records.Where(r => r.ProductSessionId is not null)
-                .GroupBy(r => r.ProductSessionId!).Select(group => new ExportChoice(group.Key, group.First().SessionStartedAtUtc)).ToArray() ?? [];
+                .GroupBy(r => r.ProductSessionId!).Select((group, index) => new ExportChoice(group.Key, group.First().SessionStartedAtUtc, index + 1)).ToArray() ?? [];
             exportSession.ItemsSource = choices;
             exportSession.SelectedItem = choices.FirstOrDefault(c => c.Id == selectedId) ?? choices.LastOrDefault();
         }
@@ -561,6 +574,9 @@ public sealed partial class MainWindow : Window
         // Explicit fixture mode has no capture/model owner. Only substitute this input
         // boundary; commands, history/epoch guards and real UI timers remain production.
         if (sessionProbeWorker is not null) captureState = sessionState == "Running" ? "Running" : "Stopped";
+        observedCaptureState = captureState;
+        observedCaptureError = capture.TryGetProperty("error", out var observedError) && observedError.ValueKind == JsonValueKind.String ? observedError.GetString() : null;
+        observedAcceptedAudioSeconds = capture.TryGetProperty("accepted_audio_s", out var observedAudio) && observedAudio.TryGetDouble(out var acceptedAudio) ? acceptedAudio : null;
         captureStartable = sessionState == "Idle" && joined && vadJoined;
         captureNeedsStop = sessionId is not null && sessionState is "Preparing" or "Running" or "Paused" or "Error";
         resumeReady = sessionState == "Paused" && joined && vadJoined && modelReady;
@@ -700,7 +716,7 @@ public sealed partial class MainWindow : Window
         captions.Clear();
         latestCards = new(null, null);
         if (live) overlay?.ClearReadingLines();
-        if (live) overlay?.SetCards(latestCards);
+        if (live) overlay?.SetLiveCards(latestCards);
     }
 
     private void ExpireSource()
@@ -722,7 +738,7 @@ public sealed partial class MainWindow : Window
     {
         if (latestCards == cards) return;
         latestCards = cards;
-        if (live) overlay?.SetCards(cards);
+        if (live) overlay?.SetLiveCards(cards);
     }
 
     private async Task DisconnectCoreAsync()
@@ -755,6 +771,7 @@ public sealed partial class MainWindow : Window
         sessionId = sessionState = null;
         resumeReady = false;
         exportReady = exportSupported = false;
+        bilingualExportSupported = false;
         clearSupported = historyReady = partialSupported = false;
         partialTranslationSupported = false;
         exportSession.ItemsSource = null;
@@ -799,6 +816,7 @@ public sealed partial class MainWindow : Window
         pauseButton.IsEnabled = available && connected && sessionState is "Preparing" or "Running";
         resumeButton.IsEnabled = available && connected && resumeReady;
         exportTxtButton.IsEnabled = exportSrtButton.IsEnabled = available && connected && exportReady && !selectingExport && exportSession.SelectedItem is ExportChoice;
+        exportBilingualSrtButton.IsEnabled = exportSrtButton.IsEnabled && bilingualExportSupported;
         clearHistoryButton.IsEnabled = available && connected && clearSupported && historyReady && !selectingExport && exportSession.SelectedItem is ExportChoice;
         language.IsEnabled = endpoint.IsEnabled = available && captureStartable;
         var translationEditable = available && connected && captureStartable && historyReady && translationSupported && !translationBusy;
@@ -816,8 +834,9 @@ public sealed partial class MainWindow : Window
     {
         public override string ToString() => Name;
     }
-    public sealed record ExportChoice(string Id, string? StartedUtc)
+    public sealed record ExportChoice(string Id, string? StartedUtc, int Number = 0)
     {
-        public override string ToString() => $"{StartedUtc ?? "UTC 없음"} · {Id}";
+        public override string ToString() => (Number > 0 ? $"세션 {Number}" : "세션") + " · " +
+            (DateTimeOffset.TryParse(StartedUtc, out var started) ? started.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") : "시작 시각 없음");
     }
 }

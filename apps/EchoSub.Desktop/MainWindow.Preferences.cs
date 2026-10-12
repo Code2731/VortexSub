@@ -11,7 +11,7 @@ public sealed partial class MainWindow
     private readonly Button savePreferencesButton = new() { Content = "설정 저장" };
     private readonly TextBlock preferencesStatus = new() { TextWrapping = Avalonia.Media.TextWrapping.Wrap };
     private readonly TextBlock preparationStatus = new() { TextWrapping = Avalonia.Media.TextWrapping.Wrap };
-    private bool PreferencesEnabled => live && (sessionProbeWorker is null || isolatedPreferencesPath is not null);
+    private bool PreferencesEnabled => live && !naturalObservation && (sessionProbeWorker is null || isolatedPreferencesPath is not null);
 
     private void RestoreDeviceChoices(EndpointChoice[] choices)
     {
@@ -32,6 +32,7 @@ public sealed partial class MainWindow
         savePreferencesButton.IsEnabled = PreferencesEnabled;
         preferencesStatus.Text = PreferencesEnabled
             ? "설정은 이 PC에 저장합니다. 앱을 닫을 때도 저장합니다."
+            : naturalObservation ? "관찰 실행은 개인 설정을 읽거나 저장하지 않습니다."
             : "모의 실행은 개인 설정을 읽거나 저장하지 않습니다.";
         if (!PreferencesEnabled) return;
         try
@@ -40,6 +41,7 @@ public sealed partial class MainWindow
             language.SelectedItem = preferences.Language;
             width.Value = preferences.OverlayWidth;
             opacity.Value = preferences.CardOpacity;
+            overlayFontSize.Value = preferences.OverlayFontSize;
             overlaySourceEnabled.IsChecked = preferences.ShowSource;
             partialEnabled.IsChecked = preferences.Partial;
             partialTranslationEnabled.IsChecked = preferences.PartialTranslation;
@@ -64,6 +66,7 @@ public sealed partial class MainWindow
                 Language = language.SelectedItem as string ?? "en",
                 DeviceId = devicesListed ? (endpoint.SelectedItem as EndpointChoice)?.Id : preferences.DeviceId,
                 OverlayWidth = width.Value, CardOpacity = opacity.Value,
+                OverlayFontSize = overlayFontSize.Value,
                 ShowSource = overlaySourceEnabled.IsChecked == true,
                 Partial = partialEnabled.IsChecked == true,
                 PartialTranslation = partialEnabled.IsChecked == true && partialTranslationEnabled.IsChecked == true,

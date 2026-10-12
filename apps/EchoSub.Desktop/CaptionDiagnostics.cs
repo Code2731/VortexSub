@@ -254,11 +254,11 @@ internal static class CaptionDiagnostics
             characters, has_text = characters > 0 });
     }
 
-    public static void ReadingObserved(CaptionReadingObservation observation, bool overlayVisible)
+    public static void ReadingObserved(CaptionReadingObservation observation, bool overlayVisible, string reader = "legacy")
     {
         if (!Enabled) return;
         var key = observation.Identity;
-        Write(new { phase = "caption_reading", at_s = Now,
+        Write(new { phase = "caption_reading", at_s = Now, reader,
             worker_pid = Volatile.Read(ref active)?.Context?.WorkerPid, overlay_visible = overlayVisible,
             session_id = key?.Session, epoch = key?.Epoch, segment_id = key?.Segment,
             unit_start_utf16 = key?.UnitStart, kind = observation.Kind, reason = observation.Reason,

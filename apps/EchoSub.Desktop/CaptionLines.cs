@@ -27,6 +27,7 @@ public sealed class CaptionLines
     private bool changeUnit;
     private readonly string?[] lines = new string?[2];
     private readonly CaptionIdentity?[] lineIdentities = new CaptionIdentity?[2];
+    private readonly bool[] revisedLines = new bool[2];
     private readonly double[] expires = new double[2];
     private int openSlot = -1;
     private CaptionIdentity? lastBlockedIdentity;
@@ -50,7 +51,7 @@ public sealed class CaptionLines
     {
         pending.Clear(); latestBody = ""; firstLineReported = false;
         latest = null; identity = null; consumed = ""; rewrite = null; rewritePrefix = 0; changeUnit = false;
-        Array.Clear(lines); Array.Clear(lineIdentities); Array.Clear(expires);
+        Array.Clear(lines); Array.Clear(lineIdentities); Array.Clear(expires); Array.Clear(revisedLines);
         openSlot = -1;
         lastBlockedIdentity = null; lastBlockedReason = null;
     }
@@ -60,7 +61,8 @@ public sealed class CaptionLines
         if (cards.OrderedDelivery)
         {
             if (cards.ResetReading) Clear();
-            foreach (var segment in cards.InvalidatedSegments) InvalidateSegment(segment, now);
+            foreach (var segment in cards.InvalidatedSegments) InvalidateSegment(segment, now, clearVisible: true);
+            foreach (var segment in cards.RevisedSegments) InvalidateSegment(segment, now, sourceRevised: true);
             foreach (var update in cards.Delivered) Update(update, now, lineLength);
             Tick(now, lineLength);
             return;
@@ -130,7 +132,11 @@ public sealed class CaptionLines
             Tick(now, lineLength);
             return;
         }
-        if (latest is not null && latest.Identity != card.Identity)
+        // An invalidated input can leave protected lines behind. Keep subsequent
+        // units in FIFO order and let normal admission use a free lower slot.
+        var followsRetainedInput = latest is null && card.Identity is not null && card.Identity != identity &&
+            (lines[0] is not null || lines[1] is not null || pending.Count > 0);
+        if (latest is not null && latest.Identity != card.Identity || followsRetainedInput)
         {
             Tick(now, lineLength);
             if (pending.Count == MaximumPendingUnits) RemovePending(0, "Dropped", "QueueCapacity", now);
@@ -152,7 +158,7 @@ public sealed class CaptionLines
             rewrite = body;
             rewritePrefix = 0;
         }
-        else if (!body.StartsWith(consumed, StringComparison.Ordinal))
+        else if (HasRevisedLines(card.Identity) || !body.StartsWith(consumed, StringComparison.Ordinal))
         {
             // A revised target prefix is a correction, not an appendable suffix.
             rewrite = body;
@@ -171,6 +177,7 @@ public sealed class CaptionLines
             {
                 lines[slot] = null;
                 lineIdentities[slot] = null;
+                revisedLines[slot] = false;
                 if (openSlot == slot) openSlot = -1;
             }
         for (int index = pending.Count - 1; index >= 0; index--)
@@ -181,7 +188,8 @@ public sealed class CaptionLines
         // fixed and admit the next unit into the free lower slot. Never put a
         // newer unit above a retained lower line or bypass a pending correction.
         var canFollowUpper = lines[0] is not null && lines[1] is null &&
-            latest is not null && rewrite is null && consumed.Length >= latestBody.Length;
+            (pending.Count == 0 || !HasRevisedLines(pending[0].Card.Identity)) &&
+            (latest is null || rewrite is null && consumed.Length >= latestBody.Length);
         // Do not discard a final short tail only because earlier queueing used
         // its age budget. It can drain into upper and let the next unit follow
         // into lower. Long tails still obey the bounded overload policy.
@@ -236,10 +244,15 @@ public sealed class CaptionLines
             var added = Math.Max(0, length - open.Length);
             if (added > 0)
             {
-                lines[openSlot] = combined[..length].TrimEnd('\r', '\n');
+                var rendered = combined[..length].TrimEnd('\r', '\n');
+                var visibleGrowth = rendered != open;
+                lines[openSlot] = rendered;
                 consumed += remainder[..added];
                 remainder = remainder[added..];
-                expires[openSlot] = Math.Max(expires[openSlot], now + HoldSeconds);
+                // A separator closes the line without adding readable text.
+                // Preserve its deadline so a queued sentence need not wait twice.
+                if (visibleGrowth) expires[openSlot] = Math.Max(expires[openSlot], now + HoldSeconds);
+                else Report("SeparatorConsumed", "ReadingDeadlineRetained", identity, now, 0, added);
             }
             if (remainder.Length > 0 || IsClosed(combined[..Math.Max(open.Length, length)])) openSlot = -1;
         }
@@ -257,6 +270,7 @@ public sealed class CaptionLines
             // Consume separators as part of input identity, never render them inside a slot.
             lines[slot] = fragment.TrimEnd('\r', '\n');
             lineIdentities[slot] = identity;
+            revisedLines[slot] = false;
             if (!firstLineReported)
             {
                 firstLineReported = true;
@@ -300,15 +314,44 @@ public sealed class CaptionLines
         lastBlockedIdentity = null; lastBlockedReason = null;
     }
 
-    private void InvalidateSegment(ulong? segment, double now)
+    private bool HasRevisedLines(CaptionIdentity? key) => key is not null &&
+        ((revisedLines[0] && lineIdentities[0]?.Segment == key.Segment) ||
+         (revisedLines[1] && lineIdentities[1]?.Segment == key.Segment));
+
+    private void InvalidateSegment(ulong? segment, double now, bool clearVisible = false, bool sourceRevised = false)
     {
+        // Source revisions freeze visible lines at their existing deadlines.
+        // Terminal failures withdraw them. Unrelated lines remain untouched.
+        for (int slot = 0; slot < lines.Length; slot++)
+        {
+            if (lines[slot] is null || segment is not null && lineIdentities[slot]?.Segment != segment) continue;
+            if (!clearVisible)
+            {
+                if (sourceRevised)
+                {
+                    if (!revisedLines[slot] && now < expires[slot])
+                        Report("ReadingRetained", "SourceRevised", lineIdentities[slot], now, 0, lines[slot]!.Length);
+                    revisedLines[slot] = true;
+                    if (openSlot == slot) openSlot = -1;
+                }
+                continue;
+            }
+            Report("InvalidatedVisible", "SourceInvalidated", lineIdentities[slot], now, 0, lines[slot]!.Length);
+            lines[slot] = null; lineIdentities[slot] = null; expires[slot] = 0; revisedLines[slot] = false;
+            if (openSlot == slot) openSlot = -1;
+        }
         for (int index = pending.Count - 1; index >= 0; index--)
             if (segment is null || pending[index].Card.Identity?.Segment == segment)
-                RemovePending(index, "Invalidated", "SourceInvalidated", now);
+                RemovePending(index, "Invalidated", sourceRevised ? "SourceRevised" : "SourceInvalidated", now);
         if (segment is null || latest?.Identity?.Segment == segment)
         {
             latest = null; latestBody = ""; rewrite = null; rewritePrefix = 0; changeUnit = false;
         }
+        if (clearVisible && (segment is null || identity?.Segment == segment))
+        {
+            identity = null; consumed = ""; firstLineReported = false;
+        }
+        if (segment is null || lastBlockedIdentity?.Segment == segment) EndBlocked(now);
     }
 
     private void RemovePending(int index, string kind, string reason, double now)

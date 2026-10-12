@@ -10,6 +10,8 @@ internal static class WindowsOverlayPlatform
     private const long NoActivate = 0x08000000;
     private const long Topmost = 0x00000008;
     private const long ToolWindow = 0x00000080;
+    private const long Transparent = 0x00000020;
+    private const long Layered = 0x00080000;
 
     public static void PreventActivation(Window window)
     {
@@ -17,10 +19,36 @@ internal static class WindowsOverlayPlatform
         var handle = window.TryGetPlatformHandle()?.Handle ?? 0;
         if (handle == 0) throw new InvalidOperationException("Overlay HWND is unavailable.");
         var style = ReadStyle(handle);
+        WriteStyle(handle, style | NoActivate | ToolWindow);
+    }
+
+    // Layered + transparent directs mouse input to underlying Windows windows.
+    // Restore only the bits owned by this toggle; preserve renderer/activation bits.
+    public static void SetClickThrough(Window window, bool enabled, ref long? originalInputBits)
+    {
+        if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException("Click-through is implemented for Windows only.");
+        var handle = window.TryGetPlatformHandle()?.Handle ?? 0;
+        if (handle == 0) throw new InvalidOperationException("Overlay HWND is unavailable.");
+        var style = ReadStyle(handle);
+        if (enabled)
+        {
+            var original = originalInputBits ?? (style & (Transparent | Layered));
+            WriteStyle(handle, style | Transparent | Layered);
+            originalInputBits = original;
+        }
+        else if (originalInputBits is { } bits)
+        {
+            WriteStyle(handle, (style & ~(Transparent | Layered)) | bits);
+            originalInputBits = null;
+        }
+    }
+
+    private static void WriteStyle(nint handle, long style)
+    {
         Marshal.SetLastPInvokeError(0);
         var previous = IntPtr.Size == 8
-            ? SetWindowLongPtrW(handle, ExtendedStyleIndex, (nint)(style | NoActivate | ToolWindow))
-            : SetWindowLongW(handle, ExtendedStyleIndex, (int)(style | NoActivate | ToolWindow));
+            ? SetWindowLongPtrW(handle, ExtendedStyleIndex, (nint)style)
+            : SetWindowLongW(handle, ExtendedStyleIndex, (int)style);
         if (previous == 0 && Marshal.GetLastPInvokeError() != 0)
             throw new Win32Exception(Marshal.GetLastPInvokeError());
     }
@@ -33,7 +61,8 @@ internal static class WindowsOverlayPlatform
         var handle = window.TryGetPlatformHandle()?.Handle ?? 0;
         var style = ReadStyle(handle);
         return new(handle != 0, IsWindowVisible(handle), (style & Topmost) != 0,
-            (style & NoActivate) != 0, (style & ToolWindow) != 0, $"0x{handle:X}", $"0x{style:X}");
+            (style & NoActivate) != 0, (style & ToolWindow) != 0, $"0x{handle:X}", $"0x{style:X}")
+            { ClickThrough = (style & (Transparent | Layered)) == (Transparent | Layered) };
     }
 
     private static long ReadStyle(nint handle) => IntPtr.Size == 8
@@ -56,4 +85,7 @@ internal static class WindowsOverlayPlatform
 }
 
 internal sealed record NativeWindowState(bool Available, bool Visible, bool Topmost,
-    bool NoActivate, bool ToolWindow, string Hwnd, string ExtendedStyle);
+    bool NoActivate, bool ToolWindow, string Hwnd, string ExtendedStyle)
+{
+    public bool ClickThrough { get; init; }
+}

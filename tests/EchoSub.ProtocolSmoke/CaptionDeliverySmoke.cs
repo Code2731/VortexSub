@@ -108,7 +108,7 @@ public static class CaptionDeliverySmoke
             "delayed snapshot-covered events are journaled once");
 
         lines.Clear();
-        CaptionCard Card(string text) => new("source", text, true, "source") { Identity = new("fixture", 1, 1, 1, 0) };
+        CaptionCard Card(string? text) => new("source", text, true, "source") { Identity = new("fixture", 1, 1, 1, 0) };
         int FitSeparated(string text)
         {
             var end = text.IndexOfAny(['\r', '\n']);
@@ -117,6 +117,52 @@ public static class CaptionDeliverySmoke
         lines.Update(Card("first \r"), 0, FitSeparated);
         lines.Update(Card("first \r\nsecond"), .1, FitSeparated);
         Check(lines.Upper == "first " && lines.Lower == "second", "split CRLF growth preserves spaces and consumes separators once");
+        foreach (var separator in new[] { "\n", "\r", "\r\n" })
+        {
+            lines.Clear(); observations.Clear();
+            lines.Update(Card("first\nsecond"), 0, FitSeparated);
+            lines.Update(waitingCard with { Translation = "next" }, .1, FitSeparated);
+            lines.Update(Card("first\nsecond" + separator), 2, FitSeparated);
+            Check(lines.Upper == "first" && lines.Lower == "second",
+                "separator update keeps protected text " + separator.Length);
+            lines.Tick(2.49, FitSeparated);
+            Check(lines.Upper == "first" && lines.Lower == "second", "separator does not shorten initial reading time");
+            lines.Tick(2.75, FitSeparated);
+            Check(lines.Upper == "next" && lines.PendingUnits == 0,
+                "separator-only growth does not add a second protection wait " + separator.Length);
+            Check(observations.Single(o => o.Kind == "FirstLine" && o.Identity?.Segment == 2).WaitSeconds == 2.65,
+                "queued unit uses the original lower-line deadline");
+            Check(observations.All(o => o.Kind != "Dropped"), "separator optimization does not discard any unit");
+        }
+        lines.Clear(); observations.Clear();
+        lines.Update(Card("first\nsecond"), 0, FitSeparated);
+        lines.Update(waitingCard with { Translation = "next" }, .1, FitSeparated);
+        lines.Update(Card("first\nsecond grows\n"), 2, FitSeparated);
+        lines.Tick(2.75, FitSeparated);
+        Check(lines.Lower == "second grows" && lines.PendingUnits == 1, "new visible text retains full reading protection");
+        lines.Tick(4.5, FitSeparated);
+        Check(lines.Upper == "next", "visible growth releases next unit after its full protection");
+        lines.Clear(); observations.Clear();
+        lines.Update(Card("read first"), 0, FitSeparated);
+        lines.Update(Card(null), .1, FitSeparated);
+        lines.Update(waitingCard with { Translation = "next" }, .2, FitSeparated);
+        Check(lines.Upper == "read first" && lines.Lower == "next",
+            "new segment follows retained upper after input invalidation without a blank-slot barrier");
+        Check(lines.UpperIdentity?.Segment == 1 && lines.LowerIdentity?.Segment == 2,
+            "following segment does not steal retained upper identity");
+        lines.Tick(2.49, FitSeparated);
+        Check(lines.Upper == "read first" && lines.Lower == "next", "following segment preserves upper reading deadline");
+        lines.Tick(2.5, FitSeparated);
+        Check(lines.Upper is null && lines.Lower == "next", "older retained line expires first");
+        Check(observations.Single(o => o.Kind == "FirstLine" && o.Identity?.Segment == 2).WaitSeconds == 0,
+            "free lower admits new segment immediately after prior input cancellation");
+        lines.Clear(); observations.Clear();
+        lines.Update(Card("first\nsecond"), 0, FitSeparated);
+        lines.Update(waitingCard with { Translation = "next" }, .1, FitSeparated);
+        lines.Update(Card(null), .2, FitSeparated);
+        lines.Update(waitingCard with { Identity = new("fixture", 1, 1, 3, 0), Translation = "third" }, .3, FitSeparated);
+        lines.Tick(2.75, FitSeparated);
+        Check(lines.Upper == "next" && lines.Lower == "third", "cancelled active input preserves FIFO for unrelated queued units");
         Console.WriteLine($"Caption delivery: {checks} assertions PASS (ordered history, bounded events/reading; synthetic input)");
     }
 }

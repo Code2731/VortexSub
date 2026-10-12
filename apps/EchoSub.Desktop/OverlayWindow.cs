@@ -18,6 +18,8 @@ public sealed class OverlayWindow : Window
     private readonly TextBlock secondTranslation;
     private readonly TextBlock measureLine = new() { FontSize = 26, TextWrapping = TextWrapping.NoWrap };
     private readonly CaptionLines lines = new();
+    private CaptionScheduledLines? scheduledLines;
+    private CaptionScheduleDelivery? scheduledDelivery;
     private readonly DispatcherTimer lineTimer = new() { Interval = TimeSpan.FromSeconds(0.1) };
     private readonly Func<double> readingClock;
     private readonly ScrollViewer captionScroll;
@@ -28,6 +30,9 @@ public sealed class OverlayWindow : Window
     private string? lastFitText;
     private double lastFitWidth;
     private int lastFitLength;
+    private long? originalInputBits;
+    private bool clickThrough;
+    private bool placementQueued, placementClosed, placementSubscribed;
 
     public OverlayWindow(bool live = false, Func<double>? clock = null)
     {
@@ -42,6 +47,19 @@ public sealed class OverlayWindow : Window
         ShowActivated = false;
         ShowInTaskbar = false;
         CanResize = true;
+        Opened += (_, _) =>
+        {
+            if (!placementSubscribed) { Screens.Changed += ScreensChanged; placementSubscribed = true; }
+            QueuePlacementRecovery();
+        };
+        ScalingChanged += (_, _) => QueuePlacementRecovery();
+        SizeChanged += (_, _) => QueuePlacementRecovery();
+        Closed += (_, _) =>
+        {
+            placementClosed = true;
+            if (placementSubscribed) { Screens.Changed -= ScreensChanged; placementSubscribed = false; }
+        };
+        PropertyChanged += (_, args) => { if (args.Property == IsVisibleProperty && IsVisible) QueuePlacementRecovery(); };
         WindowDecorations = WindowDecorations.None;
         Background = Brushes.Transparent;
         TransparencyLevelHint = [WindowTransparencyLevel.Transparent];
@@ -121,16 +139,29 @@ public sealed class OverlayWindow : Window
         Closed += (_, _) => lineTimer.Stop();
     }
 
+    public void SetClickThrough(bool enabled)
+    {
+        if (clickThrough == enabled) return;
+        // Avalonia rebuilds native styles when CanResize changes. Apply native
+        // activation/input flags after that update.
+        CanResize = !enabled;
+        WindowsOverlayPlatform.PreventActivation(this);
+        WindowsOverlayPlatform.SetClickThrough(this, enabled, ref originalInputBits);
+        clickThrough = enabled;
+    }
+
     public void SetSourceVisible(bool visible)
     {
         sourceVisible = visible;
         if (visible && sourceCaption.Text != latestSource) sourceCaption.Text = latestSource;
         var show = visible && !string.IsNullOrWhiteSpace(latestSource);
         if (sourceCaption.IsVisible != show) sourceCaption.IsVisible = show;
+        UpdateMinimumHeight();
     }
 
     public void SetCards(CaptionCards cards)
     {
+        if (scheduledLines is not null) throw new InvalidOperationException("Candidate input and live cards cannot share one reader");
         // Never fall back to an older card after a newer caption has been shown.
         var caption = cards.Current;
         latestSource = Body(caption?.Source);
@@ -170,19 +201,22 @@ public sealed class OverlayWindow : Window
 
     private void RenderLines()
     {
+        var currentIdentity = scheduledLines is null ? lines.Identity : scheduledLines.Identity;
+        var upper = scheduledLines is null ? lines.Upper : scheduledLines.Upper;
+        var lower = scheduledLines is null ? lines.Lower : scheduledLines.Lower;
         // Scroll position belongs to displayed lines, not incoming ASR hypotheses.
-        if (displayedIdentity != lines.Identity) captionScroll.Offset = default;
-        displayedIdentity = lines.Identity;
+        if (displayedIdentity != currentIdentity) captionScroll.Offset = default;
+        displayedIdentity = currentIdentity;
         // Keep both line boxes allocated. Never collapse/reflow one when it expires.
-        if (renderedUpper != (lines.Upper ?? ""))
+        if (renderedUpper != (upper ?? ""))
         {
-            ApplyLine(translationCaption, ref renderedUpper, lines.Upper ?? "");
-            if (IsVisible) CaptionDiagnostics.LineAssigned("upper", lines.UpperIdentity, renderedUpper.Length);
+            ApplyLine(translationCaption, ref renderedUpper, upper ?? "");
+            if (IsVisible) CaptionDiagnostics.LineAssigned("upper", scheduledLines is null ? lines.UpperIdentity : scheduledLines.UpperIdentity, renderedUpper.Length);
         }
-        if (renderedLower != (lines.Lower ?? ""))
+        if (renderedLower != (lower ?? ""))
         {
-            ApplyLine(secondTranslation, ref renderedLower, lines.Lower ?? "");
-            if (IsVisible) CaptionDiagnostics.LineAssigned("lower", lines.LowerIdentity, renderedLower.Length);
+            ApplyLine(secondTranslation, ref renderedLower, lower ?? "");
+            if (IsVisible) CaptionDiagnostics.LineAssigned("lower", scheduledLines is null ? lines.LowerIdentity : scheduledLines.LowerIdentity, renderedLower.Length);
         }
     }
 
@@ -203,18 +237,24 @@ public sealed class OverlayWindow : Window
     public void ClearReadingLines()
     {
         lines.Clear();
+        if (scheduledDelivery is not null) scheduledDelivery.Clear();
+        else scheduledLines?.Stop();
         RenderLines();
     }
 
     public void ValidateSession(string? product, ulong session, ulong epoch, bool running)
     {
         lines.ValidateSession(product, session, epoch, running);
+        scheduledLines?.ValidateSession(product, session, epoch, running);
+        if (scheduledDelivery is not null && (!running || !scheduledDelivery.Reader.OwnsContext(product, session, epoch)))
+            scheduledDelivery.Clear();
         RenderLines();
     }
 
     internal void AdvanceReading()
     {
-        lines.Tick(readingClock(), FitLine);
+        if (scheduledLines is null) lines.Tick(readingClock(), FitLine);
+        else scheduledLines.Tick(readingClock(), FitLine);
         RenderLines();
     }
 
@@ -224,6 +264,51 @@ public sealed class OverlayWindow : Window
             new Rect(secondTranslation.TranslatePoint(default, this) ?? default, secondTranslation.Bounds.Size));
     internal (Inline[] Upper, Inline[] Lower) ReadingRuns() =>
         (translationCaption.Inlines!.ToArray(), secondTranslation.Inlines!.ToArray());
+
+    internal (CaptionIdentity? Upper, CaptionIdentity? Lower) ReadingIdentities() =>
+        scheduledLines is null ? (lines.UpperIdentity, lines.LowerIdentity) : (scheduledLines.UpperIdentity, scheduledLines.LowerIdentity);
+
+    // Explicit candidate diagnostics only. The normal live cards retain their current path.
+    internal void BeginScheduledReading(CaptionScheduleContext context)
+    {
+        if (scheduledDelivery is not null) throw new InvalidOperationException("Deck input and direct inputs cannot share one reader");
+        lines.Clear();
+        scheduledLines ??= new();
+        if (!scheduledLines.Begin(context)) throw new ArgumentException("Invalid candidate session");
+        RenderLines();
+    }
+    internal CaptionScheduleResult SetScheduledInput(CaptionScheduleInput input)
+    {
+        if (scheduledDelivery is not null) throw new InvalidOperationException("Deck input and direct inputs cannot share one reader");
+        if (scheduledLines is null) throw new InvalidOperationException("Begin candidate reading first");
+        var result = scheduledLines.Submit(input, FitLine); RenderLines(); return result;
+    }
+    internal void InvalidateScheduled(ulong segment, bool withdraw = false)
+    {
+        scheduledLines?.Invalidate(segment, readingClock(), withdraw); RenderLines();
+    }
+    internal CaptionScheduleStore? ScheduledStore => scheduledLines?.Store;
+    internal void SetScheduledCards(CaptionCards cards) => SetLiveCards(cards);
+    public void SetLiveCards(CaptionCards cards)
+    {
+        if (scheduledLines is not null && scheduledDelivery is null)
+            throw new InvalidOperationException("Direct candidate inputs and deck inputs cannot share a reader");
+        if (scheduledDelivery is null)
+        {
+            scheduledDelivery = new(); scheduledLines = scheduledDelivery.Reader;
+            scheduledDelivery.Observed += observation => CaptionDiagnostics.ReadingObserved(observation, IsVisible, "scheduled");
+        }
+        scheduledDelivery.Apply(cards, readingClock(), FitLine);
+        latestSource = Body(cards.Current?.Source);
+        RenderLines(); SetSourceVisible(sourceVisible);
+        if (IsVisible) CaptionDiagnostics.OverlayAssigned(cards);
+    }
+
+    internal void ObserveReading(Action<CaptionReadingObservation> observer)
+    {
+        if (scheduledDelivery is not null) scheduledDelivery.Observed += observer;
+        else lines.Observed += observer;
+    }
 
     private static string Body(string? text)
     {
@@ -239,6 +324,25 @@ public sealed class OverlayWindow : Window
         captionCard.Background = new SolidColorBrush(Color.FromArgb(alpha, 18, 22, 30));
     }
 
+    public void SetCaptionFontSize(double size)
+    {
+        size = double.IsFinite(size) ? Math.Clamp(size, 18, 48) : 26;
+        if (translationCaption.FontSize == size) return;
+        translationCaption.FontSize = secondTranslation.FontSize = measureLine.FontSize = size;
+        sourceCaption.FontSize = size * 20 / 26;
+        translationCaption.LineHeight = secondTranslation.LineHeight = size * 36 / 26;
+        translationCaption.Height = secondTranslation.Height = size * ReadingLineHeight / 26;
+        lastFitText = null;
+        UpdateMinimumHeight();
+    }
+
+    private void UpdateMinimumHeight()
+    {
+        MinHeight = Math.Max(180, 2 * translationCaption.Height + 80 +
+            (sourceCaption.IsVisible ? Math.Max(48, sourceCaption.FontSize * 2.8) : 0));
+        if (Height < MinHeight) Height = MinHeight;
+    }
+
     public void ResetPlacement(Window? reference = null)
     {
         var screen = Screens.ScreenFromWindow(reference ?? this) ?? Screens.Primary;
@@ -246,9 +350,36 @@ public sealed class OverlayWindow : Window
         var area = screen.WorkingArea;
         var scale = screen.Scaling;
         Width = Math.Min(760, area.Width / scale - 32);
-        Height = 220;
+        Height = Math.Max(220, MinHeight);
         Position = new PixelPoint(
             area.X + (area.Width - (int)Math.Round(Width * scale)) / 2,
             area.Bottom - (int)Math.Round((Height + 32) * scale));
+    }
+    private void ScreensChanged(object? sender, EventArgs args) => QueuePlacementRecovery();
+    private void QueuePlacementRecovery()
+    {
+        if (placementQueued || placementClosed || !IsVisible) return;
+        placementQueued = true;
+        Dispatcher.UIThread.Post(() =>
+        {
+            placementQueued = false;
+            if (placementClosed || !IsVisible) return;
+            RecoverPlacement(Screens.All.Select(screen => new OverlayArea(screen.WorkingArea.X, screen.WorkingArea.Y,
+                screen.WorkingArea.Width, screen.WorkingArea.Height, screen.Scaling, screen.IsPrimary)).ToArray());
+        }, DispatcherPriority.Background);
+    }
+    internal bool RecoverPlacement(IReadOnlyList<OverlayArea> areas)
+    {
+        var placement = OverlayPlacements.Recover(Position.X, Position.Y, Bounds.Width > 0 ? Bounds.Width : Width,
+            Bounds.Height > 0 ? Bounds.Height : Height, RenderScaling, 420,
+            Math.Max(180, 2 * translationCaption.Height + 80 + (sourceVisible ? Math.Max(48, sourceCaption.FontSize * 2.8) : 0)), areas);
+        if (placement is null) return false;
+        MinWidth = placement.MinimumWidth; MinHeight = placement.MinimumHeight;
+        if (Math.Abs(Width - placement.Width) > .01) Width = placement.Width;
+        if (Math.Abs(Height - placement.Height) > .01) Height = placement.Height;
+        var position = new PixelPoint((int)Math.Round(placement.X), (int)Math.Round(placement.Y));
+        if (Position != position) Position = position;
+        lastFitText = null;
+        return true;
     }
 }

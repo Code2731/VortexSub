@@ -6,11 +6,17 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../../apps/EchoSub.Desktop/OverlayPlacement.cs" Link="OverlayPlacement.cs" />
     <Compile Include="../../apps/EchoSub.Desktop/WorkerClient.cs" Link="WorkerClient.cs" />
     <Compile Include="../../apps/EchoSub.Desktop/WorkerHistory.cs" Link="WorkerHistory.cs" />
     <Compile Include="../../apps/EchoSub.Desktop/CaptionPresentation.cs" Link="CaptionPresentation.cs" />
     <Compile Include="../../apps/EchoSub.Desktop/CaptionDeck.cs" Link="CaptionDeck.cs" />
     <Compile Include="../../apps/EchoSub.Desktop/CaptionLines.cs" Link="CaptionLines.cs" />
+    <Compile Include="../../apps/EchoSub.Desktop/CaptionScheduleStore.cs" Link="CaptionScheduleStore.cs" />
+    <Compile Include="../../apps/EchoSub.Desktop/CaptionSentenceReuse.cs" Link="CaptionSentenceReuse.cs" />
+    <Compile Include="../../apps/EchoSub.Desktop/CaptionScheduledLines.cs" Link="CaptionScheduledLines.cs" />
+    <Compile Include="../../apps/EchoSub.Desktop/CaptionScheduleDelivery.cs" Link="CaptionScheduleDelivery.cs" />
+    <Compile Include="../../apps/EchoSub.Desktop/CaptionRegression.cs" Link="CaptionRegression.cs" />
     <Compile Include="../../apps/EchoSub.Desktop/CaptionAssembly.cs" Link="CaptionAssembly.cs" />
     <Compile Include="../../apps/EchoSub.Desktop/CaptionTargetChanges.cs" Link="CaptionTargetChanges.cs" />
     <Compile Include="../../apps/EchoSub.Desktop/CaptionDiagnostics.cs" Link="CaptionDiagnostics.cs" />

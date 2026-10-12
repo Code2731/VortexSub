@@ -1,6 +1,51 @@
 using System.Diagnostics;
 using EchoSub.Desktop;
 
+if (args is ["--caption-adapter-comparison", var comparisonReport])
+{
+    var path = Path.GetFullPath(comparisonReport);
+    if (File.Exists(path)) return 2;
+    var result = await CaptionRegression.RunAsync(CaptionScheduleDelivery.StateDriver());
+    Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+    await File.WriteAllTextAsync(path, System.Text.Json.JsonSerializer.Serialize(result, CaptionRegression.JsonOptions));
+    foreach (var test in result.Cases.Where(test => !test.Passed))
+        Console.WriteLine($"DIFF {test.Name}: {string.Join(", ", test.Failures.Select(failure => failure.Rule).Distinct())}");
+    return result.Passed ? 0 : 1;
+}
+
+if (args is ["--caption-contract", var contractReport])
+{
+    var path = Path.GetFullPath(contractReport);
+    if (File.Exists(path))
+    {
+        Console.Error.WriteLine("Refusing to overwrite a caption contract report");
+        return 2;
+    }
+    var report = CaptionScheduleContractSmoke.Run();
+    Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+    await File.WriteAllTextAsync(path, System.Text.Json.JsonSerializer.Serialize(report, CaptionRegression.JsonOptions));
+    Console.WriteLine($"Caption contract: {report.Cases.Length} cases, {report.Checks} checks, passed={report.Passed}");
+    foreach (var test in report.Cases.Where(test => test.Failures.Length > 0))
+        Console.WriteLine($"FAIL {test.Name}: {string.Join(", ", test.Failures)}");
+    return report.Passed ? 0 : 1;
+}
+
+if (args is ["--caption-simulation", var simulationDirectory])
+    return CaptionPolicySimulation.Run(simulationDirectory);
+
+if (args.Length == 2 && args[0] is "--caption-regression" or "--caption-regression-negative-control")
+{
+    var path = Path.GetFullPath(args[1]);
+    Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+    var negative = args[0] == "--caption-regression-negative-control";
+    var result = await CaptionRegression.RunAsync(CaptionRegression.StateDriver(negative));
+    await File.WriteAllTextAsync(path, System.Text.Json.JsonSerializer.Serialize(result, CaptionRegression.JsonOptions));
+    Console.WriteLine($"Caption regression: {result.Cases.Count} cases, {result.Checks} checks, passed={result.Passed}; {path}");
+    foreach (var test in result.Cases.Where(test => !test.Passed))
+        Console.WriteLine($"FAIL {test.Name}: {string.Join(", ", test.Failures.Select(failure => failure.Rule).Distinct())}");
+    return result.Passed ? 0 : 1;
+}
+
 if (args is ["--lines-only"])
 {
     CaptionLinesSmoke.Run();
@@ -78,6 +123,7 @@ await using (var client = WorkerClient.Start(workerPath))
     Require(!hello.GetProperty("capabilities").GetProperty("live_asr").GetBoolean(), "live ASR requires opt-in");
     Require(!hello.GetProperty("capabilities").GetProperty("source_token_alignment").GetBoolean(), "token alignment requires native owner");
     Require(!hello.GetProperty("capabilities").GetProperty("history_export").GetBoolean(), "history export requires UUID mode");
+    Require(!hello.GetProperty("capabilities").GetProperty("history_export_bilingual").GetBoolean(), "bilingual export requires UUID mode");
     Require(!hello.GetProperty("capabilities").GetProperty("history_clear").GetBoolean(), "clear requires UUID mode");
     foreach (var method in new[] { "transcribe_fixture", "reset_fixture_epoch", "start_capture", "stop_capture", "start_session", "pause_session", "resume_session", "stop_session", "export_history", "clear_history" })
     {
@@ -169,10 +215,15 @@ await using (var client = WorkerClient.Start(workerPath, arguments: new[] { "--m
     var start = await client.SendAsync("start_session", new { history_policy = "retain", config = new { source_language = "en" } });
     var id = start.GetProperty("session_id").GetString()!;
     await client.SendAsync("mock_segment", new { source = "한국어\r\n\r\n日本語 😊" });
+    var exportRecord = (await client.ReadHistoryAsync()).Records.Single();
+    await client.SendAsync("mock_translate", new { session_id = exportRecord.SessionId, epoch = exportRecord.Epoch,
+        source_revision = exportRecord.SourceRevision, segment_id = exportRecord.SegmentId,
+        translation_request_id = exportRecord.TranslationRequestId, text = "번역 결과 😊\r\n둘째 줄" });
     var directory = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "EchoSub-export-" + Guid.NewGuid()));
     Directory.CreateDirectory(directory);
     var txt = Path.Combine(directory, "history.txt");
     var srt = Path.Combine(directory, "history.srt");
+    var bilingual = Path.Combine(directory, "history-bilingual.srt");
     Exception? exportFailure = null;
     try
     {
@@ -194,6 +245,13 @@ await using (var client = WorkerClient.Start(workerPath, arguments: new[] { "--m
         await Reject("INVALID_REQUEST", new { session_id = id, format = "srt", path = "relative.srt", overwrite = true });
         await client.SendAsync("export_history", new { session_id = id, format = "srt", path = srt, overwrite = false });
         Require(File.ReadAllText(srt).StartsWith("1\n") && File.ReadAllText(srt).Contains(" --> ") && File.ReadAllText(srt).Contains("한국어\n日本語 😊"), "SRT consecutive cue/Unicode/blank line normalization");
+        var bilingualResult = await client.SendAsync("export_history", new { session_id = id, format = "srt_bilingual", path = bilingual, overwrite = false });
+        Require(!bilingualResult.GetProperty("source_only").GetBoolean() && bilingualResult.GetProperty("format").GetString() == "srt_bilingual", "bilingual export metadata");
+        Require(File.ReadAllText(bilingual).Contains("한국어\n日本語 😊") && File.ReadAllText(bilingual).StartsWith("1\n"), "bilingual retains source and Unicode");
+        Require(File.ReadAllText(bilingual).Contains("한국어\n日本語 😊\n번역 결과 😊\n둘째 줄\n\n"), "bilingual includes matched completed translation");
+        var savedBilingual = File.ReadAllBytes(bilingual);
+        await Reject("EXPORT_EXISTS", new { session_id = id, format = "srt_bilingual", path = bilingual, overwrite = false });
+        Require(File.ReadAllBytes(bilingual).SequenceEqual(savedBilingual), "bilingual collision preserves file");
         await client.SendAsync("export_history", new { session_id = id, format = "srt", path = txt, overwrite = true });
         Require(File.ReadAllText(txt) == File.ReadAllText(srt), "explicit replacement writes complete file");
         Require(Directory.GetFiles(directory, ".echosub-*.tmp").Length == 0, "no staging file remains");
@@ -216,7 +274,7 @@ await using (var client = WorkerClient.Start(workerPath, arguments: new[] { "--m
         try
         {
             await client.DisposeAsync();
-            File.Delete(txt); File.Delete(srt); Directory.Delete(directory);
+            File.Delete(txt); File.Delete(srt); File.Delete(bilingual); Directory.Delete(directory);
         }
         catch (Exception error) when (exportFailure is not null)
         {

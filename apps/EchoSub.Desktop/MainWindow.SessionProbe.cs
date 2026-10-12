@@ -41,6 +41,31 @@ public sealed partial class MainWindow
         });
     }
 
+    internal async Task CaptureModelInputAsync(string source, string kind = "final")
+    {
+        RequireSessionProbe();
+        if (!translationProbe) throw new InvalidOperationException("Explicit HTTP capture required");
+        if (kind is not ("partial" or "final")) throw new ArgumentException("Unknown capture input kind");
+        await ExecuteAsync(async () =>
+        {
+            var connected = client ?? throw new IOException("Fixture worker disconnected");
+            await connected.SendAsync("mock_segment", new { source, kind });
+        });
+    }
+
+    internal string? CaptureModelOutput => snapshot?.Records.LastOrDefault() is { TranslationState: "Done" } record
+        ? record.Translation : null;
+
+    internal IReadOnlyList<HistoryRecord> CaptureModelRecords => snapshot?.Records ?? [];
+
+    internal void CaptureModelEnablePartials()
+    {
+        RequireSessionProbe();
+        if (!translationProbe) throw new InvalidOperationException("Explicit HTTP capture required");
+        partialEnabled.IsChecked = true;
+        partialTranslationEnabled.IsChecked = true;
+    }
+
     internal void SessionProbeKillWorker()
     {
         RequireSessionProbe();

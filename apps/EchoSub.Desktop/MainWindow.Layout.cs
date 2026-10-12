@@ -70,7 +70,8 @@ public sealed partial class MainWindow
                 input, Actions(startCaptureButton, pauseButton, resumeButton, stopCaptureButton, openTranslationSettings),
                 captureActionHint),
             Card("화면에 자막 표시", Actions(overlayButton, resetOverlay), overlaySourceEnabled,
-                Note("자막 창의 폭과 배경은 설정 탭에서 조절할 수 있습니다.")));
+                overlayLock, overlayLockStatus,
+                Note("자막 창의 글꼴 크기·폭·배경은 설정 탭에서 조절할 수 있습니다.")));
         main.Children[0].IsVisible = live;
         if (!live) main.Children.Insert(0, Note("모의 실행입니다. 실제 음성 캡처와 번역은 실행하지 않습니다."));
 
@@ -85,7 +86,11 @@ public sealed partial class MainWindow
             Children = { slider, value }
         };
         widthValue.VerticalAlignment = opacityValue.VerticalAlignment = VerticalAlignment.Center;
-        var appearance = Card("자막 창 모양", Note("폭"), SliderRow(overlayWidth, widthValue),
+        var fontSizeValue = Note($"{overlayFontSize.Value:F0}");
+        fontSizeValue.VerticalAlignment = VerticalAlignment.Center;
+        overlayFontSize.ValueChanged += (_, _) => fontSizeValue.Text = $"{overlayFontSize.Value:F0}";
+        var appearance = Card("자막 창 모양", Note("글꼴 크기"), SliderRow(overlayFontSize, fontSizeValue),
+            Note("글꼴 크기는 자막을 중지한 뒤 변경할 수 있습니다."), Note("폭"), SliderRow(overlayWidth, widthValue),
             Note("배경 불투명도"), SliderRow(cardOpacity, opacityValue));
         translationEndpoint.HorizontalAlignment = translationModel.HorizontalAlignment = HorizontalAlignment.Left;
         var errorDetails = new Expander { Header = "오류 상세", Content = translationErrorDetails };
@@ -104,7 +109,7 @@ public sealed partial class MainWindow
                 savePreferencesButton, preferencesStatus));
         var records = Stack(Card("최근 자막", Note("최근 100개 구간입니다. 자막 내용은 자동으로 파일에 저장하지 않습니다."), historyEmpty, history),
             Card("기록 저장", Note("일시정지 또는 중지 후 저장할 수 있습니다. 최대 1,000개 구간을 내보냅니다."),
-                exportSession, Actions(exportTxtButton, exportSrtButton, clearHistoryButton), historyActionHint, exportResult));
+                exportSession, Actions(exportTxtButton, exportSrtButton, exportBilingualSrtButton, clearHistoryButton), historyActionHint, exportResult));
         var diagnostics = Stack(Card("연결과 상세 상태", status,
             Actions(connectButton, pingButton, stateButton, stopButton),
             new ScrollViewer { Height = 180, Content = details }),
@@ -121,11 +126,11 @@ public sealed partial class MainWindow
         FirstUseGuide.TabIndex = 0;
         CaptureTabs.TabIndex = 1;
         SetControlOrder(endpoint, language, startCaptureButton, pauseButton, resumeButton, stopCaptureButton,
-            openTranslationSettings, overlayButton, resetOverlay, overlaySourceEnabled);
-        SetControlOrder(overlayWidth, cardOpacity, translationEndpoint, catalogButton, disableTranslationButton,
+            openTranslationSettings, overlayButton, resetOverlay, overlaySourceEnabled, overlayLock);
+        SetControlOrder(overlayFontSize, overlayWidth, cardOpacity, translationEndpoint, catalogButton, disableTranslationButton,
             translationModel, errorDetails, advancedSettings, translationProfile, isolatedTranslationContext, applyTranslationButton,
             partialEnabled, partialTranslationEnabled, cosmeticRevisions, savePreferencesButton);
-        SetControlOrder(history, exportSession, exportTxtButton, exportSrtButton, clearHistoryButton);
+        SetControlOrder(history, exportSession, exportTxtButton, exportSrtButton, exportBilingualSrtButton, clearHistoryButton);
         SetControlOrder(connectButton, pingButton, stateButton, stopButton, captionTimingEnabled);
         SetControlNames(overlayWidth, cardOpacity);
         heading.Margin = new Thickness(0, 0, 0, 16);
