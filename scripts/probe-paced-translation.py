@@ -73,8 +73,8 @@ fixtures = json.loads(fixtures_path.read_text(encoding='utf-8'))['fixtures']
 pcm = []
 for fixture_id in [args.fixture_id] if args.fixture_id else ['en-01', 'en-02', 'en-03']:
     item = next(f for f in fixtures if f['id'] == fixture_id)
-    if item['language'] != 'en':
-        raise RuntimeError('Paced comparison currently requires English')
+    if item['language'] not in ('en', 'ko'):
+        raise RuntimeError('Paced comparison currently requires English or Korean')
     path = fixtures_path.parent / item['path']
     if sha(path) != item['sha256']:
         raise RuntimeError('Existing fixture hash mismatch')
@@ -82,7 +82,10 @@ for fixture_id in [args.fixture_id] if args.fixture_id else ['en-01', 'en-02', '
         if (f.getnchannels(), f.getsampwidth(), f.getframerate(), f.getcomptype()) != (1, 2, 16000, 'NONE'):
             raise RuntimeError('Fixture must be PCM mono 16 kHz')
         pcm.append(f.readframes(f.getnframes()))
-wav = out / 'en-joined.wav'
+# Determine output filename from fixture language
+first_fixture = next(f for f in fixtures if f['id'] == (args.fixture_id or 'en-01'))
+lang = first_fixture['language']
+wav = out / f'{lang}-joined.wav'
 with wave.open(str(wav), 'wb') as f:
     f.setparams((1, 2, 16000, 0, 'NONE', 'not compressed'))
     f.writeframes(b''.join(pcm))
@@ -162,7 +165,8 @@ try:
                              'translation_weights_sha256': model['sha256'], 'server_sha256': sha(server_path),
                              'worker_sha256': sha(repo / f'target/model-probe-{args.backend}/release/echosub-worker.exe'),
                              'wav_sha256': sha(wav), 'rounds': args.rounds,
-                             'note': 'Synthetic English (joined default or selected fixture); real native/HTTP owners. No capture/VAD/rendered UI/game isolation.'})
+                             'fixture_kind': item.get('kind', 'unknown') if args.fixture_id else 'synthetic_tts',
+                             'note': 'English paced file input with native/HTTP owners. No capture/VAD/rendered UI/game isolation.'})
         with (out / 'native-http.log').open('w', encoding='utf-8') as native_log:
             result = subprocess.run(command, cwd=repo, env=environment, stdout=native_log,
                                     stderr=subprocess.STDOUT, timeout=600, **hidden)
