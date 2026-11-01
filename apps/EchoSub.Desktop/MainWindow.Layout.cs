@@ -42,12 +42,12 @@ public sealed partial class MainWindow
         endpoint.Width = double.NaN;
         endpoint.HorizontalAlignment = HorizontalAlignment.Stretch;
         language.HorizontalAlignment = HorizontalAlignment.Left;
-        language.Width = 110;
+        language.Width = 150;
         language.ItemTemplate = new FuncDataTemplate<object>((item, _) => Note((item as string) switch
         {
-            "en" => "영어", "ja" => "일본어", "ko" => "한국어", _ => item?.ToString() ?? ""
+            "en" => "영어", "ja" => "일본어", "ko" => "한국어", "zh" => "중국어 (보통화)", _ => item?.ToString() ?? ""
         }));
-        var input = new Grid { ColumnDefinitions = new ColumnDefinitions("*,110"),
+        var input = new Grid { ColumnDefinitions = new ColumnDefinitions("*,150"),
             RowDefinitions = new RowDefinitions("Auto,Auto"), ColumnSpacing = 12, RowSpacing = 6 };
         var deviceLabel = Note("음성을 받을 출력 장치");
         var languageLabel = Note("음성 언어");
@@ -115,7 +115,7 @@ public sealed partial class MainWindow
             new ScrollViewer { Height = 180, Content = details }),
             Card("문제 분석", captionTimingEnabled, captionTimingStatus));
         CaptureTabs = new TabControl { ItemsSource = new[] { Tab("자막", main), Tab("설정", settings),
-            Tab("기록", records), Tab("진단", diagnostics) } };
+            Tab("기록", records), Tab("진단", diagnostics), Tab("설치", CreateSetupTab()) } };
         var heading = Stack(new TextBlock { Text = "EchoSub", FontSize = 24, FontWeight = FontWeight.SemiBold },
             Note(live ? "음성을 한국어 자막으로 표시합니다." : "모의 자막 화면"), userStatus);
         FirstUseGuide = new Expander { Header = "처음 사용하는 경우", Content = Note(

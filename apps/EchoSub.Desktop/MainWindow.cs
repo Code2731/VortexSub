@@ -38,7 +38,7 @@ public sealed partial class MainWindow : Window
     private readonly Button clearHistoryButton = new() { Content = "선택 세션 기록 삭제" };
     private readonly ComboBox exportSession = new() { Width = 420 };
     private readonly TextBlock exportResult = new() { TextWrapping = TextWrapping.Wrap };
-    private readonly ComboBox language = new() { ItemsSource = new[] { "en", "ja", "ko" }, SelectedIndex = 0, Width = 80 };
+    private readonly ComboBox language = new() { ItemsSource = new[] { "en", "ja", "ko", "zh" }, SelectedIndex = 0, Width = 80 };
     private readonly CheckBox partialEnabled = new() { Content = "부분 전사 켜기 · 실험 기능 / 기본 끔", IsChecked = false };
     private readonly CheckBox partialTranslationEnabled = new() { Content = "안정된 부분 먼저 번역 · 임시 결과 / 기본 끔", IsChecked = false };
     private readonly CheckBox captionTimingEnabled = new() { Content = "자막 지연 기록 · 기본 끔", IsChecked = false };
@@ -115,6 +115,7 @@ public sealed partial class MainWindow : Window
         var resetOverlay = new Button { Content = "오버레이 위치 초기화" };
         InitializeOverlayLock();
         RestorePreferences(overlayWidth, cardOpacity);
+        InitializeSetup();
         Content = BuildMainLayout(resetOverlay, overlayWidth, cardOpacity);
         savePreferencesButton.Click += (_, _) => SavePreferences(overlayWidth, cardOpacity);
         history.IsVisible = live;
