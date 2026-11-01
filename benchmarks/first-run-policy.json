@@ -1,0 +1,160 @@
+{
+  "schema_version": 1,
+  "assets": [
+    {
+      "key": "base",
+      "manifest": "benchmarks/model-downloads.json",
+      "id": "whisper-base",
+      "role": "asr",
+      "platforms": ["any"]
+    },
+    {
+      "key": "small",
+      "manifest": "benchmarks/model-downloads.json",
+      "id": "whisper-small",
+      "role": "asr",
+      "platforms": ["any"]
+    },
+    {
+      "key": "vad",
+      "manifest": "benchmarks/vad-assets.json",
+      "id": "silero-v6",
+      "role": "vad",
+      "platforms": ["any"]
+    },
+    {
+      "key": "ort",
+      "manifest": "benchmarks/vad-assets.json",
+      "id": "ort-win-x64",
+      "role": "vad-runtime",
+      "platforms": ["windows/x64"]
+    },
+    {
+      "key": "qwen",
+      "manifest": "benchmarks/model-downloads.json",
+      "id": "qwen3-4b-instruct-2507-q4_k_m",
+      "role": "translation",
+      "platforms": ["any"],
+      "input_profiles": [
+        "standard",
+        "qwen-greedy"
+      ]
+    },
+    {
+      "key": "hymt2",
+      "manifest": "benchmarks/translation-research-models.json",
+      "id": "hy-mt2-1.8b-q4_k_m",
+      "role": "translation",
+      "platforms": ["any"],
+      "input_profiles": ["hymt2-greedy"]
+    },
+    {
+      "key": "llama-cuda",
+      "manifest": "benchmarks/translation-research-runtimes.json",
+      "id": "llama-b11146-cuda12.4-x64",
+      "role": "translation-runtime",
+      "platforms": ["windows/x64"],
+      "backends": [
+        "translation:cuda"
+      ]
+    }
+  ],
+  "profiles": [
+    {
+      "id": "base-source-cpu",
+      "assets": [
+        "base",
+        "vad",
+        "ort"
+      ],
+      "os": "windows",
+      "architecture": "x64",
+      "backends": [
+        "asr:cpu"
+      ],
+      "languages": [
+        "en",
+        "ja",
+        "ko",
+        "zh"
+      ],
+      "target": null,
+      "input_profile": null,
+      "recommended": true,
+      "description": "기본 전사 프로필 · CPU 실행 · 번역 없음"
+    },
+    {
+      "id": "small-source-cpu",
+      "assets": [
+        "small",
+        "vad",
+        "ort"
+      ],
+      "os": "windows",
+      "architecture": "x64",
+      "backends": [
+        "asr:cpu"
+      ],
+      "languages": [
+        "en",
+        "ja",
+        "ko",
+        "zh"
+      ],
+      "target": null,
+      "input_profile": null,
+      "recommended": false,
+      "description": "고급 전사 프로필 · CPU 실행 · 더 큰 모델"
+    },
+    {
+      "id": "base-hymt2-cuda",
+      "assets": [
+        "base",
+        "vad",
+        "ort",
+        "hymt2",
+        "llama-cuda"
+      ],
+      "os": "windows",
+      "architecture": "x64",
+      "backends": [
+        "asr:cuda",
+        "translation:cuda"
+      ],
+      "languages": [
+        "en",
+        "ja",
+        "zh"
+      ],
+      "target": "ko",
+      "input_profile": "hymt2-greedy",
+      "recommended": true,
+      "description": "GPU 번역 프로필 · Hy-MT2 사용 · CUDA 필요"
+    },
+    {
+      "id": "base-qwen-cuda",
+      "assets": [
+        "base",
+        "vad",
+        "ort",
+        "qwen",
+        "llama-cuda"
+      ],
+      "os": "windows",
+      "architecture": "x64",
+      "backends": [
+        "asr:cuda",
+        "translation:cuda"
+      ],
+      "languages": [
+        "en",
+        "ja",
+        "zh"
+      ],
+      "target": "ko",
+      "input_profile": "standard",
+      "recommended": false,
+      "description": "GPU 번역 프로필 · Qwen 사용 · CUDA 필요"
+    }
+  ]
+}

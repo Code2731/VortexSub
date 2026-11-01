@@ -47,9 +47,11 @@ internal sealed class SetupFirstRun
     /// </summary>
     public Control CreatePanel()
     {
-        // Profile selector
+        // Profile selector - recommended profiles first
         var profiles = catalog.Profiles.Values
             .Where(p => p.Os == host.Os && p.Architecture == host.Architecture)
+            .OrderByDescending(p => p.Recommended)
+            .ThenBy(p => p.Id)
             .Select(p => new ProfileChoice(p.Id, p))
             .ToList();
         profileSelector.ItemsSource = profiles;
@@ -287,6 +289,6 @@ internal sealed class SetupFirstRun
 
     private sealed record ProfileChoice(string Id, SetupProfile Profile)
     {
-        public override string ToString() => Profile.Id;
+        public override string ToString() => Profile.Recommended ? $"★ {Profile.Id}" : Profile.Id;
     }
 }
